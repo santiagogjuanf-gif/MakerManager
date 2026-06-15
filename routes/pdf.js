@@ -1,131 +1,144 @@
 const express = require('express');
 const router = express.Router();
 const PDFDocument = require('pdfkit');
+const path = require('path');
+const fs = require('fs');
 const db = require('../database/db');
+const { calcJobCost } = require('./jobs');
 
 router.get('/:id', async (req, res) => {
   try {
+    const tipo = req.query.tipo || 'cliente'; // 'cliente' or 'interno'
     const job = await db.getAsync(`
-      SELECT pj.*, c.nombre as cliente_nombre, c.telefono as cliente_telefono, c.email as cliente_email,
-             p.nombre as impresora_nombre, p.consumo_promedio_watts, p.costo_por_hora, p.costo_kwh_cad,
-             f.nombre_comercial as filamento_nombre, f.costo_por_gramo, f.material as filamento_material, f.color as filamento_color
+      SELECT pj.*, c.nombre as cliente_nombre, c.telefono as cliente_telefono,
+             p.nombre as impresora_nombre
       FROM print_jobs pj
-      LEFT JOIN clients c ON pj.cliente_id = c.id
-      LEFT JOIN printers p ON pj.impresora_id = p.id
-      LEFT JOIN filaments f ON pj.filamento_id = f.id
-      WHERE pj.id = ?`, [req.params.id]
-    );
-    if (!job) return res.status(404).json({ error: 'Job not found' });
+      LEFT JOIN clients c ON pj.cliente_id=c.id
+      LEFT JOIN printers p ON pj.impresora_id=p.id
+      WHERE pj.id=?`, [req.params.id]);
+    if (!job) return res.status(404).json({ error: 'Not found' });
 
-    const extras = await db.allAsync('SELECT * FROM job_extras WHERE print_job_id = ?', [req.params.id]);
+    const cost = await calcJobCost(req.params.id);
     const cfgRows = await db.allAsync('SELECT key, value FROM config');
     const cfg = {};
     cfgRows.forEach(r => cfg[r.key] = r.value);
 
-    const horas = (job.tiempo_impresion_min || 0) / 60;
-    const kwh = ((job.consumo_promedio_watts || 0) / 1000) * horas;
-    const costo_luz = kwh * (parseFloat(job.costo_kwh_cad) || parseFloat(cfg.costo_kwh) || 0);
-    const costo_filamento = (job.gramos_total || 0) * (job.costo_por_gramo || 0);
-    const costo_maquina = horas * (job.costo_por_hora || 0);
-    const minutos_mano = (job.tiempo_preparacion_min || 0) + (job.tiempo_postproceso_min || 0) + (job.tiempo_diseno_min || 0);
-    const mano_obra = (minutos_mano / 60) * (parseFloat(cfg.tarifa_hora) || 0);
-    const extras_total = extras.reduce((s, e) => s + (e.costo_total || 0), 0);
-    const costo_real = costo_filamento + costo_luz + costo_maquina + mano_obra + extras_total;
-    const tax = parseFloat(cfg.tax_rate) || 0;
-    const impuesto = costo_real * tax;
-    const total = job.precio_final_cad || (costo_real + impuesto);
+    const sym = cfg.simbolo_moneda || '$';
+    const moneda = cfg.moneda || 'CAD';
+    const fmt = (v) => `${sym}${parseFloat(v||0).toFixed(2)} ${moneda}`;
+    const tax = parseFloat(cfg.tax_rate)||0;
+    const precioBase = job.precio_final || cost.precio_menudeo || 0;
+    const impuesto = job.requiere_factura ? precioBase * tax : 0;
+    const total = precioBase + impuesto;
 
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="cotizacion-${job.id}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${tipo}-trabajo-${job.id}.pdf"`);
     doc.pipe(res);
 
+    // Logo
+    const logoPath = cfg.logo_path ? path.join(__dirname, '../public', cfg.logo_path) : null;
+    let headerX = 50;
+    if (logoPath && fs.existsSync(logoPath)) {
+      doc.image(logoPath, 50, 45, { width: 60 });
+      headerX = 125;
+    }
+
     // Header
-    doc.fontSize(24).fillColor('#6c63ff').text(cfg.nombre_negocio || 'MakerManager', 50, 50);
-    doc.fontSize(10).fillColor('#999').text('Cotización / Ticket de Trabajo', 50, 82);
-    doc.fontSize(10).fillColor('#555').text(`Cotización #${job.id}`, 400, 50, { align: 'right' });
-    doc.text(`Fecha: ${job.fecha}`, 400, 65, { align: 'right' });
+    doc.fontSize(20).fillColor('#6c63ff').text(cfg.nombre_negocio || 'MakerManager', headerX, 50);
+    doc.fontSize(9).fillColor('#888');
+    if (cfg.telefono) doc.text(`Tel: ${cfg.telefono}`, headerX, 74);
+    if (cfg.direccion) doc.text(cfg.direccion, headerX, cfg.telefono ? 86 : 74);
+    doc.text(`Folio #${job.id} · ${job.fecha}`, 400, 50, { align: 'right' });
 
-    doc.moveTo(50, 100).lineTo(550, 100).strokeColor('#ddd').lineWidth(1).stroke();
+    doc.moveTo(50, 115).lineTo(550, 115).strokeColor('#ddd').lineWidth(1).stroke();
 
-    // Client & Project info
-    let y = 115;
-    doc.fontSize(11).fillColor('#333').text(`Cliente: ${job.cliente_nombre || 'Sin cliente'}`, 50, y);
-    if (job.cliente_telefono) { y += 15; doc.fontSize(10).fillColor('#666').text(`Tel: ${job.cliente_telefono}`, 50, y); }
+    let y = 128;
+    doc.fontSize(10).fillColor('#333').text(`Cliente: ${job.cliente_nombre || 'General'}`, 50, y);
+    if (job.cliente_telefono) doc.text(`Tel: ${job.cliente_telefono}`, 300, y);
     y += 20;
     doc.fontSize(14).fillColor('#6c63ff').text(job.nombre_proyecto, 50, y);
-    y += 18;
-    doc.fontSize(10).fillColor('#555');
-    doc.text(`Material: ${job.material || job.filamento_material || '-'}   Color: ${job.color || job.filamento_color || '-'}   Impresora: ${job.impresora_nombre || '-'}`, 50, y);
-    y += 15;
-    doc.text(`Filamento: ${job.filamento_nombre || '-'}`, 50, y);
-
-    y += 20;
-    doc.moveTo(50, y).lineTo(550, y).strokeColor('#eee').stroke();
-    y += 12;
-
-    // Time & material summary
-    doc.fontSize(11).fillColor('#333').text('Detalle de producción', 50, y); y += 16;
-    doc.fontSize(9).fillColor('#666');
-    doc.text(`Tiempo impresión: ${job.tiempo_impresion_min}min (${horas.toFixed(2)}h)`, 60, y); y += 13;
-    doc.text(`Preparación: ${job.tiempo_preparacion_min}min  |  Post-proceso: ${job.tiempo_postproceso_min}min  |  Diseño: ${job.tiempo_diseno_min}min`, 60, y); y += 13;
-    doc.text(`Gramos: Pieza ${job.gramos_pieza}g + Purga ${job.gramos_purga}g + Pérdidas ${job.gramos_perdidos}g = Total ${job.gramos_total}g`, 60, y); y += 18;
+    y += 22;
 
     doc.moveTo(50, y).lineTo(550, y).strokeColor('#eee').stroke(); y += 12;
 
-    // Cost breakdown
-    doc.fontSize(11).fillColor('#333').text('Desglose de costos', 50, y); y += 16;
+    // Products table
+    doc.fontSize(10).fillColor('#333').text('Descripción', 50, y);
+    doc.text('Cant.', 380, y); doc.text('Precio', 440, y); doc.text('Total', 490, y);
+    y += 14;
+    doc.moveTo(50,y).lineTo(550,y).strokeColor('#ddd').stroke(); y += 8;
+
     doc.fontSize(9).fillColor('#555');
-
-    const costRow = (label, value) => {
-      doc.text(label, 60, y);
-      doc.text(`$${parseFloat(value || 0).toFixed(2)} CAD`, 400, y, { width: 150, align: 'right' });
+    for (const p of (cost.products || [])) {
+      const unitPrice = precioBase / Math.max(1, cost.total_piezas);
+      const lineTotal = unitPrice * p.cantidad;
+      doc.text(p.descripcion, 55, y);
+      doc.text(String(p.cantidad), 385, y);
+      doc.text(fmt(unitPrice), 435, y);
+      doc.text(fmt(lineTotal), 485, y);
       y += 14;
-    };
+    }
 
-    costRow('Filamento', costo_filamento);
-    costRow('Electricidad', costo_luz);
-    costRow('Desgaste de máquina', costo_maquina);
-    costRow('Mano de obra', mano_obra);
-
-    if (extras.length > 0) {
-      doc.text('Extras:', 60, y); y += 13;
-      for (const e of extras) {
-        doc.text(`  ${e.nombre_extra} ×${e.cantidad}`, 70, y);
-        doc.text(`$${parseFloat(e.costo_total || 0).toFixed(2)} CAD`, 400, y, { width: 150, align: 'right' });
-        y += 12;
+    // Extras in client version
+    if (tipo === 'cliente' && cost.extras && cost.extras.length > 0) {
+      for (const e of cost.extras) {
+        doc.text(`  + ${e.nombre_extra}`, 55, y);
+        doc.text(String(e.cantidad), 385, y);
+        doc.text(fmt(e.costo_unitario), 435, y);
+        doc.text(fmt(e.costo_total), 485, y);
+        y += 13;
       }
     }
 
-    y += 5;
-    doc.moveTo(50, y).lineTo(550, y).strokeColor('#999').lineWidth(1).stroke(); y += 10;
+    y += 6;
+    doc.moveTo(50,y).lineTo(550,y).strokeColor('#999').lineWidth(1).stroke(); y += 10;
 
-    doc.fontSize(10).fillColor('#333');
-    doc.text('Subtotal (costo real)', 60, y);
-    doc.text(`$${costo_real.toFixed(2)} CAD`, 400, y, { width: 150, align: 'right' });
-    y += 16;
-
-    if (tax > 0) {
-      doc.text(`Impuesto (${(tax * 100).toFixed(0)}%)`, 60, y);
-      doc.text(`$${impuesto.toFixed(2)} CAD`, 400, y, { width: 150, align: 'right' });
-      y += 16;
+    if (tipo === 'interno') {
+      // Full breakdown for internal use
+      doc.fontSize(10).fillColor('#333').text('Desglose de costos (interno)', 50, y); y += 16;
+      doc.fontSize(9).fillColor('#555');
+      const rows = [
+        ['Filamento', cost.costo_filamento],
+        ['Electricidad', cost.costo_luz],
+        ['Desgaste máquina', cost.costo_maquina],
+        ['Mano de obra', cost.mano_obra],
+        ['Extras', cost.extras_total],
+      ];
+      for (const [label, val] of rows) {
+        doc.text(label, 60, y); doc.text(fmt(val), 450, y, {align:'right',width:100}); y+=13;
+      }
+      doc.moveTo(50,y).lineTo(550,y).strokeColor('#999').stroke(); y+=8;
+      doc.fontSize(10).text('Costo real', 60, y); doc.text(fmt(cost.costo_real), 450, y, {align:'right',width:100}); y+=14;
+      doc.text(`Precio unitario (×${cfg.margen_unitario})`, 60, y); doc.text(fmt(cost.precio_unitario), 450, y, {align:'right',width:100}); y+=14;
+      doc.text(`Precio menudeo (×${cfg.margen_menudeo})`, 60, y); doc.text(fmt(cost.precio_menudeo), 450, y, {align:'right',width:100}); y+=14;
+      doc.text(`Precio mayoreo (×${cfg.margen_mayoreo})`, 60, y); doc.text(fmt(cost.precio_mayoreo), 450, y, {align:'right',width:100}); y+=14;
+      doc.moveTo(50,y).lineTo(550,y).strokeColor('#6c63ff').lineWidth(2).stroke(); y+=10;
+      doc.fontSize(13).fillColor('#6c63ff').text('PRECIO FINAL', 60, y);
+      doc.text(fmt(job.precio_final), 450, y, {align:'right',width:100}); y+=30;
+    } else {
+      // Client version — only subtotal, tax, total
+      doc.fontSize(10).fillColor('#333');
+      doc.text('Subtotal', 350, y); doc.text(fmt(precioBase), 450, y, {align:'right',width:100}); y+=14;
+      if (job.requiere_factura && tax > 0) {
+        doc.text(`IVA (${(tax*100).toFixed(0)}%)`, 350, y); doc.text(fmt(impuesto), 450, y, {align:'right',width:100}); y+=14;
+      }
+      doc.moveTo(300,y).lineTo(550,y).strokeColor('#6c63ff').lineWidth(2).stroke(); y+=10;
+      doc.fontSize(14).fillColor('#6c63ff').text('TOTAL', 350, y);
+      doc.text(fmt(total), 450, y, {align:'right',width:100}); y+=30;
     }
 
-    doc.moveTo(50, y).lineTo(550, y).strokeColor('#6c63ff').lineWidth(2).stroke(); y += 10;
-    doc.fontSize(14).fillColor('#6c63ff');
-    doc.text('TOTAL', 60, y);
-    doc.text(`$${total.toFixed(2)} CAD`, 400, y, { width: 150, align: 'right' });
-    y += 30;
+    if (job.notas) { doc.fontSize(9).fillColor('#888').text(`Notas: ${job.notas}`, 50, y); y+=16; }
 
-    if (job.notas) {
-      doc.fontSize(9).fillColor('#888').text(`Notas: ${job.notas}`, 50, y);
+    if (tipo === 'cliente' && cfg.terminos_condiciones) {
+      y += 10;
+      doc.moveTo(50,y).lineTo(550,y).strokeColor('#eee').stroke(); y+=10;
+      doc.fontSize(8).fillColor('#aaa').text('Términos y condiciones:', 50, y); y+=11;
+      doc.fontSize(7.5).fillColor('#bbb').text(cfg.terminos_condiciones, 50, y, {width:500,lineGap:2});
     }
 
-    doc.fontSize(8).fillColor('#bbb').text('Generado con MakerManager · Sistema de costos de impresión 3D', 50, 770, { align: 'center', width: 500 });
+    doc.fontSize(7.5).fillColor('#ccc').text('Generado con MakerManager', 50, 810, {align:'center',width:500});
     doc.end();
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch(e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
 module.exports = router;

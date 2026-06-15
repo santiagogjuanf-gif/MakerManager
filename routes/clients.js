@@ -2,46 +2,58 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
 
+async function updateClassification(clientId) {
+  const client = await db.getAsync('SELECT total_pedidos, clasificacion_manual FROM clients WHERE id=?', [clientId]);
+  if (!client || client.clasificacion_manual) return;
+  const cfgRows = await db.allAsync('SELECT key, value FROM config WHERE key IN (?,?,?,?)',
+    ['nivel_nuevo','nivel_regular','nivel_frecuente','nivel_vip']);
+  const cfg = {};
+  cfgRows.forEach(r => cfg[r.key] = parseInt(r.value));
+  const n = client.total_pedidos;
+  let cls = 'Nuevo';
+  if (n >= (cfg.nivel_vip||15)) cls = 'VIP';
+  else if (n >= (cfg.nivel_frecuente||7)) cls = 'Frecuente';
+  else if (n >= (cfg.nivel_regular||3)) cls = 'Regular';
+  await db.runAsync('UPDATE clients SET clasificacion=? WHERE id=?', [cls, clientId]);
+}
+
 router.get('/', async (req, res) => {
   try { res.json(await db.allAsync('SELECT * FROM clients ORDER BY nombre ASC')); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
-
 router.get('/:id', async (req, res) => {
   try {
-    const row = await db.getAsync('SELECT * FROM clients WHERE id = ?', [req.params.id]);
-    if (!row) return res.status(404).json({ error: 'Not found' });
-    res.json(row);
+    const r = await db.getAsync('SELECT * FROM clients WHERE id=?', [req.params.id]);
+    if (!r) return res.status(404).json({ error: 'Not found' });
+    res.json(r);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
-
 router.post('/', async (req, res) => {
   try {
     const d = req.body;
     const r = await db.runAsync(
-      'INSERT INTO clients (nombre, telefono, email, direccion, notas) VALUES (?, ?, ?, ?, ?)',
-      [d.nombre, d.telefono, d.email, d.direccion, d.notas]
+      'INSERT INTO clients (nombre,telefono,email,direccion,notas) VALUES (?,?,?,?,?)',
+      [d.nombre,d.telefono,d.email,d.direccion,d.notas]
     );
     res.json({ id: r.lastID });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
-
 router.put('/:id', async (req, res) => {
   try {
     const d = req.body;
+    const manual = d.clasificacion_manual ? 1 : 0;
     await db.runAsync(
-      'UPDATE clients SET nombre=?, telefono=?, email=?, direccion=?, notas=? WHERE id=?',
-      [d.nombre, d.telefono, d.email, d.direccion, d.notas, req.params.id]
+      'UPDATE clients SET nombre=?,telefono=?,email=?,direccion=?,notas=?,clasificacion=?,clasificacion_manual=? WHERE id=?',
+      [d.nombre,d.telefono,d.email,d.direccion,d.notas,d.clasificacion||'Nuevo',manual,req.params.id]
     );
+    if (!manual) await updateClassification(req.params.id);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
-
 router.delete('/:id', async (req, res) => {
-  try {
-    await db.runAsync('DELETE FROM clients WHERE id = ?', [req.params.id]);
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  try { await db.runAsync('DELETE FROM clients WHERE id=?',[req.params.id]); res.json({success:true}); }
+  catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 module.exports = router;
+module.exports.updateClassification = updateClassification;

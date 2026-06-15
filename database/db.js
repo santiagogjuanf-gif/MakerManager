@@ -4,7 +4,6 @@ const path = require('path');
 const DB_PATH = path.join(__dirname, 'makermanager.db');
 const db = new sqlite3.Database(DB_PATH);
 
-// Promise wrappers
 db.runAsync = (sql, params = []) => new Promise((res, rej) => {
   db.run(sql, params, function(err) { if (err) rej(err); else res({ lastID: this.lastID, changes: this.changes }); });
 });
@@ -15,103 +14,129 @@ db.allAsync = (sql, params = []) => new Promise((res, rej) => {
   db.all(sql, params, (err, rows) => { if (err) rej(err); else res(rows); });
 });
 
-// Initialize schema and defaults
 async function init() {
   await db.runAsync('PRAGMA foreign_keys = ON');
   await db.runAsync('PRAGMA journal_mode = WAL');
 
-  const schema = `
-    CREATE TABLE IF NOT EXISTS config (
-      key TEXT PRIMARY KEY,
-      value TEXT
-    );
-    CREATE TABLE IF NOT EXISTS filaments (
+  const tables = [
+    `CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT)`,
+
+    `CREATE TABLE IF NOT EXISTS filaments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      marca TEXT,
-      nombre_comercial TEXT,
-      material TEXT DEFAULT 'PLA',
-      color TEXT,
-      acabado TEXT DEFAULT 'Mate',
+      marca TEXT, nombre_comercial TEXT,
+      material TEXT DEFAULT 'PLA', color TEXT, acabado TEXT DEFAULT 'Mate',
       diametro_mm REAL DEFAULT 1.75,
-      peso_inicial_g REAL DEFAULT 1000,
-      peso_actual_g REAL DEFAULT 1000,
+      peso_inicial_g REAL DEFAULT 1000, peso_actual_g REAL DEFAULT 1000,
       peso_bobina_vacia_g REAL DEFAULT 200,
-      costo_total_cad REAL DEFAULT 0,
-      costo_por_gramo REAL DEFAULT 0,
-      fecha_compra TEXT,
-      proveedor TEXT,
-      tiene_rfid INTEGER DEFAULT 0,
-      tiene_nfc INTEGER DEFAULT 0,
-      uid_nfc TEXT,
-      notas TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS printers (
+      costo_total REAL DEFAULT 0, costo_por_gramo REAL DEFAULT 0,
+      proveedor TEXT, tiene_nfc INTEGER DEFAULT 0, uid_nfc TEXT, notas TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
+
+    `CREATE TABLE IF NOT EXISTS resinas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nombre TEXT,
-      modelo TEXT,
-      costo_compra_cad REAL DEFAULT 0,
-      fecha_compra TEXT,
-      vida_util_horas REAL DEFAULT 1500,
-      costo_por_hora REAL DEFAULT 0,
+      marca TEXT, nombre_comercial TEXT,
+      tipo TEXT DEFAULT 'Estándar', color TEXT,
+      volumen_ml REAL DEFAULT 1000, volumen_actual_ml REAL DEFAULT 1000,
+      costo_total REAL DEFAULT 0, costo_por_ml REAL DEFAULT 0,
+      proveedor TEXT, notas TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
+
+    `CREATE TABLE IF NOT EXISTS consumibles_laser (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT, material TEXT, dimensiones TEXT,
+      cantidad REAL DEFAULT 0, unidad TEXT DEFAULT 'pcs',
+      costo_unitario REAL DEFAULT 0, proveedor TEXT, notas TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
+
+    `CREATE TABLE IF NOT EXISTS consumibles_cnc (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT, material TEXT, dimensiones TEXT,
+      cantidad REAL DEFAULT 0, unidad TEXT DEFAULT 'pcs',
+      costo_unitario REAL DEFAULT 0, proveedor TEXT, notas TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
+
+    `CREATE TABLE IF NOT EXISTS printers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT, marca TEXT, modelo TEXT,
+      tipo TEXT DEFAULT 'FDM',
+      costo_compra REAL DEFAULT 0, fecha_compra TEXT,
       consumo_promedio_watts REAL DEFAULT 120,
-      costo_kwh_cad REAL DEFAULT 0.18,
-      notas TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS clients (
+      costo_por_hora REAL DEFAULT 0,
+      tiene_ams INTEGER DEFAULT 0,
+      ubicacion TEXT, estado TEXT DEFAULT 'Activa',
+      horas_acumuladas REAL DEFAULT 0,
+      foto_path TEXT,
+      area_trabajo TEXT, potencia_laser_w REAL,
+      tipo_laser TEXT, tipo_resina TEXT,
+      fuente_luz TEXT, velocidad_max_mm REAL, husillo_w REAL,
+      materiales_compatibles TEXT, notas TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
+
+    `CREATE TABLE IF NOT EXISTS clients (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nombre TEXT NOT NULL,
-      telefono TEXT,
-      email TEXT,
-      direccion TEXT,
-      notas TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS print_jobs (
+      nombre TEXT NOT NULL, telefono TEXT, email TEXT, direccion TEXT,
+      clasificacion TEXT DEFAULT 'Nuevo',
+      clasificacion_manual INTEGER DEFAULT 0,
+      total_pedidos INTEGER DEFAULT 0,
+      notas TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
+
+    `CREATE TABLE IF NOT EXISTS print_jobs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nombre_proyecto TEXT NOT NULL,
       cliente_id INTEGER REFERENCES clients(id),
       fecha TEXT DEFAULT CURRENT_DATE,
       impresora_id INTEGER REFERENCES printers(id),
-      filamento_id INTEGER REFERENCES filaments(id),
-      material TEXT,
-      color TEXT,
-      gramos_pieza REAL DEFAULT 0,
-      gramos_purga REAL DEFAULT 0,
-      gramos_perdidos REAL DEFAULT 0,
-      gramos_total REAL DEFAULT 0,
+      gramos_purga REAL DEFAULT 0, gramos_perdidos REAL DEFAULT 0,
       tiempo_impresion_min REAL DEFAULT 0,
       tiempo_preparacion_min REAL DEFAULT 0,
       tiempo_postproceso_min REAL DEFAULT 0,
       tiempo_diseno_min REAL DEFAULT 0,
-      fallo INTEGER DEFAULT 0,
-      notas TEXT,
-      precio_final_cad REAL,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS job_extras (
+      fallo INTEGER DEFAULT 0, notas TEXT,
+      precio_unitario REAL, precio_menudeo REAL, precio_mayoreo REAL,
+      precio_final REAL, tipo_precio TEXT DEFAULT 'menudeo',
+      requiere_factura INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
+
+    `CREATE TABLE IF NOT EXISTS job_filaments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       print_job_id INTEGER REFERENCES print_jobs(id) ON DELETE CASCADE,
-      nombre_extra TEXT,
-      cantidad REAL DEFAULT 1,
-      costo_unitario REAL DEFAULT 0,
-      costo_total REAL DEFAULT 0
-    );
-  `;
+      filamento_id INTEGER REFERENCES filaments(id),
+      gramos_pieza REAL DEFAULT 0)`,
 
-  for (const stmt of schema.split(';').map(s => s.trim()).filter(s => s)) {
-    await db.runAsync(stmt);
-  }
+    `CREATE TABLE IF NOT EXISTS job_products (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      print_job_id INTEGER REFERENCES print_jobs(id) ON DELETE CASCADE,
+      descripcion TEXT, cantidad INTEGER DEFAULT 1)`,
+
+    `CREATE TABLE IF NOT EXISTS job_extras (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      print_job_id INTEGER REFERENCES print_jobs(id) ON DELETE CASCADE,
+      nombre_extra TEXT, cantidad REAL DEFAULT 1,
+      costo_unitario REAL DEFAULT 0, costo_total REAL DEFAULT 0)`,
+  ];
+
+  for (const sql of tables) await db.runAsync(sql);
 
   const defaults = {
     nombre_negocio: 'MakerManager Studio',
+    telefono: '',
+    direccion: '',
     moneda: 'CAD',
+    simbolo_moneda: '$',
     tax_rate: '0.13',
     costo_kwh: '0.18',
     tarifa_hora: '25.00',
-    margen_default: '2.5',
-    vida_util_impresora_horas: '1500',
+    margen_unitario: '3.0',
+    margen_menudeo: '2.5',
+    margen_mayoreo: '1.8',
+    minimo_menudeo: '2',
+    minimo_mayoreo: '10',
+    nivel_nuevo: '1',
+    nivel_regular: '3',
+    nivel_frecuente: '7',
+    nivel_vip: '15',
+    logo_path: '',
+    terminos_condiciones: 'Al recibir y aceptar el producto, el cliente confirma que está conforme con el trabajo realizado. Los productos cuentan con una garantía de 15 días naturales a partir de la fecha de entrega, aplicable únicamente a defectos de fabricación como mala fusión de capas o fallas estructurales del material. La garantía no cubre daños causados por mal uso, caídas, exposición al calor o negligencia del cliente. Cada caso será evaluado individualmente. Una vez aceptado el producto, no se aceptan devoluciones.',
   };
 
   for (const [key, value] of Object.entries(defaults)) {
@@ -120,5 +145,4 @@ async function init() {
 }
 
 db.ready = init();
-
 module.exports = db;

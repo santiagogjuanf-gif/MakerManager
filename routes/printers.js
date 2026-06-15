@@ -1,6 +1,14 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
 const db = require('../database/db');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, path.join(__dirname, '../public/uploads')),
+  filename: (req, file, cb) => cb(null, `printer-${Date.now()}${path.extname(file.originalname)}`)
+});
+const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
 router.get('/', async (req, res) => {
   try { res.json(await db.allAsync('SELECT * FROM printers ORDER BY created_at DESC')); }
@@ -9,35 +17,52 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const row = await db.getAsync('SELECT * FROM printers WHERE id = ?', [req.params.id]);
-    if (!row) return res.status(404).json({ error: 'Not found' });
-    res.json(row);
+    const r = await db.getAsync('SELECT * FROM printers WHERE id=?', [req.params.id]);
+    if (!r) return res.status(404).json({ error: 'Not found' });
+    res.json(r);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-router.post('/', async (req, res) => {
+function buildPrinterParams(d) {
+  const cph = d.costo_compra && d.horas_acumuladas > 0
+    ? (parseFloat(d.costo_compra) / Math.max(1, parseFloat(d.horas_acumuladas) * 10))
+    : 0;
+  return [
+    d.nombre, d.marca, d.modelo, d.tipo || 'FDM',
+    d.costo_compra || 0, d.fecha_compra,
+    d.consumo_promedio_watts || 120, cph,
+    d.tiene_ams ? 1 : 0, d.ubicacion, d.estado || 'Activa',
+    d.horas_acumuladas || 0, d.foto_path || null,
+    d.area_trabajo, d.potencia_laser_w, d.tipo_laser, d.tipo_resina,
+    d.fuente_luz, d.velocidad_max_mm, d.husillo_w,
+    d.materiales_compatibles, d.notas
+  ];
+}
+
+router.post('/', upload.single('foto'), async (req, res) => {
   try {
     const d = req.body;
-    const costo_por_hora = (parseFloat(d.costo_compra_cad) || 0) / (parseFloat(d.vida_util_horas) || 1500);
-    const r = await db.runAsync(`
-      INSERT INTO printers (nombre, modelo, costo_compra_cad, fecha_compra, vida_util_horas, costo_por_hora, consumo_promedio_watts, costo_kwh_cad, notas)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [d.nombre, d.modelo, d.costo_compra_cad, d.fecha_compra, d.vida_util_horas || 1500,
-       costo_por_hora, d.consumo_promedio_watts || 120, d.costo_kwh_cad || 0.18, d.notas]
+    if (req.file) d.foto_path = `/uploads/${req.file.filename}`;
+    const params = buildPrinterParams(d);
+    const r = await db.runAsync(
+      `INSERT INTO printers (nombre,marca,modelo,tipo,costo_compra,fecha_compra,consumo_promedio_watts,costo_por_hora,tiene_ams,ubicacion,estado,horas_acumuladas,foto_path,area_trabajo,potencia_laser_w,tipo_laser,tipo_resina,fuente_luz,velocidad_max_mm,husillo_w,materiales_compatibles,notas)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, params
     );
     res.json({ id: r.lastID });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', upload.single('foto'), async (req, res) => {
   try {
     const d = req.body;
-    const costo_por_hora = (parseFloat(d.costo_compra_cad) || 0) / (parseFloat(d.vida_util_horas) || 1500);
-    await db.runAsync(`
-      UPDATE printers SET nombre=?, modelo=?, costo_compra_cad=?, fecha_compra=?, vida_util_horas=?,
-      costo_por_hora=?, consumo_promedio_watts=?, costo_kwh_cad=?, notas=? WHERE id=?`,
-      [d.nombre, d.modelo, d.costo_compra_cad, d.fecha_compra, d.vida_util_horas || 1500,
-       costo_por_hora, d.consumo_promedio_watts, d.costo_kwh_cad, d.notas, req.params.id]
+    if (req.file) d.foto_path = `/uploads/${req.file.filename}`;
+    else {
+      const existing = await db.getAsync('SELECT foto_path FROM printers WHERE id=?', [req.params.id]);
+      d.foto_path = existing?.foto_path || null;
+    }
+    const params = [...buildPrinterParams(d), req.params.id];
+    await db.runAsync(
+      `UPDATE printers SET nombre=?,marca=?,modelo=?,tipo=?,costo_compra=?,fecha_compra=?,consumo_promedio_watts=?,costo_por_hora=?,tiene_ams=?,ubicacion=?,estado=?,horas_acumuladas=?,foto_path=?,area_trabajo=?,potencia_laser_w=?,tipo_laser=?,tipo_resina=?,fuente_luz=?,velocidad_max_mm=?,husillo_w=?,materiales_compatibles=?,notas=? WHERE id=?`, params
     );
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -45,7 +70,7 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
-    await db.runAsync('DELETE FROM printers WHERE id = ?', [req.params.id]);
+    await db.runAsync('DELETE FROM printers WHERE id=?', [req.params.id]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

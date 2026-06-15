@@ -1,26 +1,44 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
+const { updateClassification } = require('./clients');
 
 async function getConfig() {
   const rows = await db.allAsync('SELECT key, value FROM config');
   const cfg = {};
-  rows.forEach(r => cfg[r.key] = parseFloat(r.value) || r.value);
+  rows.forEach(r => cfg[r.key] = r.value);
   return cfg;
 }
 
-function calcCosts(job, printer, filament, extras, cfg) {
+async function calcJobCost(jobId) {
+  const job = await db.getAsync('SELECT * FROM print_jobs WHERE id=?', [jobId]);
+  if (!job) return null;
+  const printer = job.impresora_id ? await db.getAsync('SELECT * FROM printers WHERE id=?', [job.impresora_id]) : null;
+  const jobFilaments = await db.allAsync(`
+    SELECT jf.gramos_pieza, f.costo_por_gramo, f.color, f.material, f.nombre_comercial
+    FROM job_filaments jf JOIN filaments f ON jf.filamento_id = f.id
+    WHERE jf.print_job_id=?`, [jobId]);
+  const extras = await db.allAsync('SELECT * FROM job_extras WHERE print_job_id=?', [jobId]);
+  const products = await db.allAsync('SELECT * FROM job_products WHERE print_job_id=?', [jobId]);
+  const cfg = await getConfig();
+
   const horas = (job.tiempo_impresion_min || 0) / 60;
-  const kwh = ((printer.consumo_promedio_watts || 0) / 1000) * horas;
-  const costo_luz = kwh * (parseFloat(printer.costo_kwh_cad) || parseFloat(cfg.costo_kwh) || 0);
-  const costo_filamento = (job.gramos_total || 0) * (filament.costo_por_gramo || 0);
-  const costo_maquina = horas * (printer.costo_por_hora || 0);
-  const minutos_mano = (job.tiempo_preparacion_min || 0) + (job.tiempo_postproceso_min || 0) + (job.tiempo_diseno_min || 0);
-  const mano_obra = (minutos_mano / 60) * (parseFloat(cfg.tarifa_hora) || 0);
-  const extras_total = extras.reduce((s, e) => s + (e.costo_total || 0), 0);
+  const totalGramos = jobFilaments.reduce((s, f) => s + (f.gramos_pieza || 0), 0)
+    + (job.gramos_purga || 0) + (job.gramos_perdidos || 0);
+  const costo_filamento = jobFilaments.reduce((s, f) => s + (f.gramos_pieza * f.costo_por_gramo), 0);
+  const kwh = printer ? ((printer.consumo_promedio_watts || 0) / 1000) * horas : 0;
+  const costo_luz = kwh * (parseFloat(cfg.costo_kwh) || 0);
+  const costo_maquina = printer ? horas * (printer.costo_por_hora || 0) : 0;
+  const minMano = (job.tiempo_preparacion_min||0)+(job.tiempo_postproceso_min||0)+(job.tiempo_diseno_min||0);
+  const mano_obra = (minMano/60) * (parseFloat(cfg.tarifa_hora)||0);
+  const extras_total = extras.reduce((s,e) => s+(e.costo_total||0), 0);
   const costo_real = costo_filamento + costo_luz + costo_maquina + mano_obra + extras_total;
-  const margen = parseFloat(cfg.margen_default) || 2.5;
-  const precio_sugerido = costo_real * margen;
+
+  const totalPiezas = products.reduce((s,p) => s+(p.cantidad||0), 0) || 1;
+  const mu = parseFloat(cfg.margen_unitario)||3.0;
+  const mm = parseFloat(cfg.margen_menudeo)||2.5;
+  const mmay = parseFloat(cfg.margen_mayoreo)||1.8;
+
   return {
     costo_filamento: +costo_filamento.toFixed(4),
     costo_luz: +costo_luz.toFixed(4),
@@ -28,24 +46,36 @@ function calcCosts(job, printer, filament, extras, cfg) {
     mano_obra: +mano_obra.toFixed(4),
     extras_total: +extras_total.toFixed(4),
     costo_real: +costo_real.toFixed(4),
-    precio_sugerido: +precio_sugerido.toFixed(4),
+    precio_unitario: +(costo_real * mu).toFixed(4),
+    precio_menudeo: +(costo_real * mm).toFixed(4),
+    precio_mayoreo: +(costo_real * mmay).toFixed(4),
     horas_impresion: +horas.toFixed(2),
     kwh_usados: +kwh.toFixed(4),
-    margen,
+    total_gramos: +totalGramos.toFixed(2),
+    total_piezas: totalPiezas,
+    filaments: jobFilaments,
+    products,
+    extras,
+    config: { margen_unitario: mu, margen_menudeo: mm, margen_mayoreo: mmay,
+              minimo_menudeo: parseInt(cfg.minimo_menudeo)||2,
+              minimo_mayoreo: parseInt(cfg.minimo_mayoreo)||10 }
   };
 }
 
 router.get('/', async (req, res) => {
   try {
     const jobs = await db.allAsync(`
-      SELECT pj.*, c.nombre as cliente_nombre, p.nombre as impresora_nombre,
-             f.nombre_comercial as filamento_nombre, f.color as filamento_color
+      SELECT pj.*, c.nombre as cliente_nombre, p.nombre as impresora_nombre
       FROM print_jobs pj
-      LEFT JOIN clients c ON pj.cliente_id = c.id
-      LEFT JOIN printers p ON pj.impresora_id = p.id
-      LEFT JOIN filaments f ON pj.filamento_id = f.id
+      LEFT JOIN clients c ON pj.cliente_id=c.id
+      LEFT JOIN printers p ON pj.impresora_id=p.id
       ORDER BY pj.created_at DESC
     `);
+    for (const j of jobs) {
+      j.filaments = await db.allAsync(
+        'SELECT jf.gramos_pieza, f.color, f.material FROM job_filaments jf JOIN filaments f ON jf.filamento_id=f.id WHERE jf.print_job_id=?', [j.id]);
+      j.products = await db.allAsync('SELECT * FROM job_products WHERE print_job_id=?', [j.id]);
+    }
     res.json(jobs);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -53,65 +83,109 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const job = await db.getAsync(`
-      SELECT pj.*, c.nombre as cliente_nombre, p.nombre as impresora_nombre, f.nombre_comercial as filamento_nombre
+      SELECT pj.*, c.nombre as cliente_nombre, p.nombre as impresora_nombre
       FROM print_jobs pj
-      LEFT JOIN clients c ON pj.cliente_id = c.id
-      LEFT JOIN printers p ON pj.impresora_id = p.id
-      LEFT JOIN filaments f ON pj.filamento_id = f.id
-      WHERE pj.id = ?`, [req.params.id]
-    );
+      LEFT JOIN clients c ON pj.cliente_id=c.id
+      LEFT JOIN printers p ON pj.impresora_id=p.id
+      WHERE pj.id=?`, [req.params.id]);
     if (!job) return res.status(404).json({ error: 'Not found' });
-    const extras = await db.allAsync('SELECT * FROM job_extras WHERE print_job_id = ?', [req.params.id]);
-    res.json({ ...job, extras });
+    job.filaments = await db.allAsync(
+      'SELECT jf.*, f.color, f.material, f.nombre_comercial, f.costo_por_gramo FROM job_filaments jf JOIN filaments f ON jf.filamento_id=f.id WHERE jf.print_job_id=?', [req.params.id]);
+    job.products = await db.allAsync('SELECT * FROM job_products WHERE print_job_id=?', [req.params.id]);
+    job.extras = await db.allAsync('SELECT * FROM job_extras WHERE print_job_id=?', [req.params.id]);
+    res.json(job);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 router.get('/:id/cost', async (req, res) => {
   try {
-    const job = await db.getAsync('SELECT * FROM print_jobs WHERE id = ?', [req.params.id]);
-    if (!job) return res.status(404).json({ error: 'Not found' });
-    const printer = await db.getAsync('SELECT * FROM printers WHERE id = ?', [job.impresora_id]);
-    const filament = await db.getAsync('SELECT * FROM filaments WHERE id = ?', [job.filamento_id]);
-    const extras = await db.allAsync('SELECT * FROM job_extras WHERE print_job_id = ?', [req.params.id]);
-    const cfg = await getConfig();
-    if (!printer || !filament) return res.status(400).json({ error: 'Printer or filament not found' });
-    res.json(calcCosts(job, printer, filament, extras, cfg));
+    const cost = await calcJobCost(req.params.id);
+    if (!cost) return res.status(404).json({ error: 'Not found' });
+    res.json(cost);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
+
+async function saveJobData(jobId, d) {
+  // Save filaments
+  await db.runAsync('DELETE FROM job_filaments WHERE print_job_id=?', [jobId]);
+  if (d.filaments && Array.isArray(d.filaments)) {
+    for (const f of d.filaments) {
+      if (!f.filamento_id) continue;
+      await db.runAsync(
+        'INSERT INTO job_filaments (print_job_id,filamento_id,gramos_pieza) VALUES (?,?,?)',
+        [jobId, f.filamento_id, f.gramos_pieza || 0]
+      );
+    }
+  }
+  // Save products
+  await db.runAsync('DELETE FROM job_products WHERE print_job_id=?', [jobId]);
+  if (d.products && Array.isArray(d.products)) {
+    for (const p of d.products) {
+      if (!p.descripcion) continue;
+      await db.runAsync(
+        'INSERT INTO job_products (print_job_id,descripcion,cantidad) VALUES (?,?,?)',
+        [jobId, p.descripcion, parseInt(p.cantidad)||1]
+      );
+    }
+  }
+  // Save extras
+  await db.runAsync('DELETE FROM job_extras WHERE print_job_id=?', [jobId]);
+  if (d.extras && Array.isArray(d.extras)) {
+    for (const e of d.extras) {
+      if (!e.nombre_extra) continue;
+      await db.runAsync(
+        'INSERT INTO job_extras (print_job_id,nombre_extra,cantidad,costo_unitario,costo_total) VALUES (?,?,?,?,?)',
+        [jobId, e.nombre_extra, e.cantidad||1, e.costo_unitario||0, e.costo_total||(e.cantidad*e.costo_unitario)||0]
+      );
+    }
+  }
+}
+
+async function deductInventory(d, sign = -1) {
+  if (!d.filaments || d.fallo) return;
+  for (const f of d.filaments) {
+    if (f.filamento_id && f.gramos_pieza > 0) {
+      await db.runAsync(
+        'UPDATE filaments SET peso_actual_g = MAX(0, peso_actual_g + ?) WHERE id=?',
+        [sign * f.gramos_pieza, f.filamento_id]
+      );
+    }
+  }
+  // purga + perdidos on first filament
+  if (d.filaments.length > 0 && d.filaments[0].filamento_id) {
+    const extra = (parseFloat(d.gramos_purga)||0) + (parseFloat(d.gramos_perdidos)||0);
+    if (extra > 0) {
+      await db.runAsync('UPDATE filaments SET peso_actual_g = MAX(0, peso_actual_g + ?) WHERE id=?',
+        [sign * extra, d.filaments[0].filamento_id]);
+    }
+  }
+}
 
 router.post('/', async (req, res) => {
   try {
     const d = req.body;
-    const gramos_total = (parseFloat(d.gramos_pieza) || 0) + (parseFloat(d.gramos_purga) || 0) + (parseFloat(d.gramos_perdidos) || 0);
-    const r = await db.runAsync(`
-      INSERT INTO print_jobs (nombre_proyecto, cliente_id, fecha, impresora_id, filamento_id, material, color,
-        gramos_pieza, gramos_purga, gramos_perdidos, gramos_total, tiempo_impresion_min,
-        tiempo_preparacion_min, tiempo_postproceso_min, tiempo_diseno_min, fallo, notas, precio_final_cad)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [d.nombre_proyecto, d.cliente_id || null, d.fecha || new Date().toISOString().slice(0,10),
-       d.impresora_id || null, d.filamento_id || null, d.material, d.color,
-       d.gramos_pieza || 0, d.gramos_purga || 0, d.gramos_perdidos || 0, gramos_total,
-       d.tiempo_impresion_min || 0, d.tiempo_preparacion_min || 0,
-       d.tiempo_postproceso_min || 0, d.tiempo_diseno_min || 0,
-       d.fallo ? 1 : 0, d.notas, d.precio_final_cad || null]
+    const r = await db.runAsync(
+      `INSERT INTO print_jobs (nombre_proyecto,cliente_id,fecha,impresora_id,gramos_purga,gramos_perdidos,tiempo_impresion_min,tiempo_preparacion_min,tiempo_postproceso_min,tiempo_diseno_min,fallo,notas,precio_unitario,precio_menudeo,precio_mayoreo,precio_final,tipo_precio,requiere_factura)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [d.nombre_proyecto, d.cliente_id||null, d.fecha||new Date().toISOString().slice(0,10),
+       d.impresora_id||null, d.gramos_purga||0, d.gramos_perdidos||0,
+       d.tiempo_impresion_min||0, d.tiempo_preparacion_min||0,
+       d.tiempo_postproceso_min||0, d.tiempo_diseno_min||0,
+       d.fallo?1:0, d.notas,
+       d.precio_unitario||null, d.precio_menudeo||null, d.precio_mayoreo||null,
+       d.precio_final||null, d.tipo_precio||'menudeo', d.requiere_factura?1:0]
     );
-
-    if (d.filamento_id && gramos_total > 0 && !d.fallo) {
-      await db.runAsync(
-        'UPDATE filaments SET peso_actual_g = MAX(0, peso_actual_g - ?) WHERE id = ?',
-        [gramos_total, d.filamento_id]
-      );
+    await saveJobData(r.lastID, d);
+    await deductInventory(d, -1);
+    if (d.cliente_id) {
+      await db.runAsync('UPDATE clients SET total_pedidos = total_pedidos + 1 WHERE id=?', [d.cliente_id]);
+      await updateClassification(d.cliente_id);
     }
-
-    if (d.extras && Array.isArray(d.extras)) {
-      for (const e of d.extras) {
-        await db.runAsync(
-          'INSERT INTO job_extras (print_job_id, nombre_extra, cantidad, costo_unitario, costo_total) VALUES (?, ?, ?, ?, ?)',
-          [r.lastID, e.nombre_extra, e.cantidad, e.costo_unitario, e.costo_total || (e.cantidad * e.costo_unitario)]
-        );
-      }
+    // Add hours to printer
+    if (d.impresora_id && d.tiempo_impresion_min > 0) {
+      await db.runAsync('UPDATE printers SET horas_acumuladas = horas_acumuladas + ? WHERE id=?',
+        [d.tiempo_impresion_min/60, d.impresora_id]);
     }
-
     res.json({ id: r.lastID });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -119,69 +193,57 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const d = req.body;
-    const old = await db.getAsync('SELECT * FROM print_jobs WHERE id = ?', [req.params.id]);
+    const old = await db.getAsync('SELECT * FROM print_jobs WHERE id=?', [req.params.id]);
     if (!old) return res.status(404).json({ error: 'Not found' });
+    const oldFilaments = await db.allAsync('SELECT * FROM job_filaments WHERE print_job_id=?', [req.params.id]);
 
-    const gramos_total = (parseFloat(d.gramos_pieza) || 0) + (parseFloat(d.gramos_purga) || 0) + (parseFloat(d.gramos_perdidos) || 0);
-
-    if (old.filamento_id && old.gramos_total > 0 && !old.fallo) {
-      await db.runAsync('UPDATE filaments SET peso_actual_g = peso_actual_g + ? WHERE id = ?', [old.gramos_total, old.filamento_id]);
+    // Restore old inventory
+    await deductInventory({ filaments: oldFilaments.map(f=>({filamento_id:f.filamento_id,gramos_pieza:f.gramos_pieza})), gramos_purga: old.gramos_purga, gramos_perdidos: old.gramos_perdidos, fallo: old.fallo }, +1);
+    // Restore printer hours
+    if (old.impresora_id && old.tiempo_impresion_min > 0) {
+      await db.runAsync('UPDATE printers SET horas_acumuladas = MAX(0, horas_acumuladas - ?) WHERE id=?',
+        [old.tiempo_impresion_min/60, old.impresora_id]);
     }
 
-    await db.runAsync(`
-      UPDATE print_jobs SET nombre_proyecto=?, cliente_id=?, fecha=?, impresora_id=?, filamento_id=?, material=?, color=?,
-      gramos_pieza=?, gramos_purga=?, gramos_perdidos=?, gramos_total=?, tiempo_impresion_min=?,
-      tiempo_preparacion_min=?, tiempo_postproceso_min=?, tiempo_diseno_min=?, fallo=?, notas=?, precio_final_cad=?
-      WHERE id=?`,
-      [d.nombre_proyecto, d.cliente_id || null, d.fecha, d.impresora_id || null, d.filamento_id || null,
-       d.material, d.color, d.gramos_pieza || 0, d.gramos_purga || 0, d.gramos_perdidos || 0, gramos_total,
-       d.tiempo_impresion_min || 0, d.tiempo_preparacion_min || 0, d.tiempo_postproceso_min || 0,
-       d.tiempo_diseno_min || 0, d.fallo ? 1 : 0, d.notas, d.precio_final_cad || null, req.params.id]
+    await db.runAsync(
+      `UPDATE print_jobs SET nombre_proyecto=?,cliente_id=?,fecha=?,impresora_id=?,gramos_purga=?,gramos_perdidos=?,tiempo_impresion_min=?,tiempo_preparacion_min=?,tiempo_postproceso_min=?,tiempo_diseno_min=?,fallo=?,notas=?,precio_unitario=?,precio_menudeo=?,precio_mayoreo=?,precio_final=?,tipo_precio=?,requiere_factura=? WHERE id=?`,
+      [d.nombre_proyecto, d.cliente_id||null, d.fecha, d.impresora_id||null,
+       d.gramos_purga||0, d.gramos_perdidos||0,
+       d.tiempo_impresion_min||0, d.tiempo_preparacion_min||0,
+       d.tiempo_postproceso_min||0, d.tiempo_diseno_min||0,
+       d.fallo?1:0, d.notas,
+       d.precio_unitario||null, d.precio_menudeo||null, d.precio_mayoreo||null,
+       d.precio_final||null, d.tipo_precio||'menudeo', d.requiere_factura?1:0, req.params.id]
     );
-
-    if (d.filamento_id && gramos_total > 0 && !d.fallo) {
-      await db.runAsync('UPDATE filaments SET peso_actual_g = MAX(0, peso_actual_g - ?) WHERE id = ?', [gramos_total, d.filamento_id]);
+    await saveJobData(req.params.id, d);
+    await deductInventory(d, -1);
+    if (d.impresora_id && d.tiempo_impresion_min > 0) {
+      await db.runAsync('UPDATE printers SET horas_acumuladas = horas_acumuladas + ? WHERE id=?',
+        [d.tiempo_impresion_min/60, d.impresora_id]);
     }
-
-    await db.runAsync('DELETE FROM job_extras WHERE print_job_id = ?', [req.params.id]);
-    if (d.extras && Array.isArray(d.extras)) {
-      for (const e of d.extras) {
-        await db.runAsync(
-          'INSERT INTO job_extras (print_job_id, nombre_extra, cantidad, costo_unitario, costo_total) VALUES (?, ?, ?, ?, ?)',
-          [req.params.id, e.nombre_extra, e.cantidad, e.costo_unitario, e.costo_total || (e.cantidad * e.costo_unitario)]
-        );
-      }
-    }
-
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 router.delete('/:id', async (req, res) => {
   try {
-    const job = await db.getAsync('SELECT * FROM print_jobs WHERE id = ?', [req.params.id]);
-    if (job && job.filamento_id && job.gramos_total > 0 && !job.fallo) {
-      await db.runAsync('UPDATE filaments SET peso_actual_g = peso_actual_g + ? WHERE id = ?', [job.gramos_total, job.filamento_id]);
+    const job = await db.getAsync('SELECT * FROM print_jobs WHERE id=?', [req.params.id]);
+    if (job) {
+      const filaments = await db.allAsync('SELECT * FROM job_filaments WHERE print_job_id=?', [req.params.id]);
+      await deductInventory({ filaments: filaments.map(f=>({filamento_id:f.filamento_id,gramos_pieza:f.gramos_pieza})), gramos_purga: job.gramos_purga, gramos_perdidos: job.gramos_perdidos, fallo: job.fallo }, +1);
+      if (job.impresora_id && job.tiempo_impresion_min > 0) {
+        await db.runAsync('UPDATE printers SET horas_acumuladas = MAX(0, horas_acumuladas - ?) WHERE id=?',
+          [job.tiempo_impresion_min/60, job.impresora_id]);
+      }
+      if (job.cliente_id) {
+        await db.runAsync('UPDATE clients SET total_pedidos = MAX(0, total_pedidos - 1) WHERE id=?', [job.cliente_id]);
+        await updateClassification(job.cliente_id);
+      }
     }
-    await db.runAsync('DELETE FROM print_jobs WHERE id = ?', [req.params.id]);
+    await db.runAsync('DELETE FROM print_jobs WHERE id=?', [req.params.id]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/:id/extras', async (req, res) => {
-  try { res.json(await db.allAsync('SELECT * FROM job_extras WHERE print_job_id = ?', [req.params.id])); }
-  catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-router.post('/:id/extras', async (req, res) => {
-  try {
-    const d = req.body;
-    const r = await db.runAsync(
-      'INSERT INTO job_extras (print_job_id, nombre_extra, cantidad, costo_unitario, costo_total) VALUES (?, ?, ?, ?, ?)',
-      [req.params.id, d.nombre_extra, d.cantidad, d.costo_unitario, d.costo_total || (d.cantidad * d.costo_unitario)]
-    );
-    res.json({ id: r.lastID });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
 module.exports = router;
+module.exports.calcJobCost = calcJobCost;
