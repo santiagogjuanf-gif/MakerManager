@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MakerManager</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">⬡</span>
+        <span class="logo-text">MakerManager</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#dashboard" class="nav-item active" data-page="dashboard">
+          <span class="nav-icon">📊</span>
+          <span>Dashboard</span>
+        </a>
+        <a href="#filaments" class="nav-item" data-page="filaments">
+          <span class="nav-icon">🧵</span>
+          <span>Filamentos</span>
+        </a>
+        <a href="#printers" class="nav-item" data-page="printers">
+          <span class="nav-icon">🖨️</span>
+          <span>Impresoras</span>
+        </a>
+        <a href="#clients" class="nav-item" data-page="clients">
+          <span class="nav-icon">👥</span>
+          <span>Clientes</span>
+        </a>
+        <a href="#jobs" class="nav-item" data-page="jobs">
+          <span class="nav-icon">📋</span>
+          <span>Trabajos</span>
+        </a>
+        <a href="#config" class="nav-item" data-page="config">
+          <span class="nav-icon">⚙️</span>
+          <span>Configuración</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <small>v1.0.0</small>
+      </div>
+    </aside>
+    <main class="content">
+      <div id="page-dashboard" class="page"></div>
+      <div id="page-filaments" class="page hidden"></div>
+      <div id="page-printers" class="page hidden"></div>
+      <div id="page-clients" class="page hidden"></div>
+      <div id="page-jobs" class="page hidden"></div>
+      <div id="page-config" class="page hidden"></div>
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">Modal</h3>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div id="modal-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/js/app.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script src="/js/filaments.js"></script>
+  <script src="/js/printers.js"></script>
+  <script src="/js/clients.js"></script>
+  <script src="/js/jobs.js"></script>
+  <script src="/js/config-page.js"></script>
+</body>
+</html>
