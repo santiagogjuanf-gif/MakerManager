@@ -485,3 +485,65 @@ select.form-control option { background: var(--card); }
   color: var(--text-muted);
 }
 .empty-state-icon { font-size: 48px; margin-bottom: 12px; }
+
+/* Printer cards grid */
+.printer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+.printer-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; cursor: pointer; transition: all 0.2s; }
+.printer-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(108,99,255,0.15); }
+.printer-card-img { width: 100%; height: 180px; object-fit: cover; background: var(--surface); display: flex; align-items: center; justify-content: center; font-size: 48px; }
+.printer-card-body { padding: 16px; }
+.printer-card-name { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+.printer-card-sub { color: var(--text-muted); font-size: 12px; margin-bottom: 12px; }
+.printer-card-stats { display: flex; gap: 12px; font-size: 12px; color: var(--text-muted); }
+.printer-card-stat { display: flex; flex-direction: column; gap: 2px; }
+.printer-card-stat strong { color: var(--text); font-size: 13px; }
+
+/* Pagination */
+.pagination { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; border-top: 1px solid var(--border); }
+.page-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.2s; }
+.page-btn:hover { border-color: var(--accent); color: var(--accent-light); }
+.page-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-info { color: var(--text-muted); font-size: 12px; }
+
+/* State badges for printers */
+.badge-activa { background: rgba(34,197,94,0.15); color: #22c55e; }
+.badge-mantenimiento { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.badge-inactiva { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+/* Client classification badges */
+.badge-nuevo { background: rgba(140,140,140,0.15); color: #8892a4; }
+.badge-regular { background: rgba(59,130,246,0.15); color: #3b82f6; }
+.badge-frecuente { background: rgba(168,85,247,0.15); color: #a855f7; }
+.badge-vip { background: rgba(251,191,36,0.15); color: #fbbf24; }
+
+/* Confirm modal */
+.confirm-modal { max-width: 420px; }
+.confirm-modal .modal-body { text-align: center; padding: 32px 24px; }
+.confirm-modal .confirm-icon { font-size: 48px; margin-bottom: 16px; }
+.confirm-modal .confirm-msg { font-size: 15px; color: var(--text); margin-bottom: 24px; }
+.confirm-btns { display: flex; gap: 12px; justify-content: center; }
+
+/* Photo preview */
+.photo-preview { width: 100%; height: 180px; object-fit: cover; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 36px; margin-bottom: 8px; }
+
+/* Weather widget */
+.weather-widget { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; gap: 12px; }
+.weather-temp { font-size: 28px; font-weight: 700; color: var(--accent-light); }
+.weather-desc { font-size: 12px; color: var(--text-muted); }
+
+/* Greeting */
+.dash-greeting { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+.dash-date { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+
+/* Stat card quick-add */
+.stat-card { position: relative; }
+.stat-quick-add { position: absolute; top: 12px; right: 12px; background: var(--accent-dim); border: 1px solid var(--accent); color: var(--accent-light); border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; line-height: 1; transition: all 0.2s; text-decoration: none; }
+.stat-quick-add:hover { background: var(--accent); color: white; }
+
+/* Config sections */
+.config-section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+.config-section-title { font-size: 14px; font-weight: 600; color: var(--accent-light); margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+
+/* Logo preview */
+.logo-preview { width: 120px; height: 120px; object-fit: contain; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 36px; }

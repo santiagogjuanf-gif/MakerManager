@@ -1,118 +1,194 @@
-pageLoaders['config'] = async function loadConfig() {
-  const el = document.getElementById('page-config');
-  el.innerHTML = `
-    <div class="page-header">
-      <div><div class="page-title">⚙️ Configuración</div><div class="page-subtitle">Parámetros globales del negocio</div></div>
-    </div>
-    <div id="config-content"><p style="color:var(--text-muted);padding:20px">Cargando...</p></div>`;
+(function () {
+  let configData = {};
 
-  try {
-    const cfg = await api('GET', '/api/config');
-    const taxPct = (parseFloat(cfg.tax_rate || 0) * 100).toFixed(0);
+  pageLoaders['config'] = async function loadConfigPage() {
+    const el = document.getElementById('page-config');
+    el.innerHTML = `<div class="page-header"><div><div class="page-title">Configuración</div><div class="page-subtitle">Ajustes del sistema</div></div></div><div id="config-body"><p style="color:var(--text-muted)">Cargando...</p></div>`;
 
-    document.getElementById('config-content').innerHTML = `
-      <div class="grid-2">
-        <div>
-          <form id="config-form" onsubmit="saveConfig(event)">
-            <div class="card">
-              <div class="card-title">Datos del negocio</div>
-              <div class="form-grid">
-                <div class="form-group form-full">
-                  <label>Nombre del negocio</label>
-                  <input class="form-control" name="nombre_negocio" value="${cfg.nombre_negocio || ''}" placeholder="MakerManager Studio">
-                </div>
-                <div class="form-group">
-                  <label>Moneda</label>
-                  <select class="form-control" name="moneda">
-                    ${['CAD','USD','MXN','EUR'].map(m => `<option ${cfg.moneda===m?'selected':''}>${m}</option>`).join('')}
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>Impuesto (%)</label>
-                  <input class="form-control" type="number" step="1" name="tax_rate" value="${taxPct}" placeholder="13">
-                </div>
-              </div>
+    try {
+      const rows = await api('GET', '/api/config');
+      configData = {};
+      if (Array.isArray(rows)) {
+        rows.forEach(r => { configData[r.key] = r.value; });
+      } else {
+        configData = rows;
+      }
+      // Sync global appConfig too
+      Object.assign(appConfig, configData);
+      renderConfigPage();
+    } catch (e) {
+      document.getElementById('config-body').innerHTML = `<div class="alert alert-warning">Error cargando configuración: ${e.message}</div>`;
+    }
+  };
 
-              <div class="card-title" style="margin-top:20px">Costos operativos</div>
-              <div class="form-grid">
-                <div class="form-group">
-                  <label>Costo kWh (CAD)</label>
-                  <input class="form-control" type="number" step="0.001" name="costo_kwh" value="${cfg.costo_kwh || 0.18}">
-                </div>
-                <div class="form-group">
-                  <label>Tarifa mano de obra (CAD/hora)</label>
-                  <input class="form-control" type="number" step="0.01" name="tarifa_hora" value="${cfg.tarifa_hora || 25}">
-                </div>
-                <div class="form-group">
-                  <label>Margen de ganancia (multiplicador)</label>
-                  <input class="form-control" type="number" step="0.1" name="margen_default" value="${cfg.margen_default || 2.5}">
-                  <small style="color:var(--text-muted)">Ej: 2.5 significa precio = costo × 2.5</small>
-                </div>
-                <div class="form-group">
-                  <label>Vida útil impresora (horas)</label>
-                  <input class="form-control" type="number" name="vida_util_impresora_horas" value="${cfg.vida_util_impresora_horas || 1500}">
-                </div>
+  function val(key, def = '') {
+    return configData[key] !== undefined ? configData[key] : def;
+  }
+
+  function renderConfigPage() {
+    const logoHtml = val('logo_path')
+      ? `<img src="/${val('logo_path')}" class="logo-preview" id="cfg-logo-img" style="object-fit:contain">`
+      : `<div class="logo-preview" id="cfg-logo-img" style="display:flex;align-items:center;justify-content:center">⬡</div>`;
+
+    document.getElementById('config-body').innerHTML = `
+      <form id="cfg-form" onsubmit="cfgSave(event)">
+
+        <!-- Negocio -->
+        <div class="config-section">
+          <div class="config-section-title">🏢 Negocio</div>
+          <div style="display:flex;gap:24px;align-items:flex-start">
+            <div>
+              ${logoHtml}
+              <div style="margin-top:8px">
+                <input type="file" class="form-control" accept="image/*" onchange="cfgUploadLogo(this)" style="font-size:12px">
+                <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Logo del negocio</div>
               </div>
             </div>
-            <div class="form-actions" style="justify-content:flex-start;margin-top:16px">
-              <button type="submit" class="btn btn-primary">💾 Guardar configuración</button>
-            </div>
-          </form>
-        </div>
-
-        <div>
-          <div class="card" style="margin-bottom:16px">
-            <div class="card-title">Resumen actual</div>
-            <div class="cost-breakdown">
-              <div class="cost-row"><span>Negocio</span><span>${cfg.nombre_negocio || '-'}</span></div>
-              <div class="cost-row"><span>Moneda</span><span>${cfg.moneda || 'CAD'}</span></div>
-              <div class="cost-row"><span>Impuesto</span><span>${taxPct}%</span></div>
-              <div class="cost-row"><span>Costo kWh</span><span>$${parseFloat(cfg.costo_kwh||0).toFixed(3)} CAD</span></div>
-              <div class="cost-row"><span>Tarifa hora trabajo</span><span>$${parseFloat(cfg.tarifa_hora||0).toFixed(2)} CAD/h</span></div>
-              <div class="cost-row"><span>Margen de ganancia</span><span>${cfg.margen_default || 2.5}×</span></div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-title">Herramientas</div>
-            <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">
-              Carga datos de ejemplo con impresoras, filamentos y clientes para comenzar rápido.
-            </p>
-            <button class="btn btn-secondary" onclick="runSeed()">🔄 Cargar datos de ejemplo</button>
-            <div class="alert alert-info" style="margin-top:16px;font-size:12px">
-              ℹ️ Los datos de ejemplo incluyen: Bambu Lab P1S Combo, 5 filamentos PLA, y 2 clientes de prueba.
+            <div class="form-grid" style="flex:1">
+              <div class="form-group"><label>Nombre del negocio</label><input class="form-control" name="nombre_negocio" value="${val('nombre_negocio')}"></div>
+              <div class="form-group"><label>Teléfono</label><input class="form-control" name="telefono" value="${val('telefono')}"></div>
+              <div class="form-group form-full"><label>Dirección</label><input class="form-control" name="direccion" value="${val('direccion')}"></div>
             </div>
           </div>
         </div>
-      </div>
-    `;
-  } catch(e) {
-    document.getElementById('config-content').innerHTML = `<div class="alert alert-warning">Error: ${e.message}</div>`;
-  }
-};
 
-async function saveConfig(e) {
-  e.preventDefault();
-  const data = Object.fromEntries(new FormData(e.target));
-  if (data.tax_rate !== undefined) {
-    data.tax_rate = (parseFloat(data.tax_rate) / 100).toFixed(4);
-  }
-  try {
-    await api('PUT', '/api/config', data);
-    showToast('Configuración guardada ✓');
-    await pageLoaders['config']();
-  } catch(err) {
-    showToast('Error: ' + err.message, 'error');
-  }
-}
+        <!-- Moneda -->
+        <div class="config-section">
+          <div class="config-section-title">💱 Moneda</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Moneda</label>
+              <select class="form-control" name="moneda">
+                ${['CAD','USD','MXN','EUR','GBP'].map(m => `<option ${val('moneda','CAD')===m?'selected':''}>${m}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group"><label>Símbolo</label><input class="form-control" name="simbolo_moneda" value="${val('simbolo_moneda','$')}" placeholder="$"></div>
+          </div>
+        </div>
 
-async function runSeed() {
-  if (!confirm('¿Cargar datos de ejemplo?\nEsto borrará filamentos, impresoras y clientes existentes, y cargará datos de muestra.')) return;
-  try {
-    const res = await fetch('/api/seed', { method: 'POST' });
-    if (!res.ok) throw new Error('Error del servidor');
-    showToast('Datos de ejemplo cargados ✓');
-  } catch(err) {
-    showToast('Error: ' + err.message, 'error');
+        <!-- Tarifas -->
+        <div class="config-section">
+          <div class="config-section-title">⚡ Tarifas</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Costo kWh</label><input class="form-control" name="costo_kwh" type="number" step="0.001" value="${val('costo_kwh','0.14')}"></div>
+            <div class="form-group"><label>Tarifa hora (mano de obra)</label><input class="form-control" name="tarifa_hora" type="number" step="0.01" value="${val('tarifa_hora','15')}"></div>
+            <div class="form-group"><label>Impuesto (%)</label><input class="form-control" name="tax_rate" type="number" step="0.1" value="${parseFloat(val('tax_rate','0'))*100}"></div>
+          </div>
+        </div>
+
+        <!-- Márgenes -->
+        <div class="config-section">
+          <div class="config-section-title">📈 Márgenes</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Margen unitario (%)</label><input class="form-control" name="margen_unitario" type="number" step="0.1" value="${parseFloat(val('margen_unitario','30'))}"></div>
+            <div class="form-group"><label>Margen menudeo (%)</label><input class="form-control" name="margen_menudeo" type="number" step="0.1" value="${parseFloat(val('margen_menudeo','20'))}"></div>
+            <div class="form-group"><label>Margen mayoreo (%)</label><input class="form-control" name="margen_mayoreo" type="number" step="0.1" value="${parseFloat(val('margen_mayoreo','10'))}"></div>
+          </div>
+        </div>
+
+        <!-- Precios mínimos -->
+        <div class="config-section">
+          <div class="config-section-title">🏷️ Precios mínimos</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Mínimo menudeo</label><input class="form-control" name="minimo_menudeo" type="number" step="0.01" value="${val('minimo_menudeo','5')}"></div>
+            <div class="form-group"><label>Mínimo mayoreo</label><input class="form-control" name="minimo_mayoreo" type="number" step="0.01" value="${val('minimo_mayoreo','50')}"></div>
+          </div>
+        </div>
+
+        <!-- Clasificación clientes -->
+        <div class="config-section">
+          <div class="config-section-title">👥 Clasificación de clientes (# de pedidos)</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Nuevo (0 a...)</label><input class="form-control" name="nivel_nuevo" type="number" value="${val('nivel_nuevo','1')}"></div>
+            <div class="form-group"><label>Regular (hasta...)</label><input class="form-control" name="nivel_regular" type="number" value="${val('nivel_regular','5')}"></div>
+            <div class="form-group"><label>Frecuente (hasta...)</label><input class="form-control" name="nivel_frecuente" type="number" value="${val('nivel_frecuente','15')}"></div>
+            <div class="form-group"><label>VIP (más de...)</label><input class="form-control" name="nivel_vip" type="number" value="${val('nivel_vip','15')}"></div>
+          </div>
+        </div>
+
+        <!-- Términos y condiciones -->
+        <div class="config-section">
+          <div class="config-section-title">📝 Términos y condiciones</div>
+          <div class="form-group">
+            <label>Texto para PDFs</label>
+            <textarea class="form-control" name="terminos_condiciones" rows="5">${val('terminos_condiciones','')}</textarea>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-bottom:32px">
+          <button type="submit" class="btn btn-primary" style="padding:12px 32px">💾 Guardar configuración</button>
+        </div>
+      </form>
+
+      <!-- Zona de peligro -->
+      <div class="config-section" style="border-color:rgba(239,68,68,0.3)">
+        <div class="config-section-title" style="color:var(--danger)">⚠️ Zona de peligro</div>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Estas acciones son irreversibles. Procede con precaución.</p>
+        <button class="btn btn-danger" onclick="cfgResetDB()">🗑️ Resetear Base de Datos</button>
+      </div>`;
   }
-}
+
+  window.cfgSave = async function (e) {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const updates = {};
+    for (const [key, value] of fd.entries()) {
+      if (key === 'tax_rate') {
+        updates[key] = (parseFloat(value) / 100).toString();
+      } else {
+        updates[key] = value;
+      }
+    }
+    try {
+      await api('PUT', '/api/config', { updates });
+      Object.assign(appConfig, updates);
+      showToast('Configuración guardada');
+    } catch (err) { showToast('Error: ' + err.message, 'error'); }
+  };
+
+  window.cfgUploadLogo = async function (input) {
+    if (!input.files || !input.files[0]) return;
+    const fd = new FormData();
+    fd.append('logo', input.files[0]);
+    try {
+      const res = await fetch('/api/config/logo', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const prev = document.getElementById('cfg-logo-img');
+      if (prev && data.logo_path) {
+        prev.outerHTML = `<img src="/${data.logo_path}?t=${Date.now()}" class="logo-preview" id="cfg-logo-img" style="object-fit:contain">`;
+      }
+      showToast('Logo actualizado');
+    } catch (err) { showToast('Error subiendo logo: ' + err.message, 'error'); }
+  };
+
+  window.cfgResetDB = function () {
+    confirmModal('¿Seguro? Esto borrará TODOS los datos permanentemente.', () => {
+      // Second confirmation: type ELIMINAR
+      openModal('Confirmar reset', `
+        <div style="text-align:center;padding:16px">
+          <div style="font-size:40px;margin-bottom:12px">☠️</div>
+          <p style="margin-bottom:16px;color:var(--text)">Escribe <strong>ELIMINAR</strong> para confirmar el borrado total de la base de datos.</p>
+          <input class="form-control" id="cfg-reset-input" placeholder="ELIMINAR" style="text-align:center;margin-bottom:16px">
+          <div class="form-actions" style="justify-content:center">
+            <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-danger" onclick="cfgConfirmReset()">Confirmar reset</button>
+          </div>
+        </div>`);
+    }, '⚠️');
+  };
+
+  window.cfgConfirmReset = async function () {
+    const input = document.getElementById('cfg-reset-input');
+    if (!input || input.value.trim() !== 'ELIMINAR') {
+      showToast('Escribe ELIMINAR exactamente', 'error');
+      return;
+    }
+    try {
+      const res = await fetch('/api/reset', { method: 'DELETE' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      closeModal();
+      showToast('Base de datos reseteada');
+      await pageLoaders['config']();
+    } catch (err) { showToast('Error: ' + err.message, 'error'); }
+  };
+})();

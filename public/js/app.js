@@ -1,3 +1,6 @@
+// Global config store
+let appConfig = {};
+
 // Global API helper
 async function api(method, url, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
@@ -31,10 +34,35 @@ document.getElementById('modal-overlay').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) closeModal();
 });
 
-// Format currency
-function fmtCAD(v) {
+// Confirm modal
+function confirmModal(msg, onYes, icon = '⚠️') {
+  document.getElementById('confirm-msg').textContent = msg;
+  document.getElementById('confirm-icon').textContent = icon;
+  const overlay = document.getElementById('confirm-overlay');
+  overlay.classList.remove('hidden');
+  const btn = document.getElementById('confirm-yes-btn');
+  const newBtn = btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn, btn);
+  newBtn.addEventListener('click', () => {
+    closeConfirm();
+    onYes();
+  });
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.add('hidden');
+}
+
+document.getElementById('confirm-overlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeConfirm();
+});
+
+// Format currency (dynamic)
+function fmtMoney(v) {
   if (v == null || v === '') return '-';
-  return `$${parseFloat(v).toFixed(2)} CAD`;
+  const sym = appConfig.simbolo_moneda || '$';
+  const cur = appConfig.moneda || 'CAD';
+  return `${sym}${parseFloat(v).toFixed(2)} ${cur}`;
 }
 
 function fmtNum(v, dec = 2) {
@@ -58,8 +86,47 @@ function colorHex(name) {
   return map[(name || '').toLowerCase()] || '#6c63ff';
 }
 
+// Pagination helper
+function paginate(data, page, perPage = 10) {
+  const totalPages = Math.max(1, Math.ceil(data.length / perPage));
+  const p = Math.min(Math.max(1, page), totalPages);
+  const items = data.slice((p - 1) * perPage, p * perPage);
+  return { items, totalPages, page: p };
+}
+
+// Render pagination controls
+function renderPagination(containerId, current, total, onPageChange) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  if (total <= 1) { container.innerHTML = ''; return; }
+  let html = `<button class="page-btn" ${current === 1 ? 'disabled' : ''} onclick="(${onPageChange})(${current - 1})">‹</button>`;
+  for (let i = 1; i <= total; i++) {
+    if (total > 7 && i > 2 && i < total - 1 && Math.abs(i - current) > 1) {
+      if (i === 3 || i === total - 2) html += `<span class="page-info">…</span>`;
+      continue;
+    }
+    html += `<button class="page-btn ${i === current ? 'active' : ''}" onclick="(${onPageChange})(${i})">${i}</button>`;
+  }
+  html += `<button class="page-btn" ${current === total ? 'disabled' : ''} onclick="(${onPageChange})(${current + 1})">›</button>`;
+  container.innerHTML = html;
+}
+
+// Load app config from API
+async function loadConfig() {
+  try {
+    const cfg = await api('GET', '/api/config');
+    if (Array.isArray(cfg)) {
+      cfg.forEach(row => { appConfig[row.key] = row.value; });
+    } else {
+      appConfig = cfg;
+    }
+  } catch (e) {
+    console.warn('Could not load config:', e.message);
+  }
+}
+
 // Router
-const pages = ['dashboard', 'filaments', 'printers', 'clients', 'jobs', 'config'];
+const pages = ['dashboard', 'inventory', 'printers', 'clients', 'jobs', 'config'];
 const pageLoaders = {};
 
 function navigate(page) {
@@ -88,4 +155,7 @@ function handleRoute() {
 }
 
 window.addEventListener('hashchange', handleRoute);
-window.addEventListener('load', handleRoute);
+window.addEventListener('load', async () => {
+  await loadConfig();
+  handleRoute();
+});

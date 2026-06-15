@@ -18,9 +18,9 @@
           <span class="nav-icon">📊</span>
           <span>Dashboard</span>
         </a>
-        <a href="#filaments" class="nav-item" data-page="filaments">
-          <span class="nav-icon">🧵</span>
-          <span>Filamentos</span>
+        <a href="#inventory" class="nav-item" data-page="inventory">
+          <span class="nav-icon">📦</span>
+          <span>Inventario</span>
         </a>
         <a href="#printers" class="nav-item" data-page="printers">
           <span class="nav-icon">🖨️</span>
@@ -40,12 +40,12 @@
         </a>
       </nav>
       <div class="sidebar-footer">
-        <small>v1.0.0</small>
+        <small>v2.0.0</small>
       </div>
     </aside>
     <main class="content">
       <div id="page-dashboard" class="page"></div>
-      <div id="page-filaments" class="page hidden"></div>
+      <div id="page-inventory" class="page hidden"></div>
       <div id="page-printers" class="page hidden"></div>
       <div id="page-clients" class="page hidden"></div>
       <div id="page-jobs" class="page hidden"></div>
@@ -55,7 +55,7 @@
 
   <!-- Modal -->
   <div id="modal-overlay" class="modal-overlay hidden">
-    <div class="modal">
+    <div class="modal" id="modal-box">
       <div class="modal-header">
         <h3 id="modal-title">Modal</h3>
         <button class="modal-close" onclick="closeModal()">✕</button>
@@ -64,12 +64,30 @@
     </div>
   </div>
 
+  <!-- Confirm Modal -->
+  <div id="confirm-overlay" class="modal-overlay hidden">
+    <div class="modal confirm-modal" id="confirm-box">
+      <div class="modal-header">
+        <h3 id="confirm-title">Confirmar</h3>
+        <button class="modal-close" onclick="closeConfirm()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="confirm-icon" id="confirm-icon">⚠️</div>
+        <div class="confirm-msg" id="confirm-msg"></div>
+        <div class="confirm-btns">
+          <button class="btn btn-secondary" onclick="closeConfirm()">✗ No</button>
+          <button class="btn btn-danger" id="confirm-yes-btn">✓ Sí</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
 
   <script src="/js/app.js"></script>
   <script src="/js/dashboard.js"></script>
-  <script src="/js/filaments.js"></script>
+  <script src="/js/inventory.js"></script>
   <script src="/js/printers.js"></script>
   <script src="/js/clients.js"></script>
   <script src="/js/jobs.js"></script>
