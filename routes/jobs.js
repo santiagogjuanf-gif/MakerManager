@@ -165,26 +165,14 @@ router.post('/', async (req, res) => {
   try {
     const d = req.body;
     const r = await db.runAsync(
-      `INSERT INTO print_jobs (nombre_proyecto,cliente_id,fecha,impresora_id,gramos_purga,gramos_perdidos,tiempo_impresion_min,tiempo_preparacion_min,tiempo_postproceso_min,tiempo_diseno_min,fallo,notas,precio_unitario,precio_menudeo,precio_mayoreo,precio_final,tipo_precio,requiere_factura)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO print_jobs (nombre_proyecto,cliente_id,fecha,descripcion,estado)
+       VALUES (?,?,?,?,?)`,
       [d.nombre_proyecto, d.cliente_id||null, d.fecha||new Date().toISOString().slice(0,10),
-       d.impresora_id||null, d.gramos_purga||0, d.gramos_perdidos||0,
-       d.tiempo_impresion_min||0, d.tiempo_preparacion_min||0,
-       d.tiempo_postproceso_min||0, d.tiempo_diseno_min||0,
-       d.fallo?1:0, d.notas,
-       d.precio_unitario||null, d.precio_menudeo||null, d.precio_mayoreo||null,
-       d.precio_final||null, d.tipo_precio||'menudeo', d.requiere_factura?1:0]
+       d.descripcion||null, 'Solicitud']
     );
-    await saveJobData(r.lastID, d);
-    await deductInventory(d, -1);
     if (d.cliente_id) {
       await db.runAsync('UPDATE clients SET total_pedidos = total_pedidos + 1 WHERE id=?', [d.cliente_id]);
       await updateClassification(d.cliente_id);
-    }
-    // Add hours to printer
-    if (d.impresora_id && d.tiempo_impresion_min > 0) {
-      await db.runAsync('UPDATE printers SET horas_acumuladas = horas_acumuladas + ? WHERE id=?',
-        [d.tiempo_impresion_min/60, d.impresora_id]);
     }
     res.json({ id: r.lastID });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -197,7 +185,10 @@ router.put('/:id', async (req, res) => {
     if (!old) return res.status(404).json({ error: 'Not found' });
     const oldFilaments = await db.allAsync('SELECT * FROM job_filaments WHERE print_job_id=?', [req.params.id]);
 
-    // Restore old inventory
+    // Merge: only fields explicitly sent in the body overwrite the existing record (partial-stage saves)
+    const merged = { ...old, ...d };
+
+    // Restore old inventory before re-deducting with the merged filament list
     await deductInventory({ filaments: oldFilaments.map(f=>({filamento_id:f.filamento_id,gramos_pieza:f.gramos_pieza})), gramos_purga: old.gramos_purga, gramos_perdidos: old.gramos_perdidos, fallo: old.fallo }, +1);
     // Restore printer hours
     if (old.impresora_id && old.tiempo_impresion_min > 0) {
@@ -206,20 +197,22 @@ router.put('/:id', async (req, res) => {
     }
 
     await db.runAsync(
-      `UPDATE print_jobs SET nombre_proyecto=?,cliente_id=?,fecha=?,impresora_id=?,gramos_purga=?,gramos_perdidos=?,tiempo_impresion_min=?,tiempo_preparacion_min=?,tiempo_postproceso_min=?,tiempo_diseno_min=?,fallo=?,notas=?,precio_unitario=?,precio_menudeo=?,precio_mayoreo=?,precio_final=?,tipo_precio=?,requiere_factura=? WHERE id=?`,
-      [d.nombre_proyecto, d.cliente_id||null, d.fecha, d.impresora_id||null,
-       d.gramos_purga||0, d.gramos_perdidos||0,
-       d.tiempo_impresion_min||0, d.tiempo_preparacion_min||0,
-       d.tiempo_postproceso_min||0, d.tiempo_diseno_min||0,
-       d.fallo?1:0, d.notas,
-       d.precio_unitario||null, d.precio_menudeo||null, d.precio_mayoreo||null,
-       d.precio_final||null, d.tipo_precio||'menudeo', d.requiere_factura?1:0, req.params.id]
+      `UPDATE print_jobs SET nombre_proyecto=?,cliente_id=?,fecha=?,descripcion=?,estado=?,impresora_id=?,gramos_purga=?,gramos_perdidos=?,tiempo_impresion_min=?,tiempo_preparacion_min=?,tiempo_postproceso_min=?,tiempo_diseno_min=?,fallo=?,notas=?,notas_produccion=?,precio_unitario=?,precio_menudeo=?,precio_mayoreo=?,precio_final=?,tipo_precio=?,requiere_factura=? WHERE id=?`,
+      [merged.nombre_proyecto, merged.cliente_id||null, merged.fecha, merged.descripcion||null, merged.estado||'Solicitud', merged.impresora_id||null,
+       merged.gramos_purga||0, merged.gramos_perdidos||0,
+       merged.tiempo_impresion_min||0, merged.tiempo_preparacion_min||0,
+       merged.tiempo_postproceso_min||0, merged.tiempo_diseno_min||0,
+       merged.fallo?1:0, merged.notas, merged.notas_produccion,
+       merged.precio_unitario||null, merged.precio_menudeo||null, merged.precio_mayoreo||null,
+       merged.precio_final||null, merged.tipo_precio||'menudeo', merged.requiere_factura?1:0, req.params.id]
     );
-    await saveJobData(req.params.id, d);
-    await deductInventory(d, -1);
-    if (d.impresora_id && d.tiempo_impresion_min > 0) {
+    if (d.filaments !== undefined || d.products !== undefined || d.extras !== undefined) {
+      await saveJobData(req.params.id, d);
+    }
+    await deductInventory({ ...merged, filaments: d.filaments !== undefined ? d.filaments : oldFilaments.map(f=>({filamento_id:f.filamento_id,gramos_pieza:f.gramos_pieza})) }, -1);
+    if (merged.impresora_id && merged.tiempo_impresion_min > 0) {
       await db.runAsync('UPDATE printers SET horas_acumuladas = horas_acumuladas + ? WHERE id=?',
-        [d.tiempo_impresion_min/60, d.impresora_id]);
+        [merged.tiempo_impresion_min/60, merged.impresora_id]);
     }
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }

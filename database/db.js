@@ -85,13 +85,15 @@ async function init() {
       nombre_proyecto TEXT NOT NULL,
       cliente_id INTEGER REFERENCES clients(id),
       fecha TEXT DEFAULT CURRENT_DATE,
+      descripcion TEXT,
+      estado TEXT DEFAULT 'Solicitud',
       impresora_id INTEGER REFERENCES printers(id),
       gramos_purga REAL DEFAULT 0, gramos_perdidos REAL DEFAULT 0,
       tiempo_impresion_min REAL DEFAULT 0,
       tiempo_preparacion_min REAL DEFAULT 0,
       tiempo_postproceso_min REAL DEFAULT 0,
       tiempo_diseno_min REAL DEFAULT 0,
-      fallo INTEGER DEFAULT 0, notas TEXT,
+      fallo INTEGER DEFAULT 0, notas TEXT, notas_produccion TEXT,
       precio_unitario REAL, precio_menudeo REAL, precio_mayoreo REAL,
       precio_final REAL, tipo_precio TEXT DEFAULT 'menudeo',
       requiere_factura INTEGER DEFAULT 0,
@@ -140,6 +142,12 @@ async function init() {
   ];
 
   for (const sql of tables) await db.runAsync(sql);
+
+  // Migrate older databases that already had print_jobs without these columns
+  const jobColumns = ['descripcion TEXT', "estado TEXT DEFAULT 'Solicitud'", 'notas_produccion TEXT'];
+  for (const colDef of jobColumns) {
+    try { await db.runAsync(`ALTER TABLE print_jobs ADD COLUMN ${colDef}`); } catch (e) { /* column already exists */ }
+  }
 
   const defaults = {
     nombre_negocio: 'MakerManager Studio',
