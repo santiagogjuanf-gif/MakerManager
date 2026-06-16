@@ -15,7 +15,7 @@
         <button class="btn btn-primary" onclick="prOpenForm()">＋ Agregar Impresora</button>
       </div>
       <div class="table-toolbar" style="background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:20px">
-        <input class="search-input form-control" style="width:260px" placeholder="Buscar impresora..." oninput="prSearch2(this.value)">
+        <input class="search-input form-control" style="width:260px" placeholder="Buscar impresora..." oninput="prSearch2(this.value)" autocomplete="off">
       </div>
       <div id="pr-grid" class="printer-grid"></div>
       <div class="pagination" id="pr-pagination"></div>`;
@@ -151,12 +151,12 @@
         </div>
         <div class="form-group" style="margin-bottom:12px">
           <label>Foto</label>
-          <input type="file" class="form-control" name="foto" accept="image/*" onchange="prPreviewPhoto(this)">
+          <input type="file" class="form-control" name="foto" accept="image/*" onchange="prPreviewPhoto(this)" autocomplete="off">
         </div>
         <div class="form-grid">
-          <div class="form-group"><label>Nombre *</label><input class="form-control" name="nombre" value="${p.nombre || ''}" required></div>
-          <div class="form-group"><label>Marca</label><input class="form-control" name="marca" value="${p.marca || ''}"></div>
-          <div class="form-group"><label>Modelo</label><input class="form-control" name="modelo" value="${p.modelo || ''}"></div>
+          <div class="form-group"><label>Nombre *</label><input class="form-control" name="nombre" value="${p.nombre || ''}" required autocomplete="off"></div>
+          <div class="form-group"><label>Marca</label><input class="form-control" name="marca" value="${p.marca || ''}" autocomplete="off"></div>
+          <div class="form-group"><label>Modelo</label><input class="form-control" name="modelo" value="${p.modelo || ''}" autocomplete="off"></div>
           <div class="form-group"><label>Tipo</label>
             <select class="form-control" name="tipo" id="pr-tipo-sel" onchange="prTypeChange(this.value)">
               ${['FDM','Resina','Laser','CNC'].map(t => `<option ${tipo===t?'selected':''}>${t}</option>`).join('')}
@@ -167,15 +167,15 @@
               ${['Activa','Mantenimiento','Inactiva'].map(s => `<option ${p.estado===s?'selected':''}>${s}</option>`).join('')}
             </select>
           </div>
-          <div class="form-group"><label>Ubicación</label><input class="form-control" name="ubicacion" value="${p.ubicacion || ''}"></div>
-          <div class="form-group"><label>Costo de compra</label><input class="form-control" name="costo_compra" type="number" step="0.01" value="${p.costo_compra || ''}"></div>
-          <div class="form-group"><label>Fecha de compra</label><input class="form-control" name="fecha_compra" type="date" value="${p.fecha_compra ? p.fecha_compra.substring(0,10) : ''}"></div>
-          <div class="form-group"><label>Consumo (W)</label><input class="form-control" name="consumo_promedio_watts" type="number" value="${p.consumo_promedio_watts || 120}"></div>
-          <div class="form-group form-full"><label>Notas</label><textarea class="form-control" name="notas" rows="2">${p.notas || ''}</textarea></div>
+          <div class="form-group"><label>Ubicación</label><input class="form-control" name="ubicacion" value="${p.ubicacion || ''}" autocomplete="off"></div>
+          <div class="form-group"><label>Costo de compra</label><input class="form-control" name="costo_compra" type="number" step="0.01" value="${p.costo_compra || ''}" autocomplete="off"></div>
+          <div class="form-group"><label>Fecha de compra</label><input class="form-control" name="fecha_compra" type="date" value="${p.fecha_compra ? p.fecha_compra.substring(0,10) : ''}" autocomplete="off"></div>
+          <div class="form-group"><label>Consumo (W)</label><input class="form-control" name="consumo_promedio_watts" type="number" value="${p.consumo_promedio_watts || 120}" autocomplete="off"></div>
+          <div class="form-group form-full"><label>Notas</label><textarea class="form-control" name="notas" rows="2" autocomplete="off">${p.notas || ''}</textarea></div>
         </div>
         <div id="pr-type-fields"></div>
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+          <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>`);
@@ -201,17 +201,17 @@
 
     let html = '<div class="form-grid">';
     if (tipo === 'FDM') {
-      html += `<div class="form-group form-full"><label><input type="checkbox" name="tiene_ams" value="1" ${p.tiene_ams ? 'checked' : ''}> Tiene AMS / Multi-material</label></div>`;
+      html += `<div class="form-group form-full"><label><input type="checkbox" name="tiene_ams" value="1" ${p.tiene_ams ? 'checked' : ''} autocomplete="off"> Tiene AMS / Multi-material</label></div>`;
     } else if (tipo === 'Laser') {
       html += `
-        <div class="form-group"><label>Área de trabajo</label><input class="form-control" name="area_trabajo" value="${p.area_trabajo || ''}"></div>
-        <div class="form-group"><label>Potencia láser (W)</label><input class="form-control" name="potencia_laser_w" type="number" step="0.1" value="${p.potencia_laser_w || ''}"></div>
+        <div class="form-group"><label>Área de trabajo</label><input class="form-control" name="area_trabajo" value="${p.area_trabajo || ''}" autocomplete="off"></div>
+        <div class="form-group"><label>Potencia láser (W)</label><input class="form-control" name="potencia_laser_w" type="number" step="0.1" value="${p.potencia_laser_w || ''}" autocomplete="off"></div>
         <div class="form-group"><label>Tipo láser</label>
           <select class="form-control" name="tipo_laser">
             ${['CO2','Diodo','Fibra'].map(t => `<option ${p.tipo_laser===t?'selected':''}>${t}</option>`).join('')}
           </select>
         </div>
-        <div class="form-group"><label>Materiales compatibles</label><input class="form-control" name="materiales_compatibles" value="${p.materiales_compatibles || ''}"></div>`;
+        <div class="form-group"><label>Materiales compatibles</label><input class="form-control" name="materiales_compatibles" value="${p.materiales_compatibles || ''}" autocomplete="off"></div>`;
     } else if (tipo === 'Resina') {
       html += `
         <div class="form-group"><label>Tipo resina</label>
@@ -219,15 +219,15 @@
             ${['MSLA','DLP','SLA'].map(t => `<option ${p.tipo_resina===t?'selected':''}>${t}</option>`).join('')}
           </select>
         </div>
-        <div class="form-group"><label>Fuente de luz</label><input class="form-control" name="fuente_luz" value="${p.fuente_luz || ''}"></div>
-        <div class="form-group"><label>Velocidad máx (mm/s)</label><input class="form-control" name="velocidad_max_mm" type="number" step="0.1" value="${p.velocidad_max_mm || ''}"></div>
-        <div class="form-group"><label>Área de trabajo</label><input class="form-control" name="area_trabajo" value="${p.area_trabajo || ''}"></div>`;
+        <div class="form-group"><label>Fuente de luz</label><input class="form-control" name="fuente_luz" value="${p.fuente_luz || ''}" autocomplete="off"></div>
+        <div class="form-group"><label>Velocidad máx (mm/s)</label><input class="form-control" name="velocidad_max_mm" type="number" step="0.1" value="${p.velocidad_max_mm || ''}" autocomplete="off"></div>
+        <div class="form-group"><label>Área de trabajo</label><input class="form-control" name="area_trabajo" value="${p.area_trabajo || ''}" autocomplete="off"></div>`;
     } else if (tipo === 'CNC') {
       html += `
-        <div class="form-group"><label>Área de trabajo</label><input class="form-control" name="area_trabajo" value="${p.area_trabajo || ''}"></div>
-        <div class="form-group"><label>Husillo (W)</label><input class="form-control" name="husillo_w" type="number" value="${p.husillo_w || ''}"></div>
-        <div class="form-group"><label>Velocidad máx (mm/s)</label><input class="form-control" name="velocidad_max_mm" type="number" step="0.1" value="${p.velocidad_max_mm || ''}"></div>
-        <div class="form-group"><label>Materiales compatibles</label><input class="form-control" name="materiales_compatibles" value="${p.materiales_compatibles || ''}"></div>`;
+        <div class="form-group"><label>Área de trabajo</label><input class="form-control" name="area_trabajo" value="${p.area_trabajo || ''}" autocomplete="off"></div>
+        <div class="form-group"><label>Husillo (W)</label><input class="form-control" name="husillo_w" type="number" value="${p.husillo_w || ''}" autocomplete="off"></div>
+        <div class="form-group"><label>Velocidad máx (mm/s)</label><input class="form-control" name="velocidad_max_mm" type="number" step="0.1" value="${p.velocidad_max_mm || ''}" autocomplete="off"></div>
+        <div class="form-group"><label>Materiales compatibles</label><input class="form-control" name="materiales_compatibles" value="${p.materiales_compatibles || ''}" autocomplete="off"></div>`;
     }
     html += '</div>';
     container.innerHTML = html;

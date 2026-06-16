@@ -359,7 +359,7 @@ select.form-control option { background: var(--card); }
 /* Toast */
 .toast {
   position: fixed;
-  bottom: 24px;
+  top: 24px;
   right: 24px;
   background: var(--card);
   border: 1px solid var(--border);

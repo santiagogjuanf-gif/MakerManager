@@ -33,7 +33,7 @@ const THEMES = {
   morado:   { accent:'#6c63ff', accentLight:'#8b84ff', bg:'#0f1117', surface:'#1a1d27', card:'#1e2130', border:'#2d3148', text:'#e2e8f0', textMuted:'#8892a4' },
   cerberus: { accent:'#f97316', accentLight:'#fb923c', bg:'#080b10', surface:'#111318', card:'#14171e', border:'#1f2330', text:'#f1f5f9', textMuted:'#8892a4' },
   cian:     { accent:'#06b6d4', accentLight:'#22d3ee', bg:'#f8fafc', surface:'#f1f5f9', card:'#ffffff', border:'#e2e8f0', text:'#1e293b', textMuted:'#64748b' },
-  bambu:    { accent:'#4ade80', accentLight:'#86efac', bg:'#f8fafc', surface:'#f0fdf4', card:'#ffffff', border:'#d1fae5', text:'#1e293b', textMuted:'#64748b' },
+  bambu:    { accent:'#4ade80', accentLight:'#86efac', bg:'#e2e5e9', surface:'#d8dfe6', card:'#f0f2f5', border:'#c5cdd8', text:'#1e293b', textMuted:'#64748b' },
 };
 
 function applyTheme(t) {
@@ -77,9 +77,9 @@ function closeModal() {
   document.getElementById('modal-overlay').classList.add('hidden');
 }
 
-document.getElementById('modal-overlay').addEventListener('click', (e) => {
-  if (e.target === e.currentTarget) closeModal();
-});
+function cancelModal() {
+  if (confirm('¿Seguro que deseas cancelar? Se perderán los datos ingresados.')) closeModal();
+}
 
 // Confirm modal
 function confirmModal(msg, onYes, icon = '⚠️') {
@@ -96,10 +96,6 @@ function confirmModal(msg, onYes, icon = '⚠️') {
 function closeConfirm() {
   document.getElementById('confirm-overlay').classList.add('hidden');
 }
-
-document.getElementById('confirm-overlay').addEventListener('click', (e) => {
-  if (e.target === e.currentTarget) closeConfirm();
-});
 
 // Format currency (dynamic)
 function fmtMoney(v) {

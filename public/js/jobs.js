@@ -30,7 +30,7 @@
       </div>
       <div class="table-container">
         <div class="table-toolbar">
-          <input class="search-input form-control" style="width:260px" placeholder="Buscar trabajo..." oninput="jobSearch2(this.value)">
+          <input class="search-input form-control" style="width:260px" placeholder="Buscar trabajo..." oninput="jobSearch2(this.value)" autocomplete="off">
         </div>
         <table>
           <thead><tr><th>#</th><th>Proyecto</th><th>Cliente</th><th>Fecha</th><th>Piezas</th><th>Precio final</th><th>Acciones</th></tr></thead>
@@ -198,24 +198,24 @@
         <select class="form-control" name="filamento_id[]" style="flex:2">
           ${allFilaments.map(af => `<option value="${af.id}" ${af.id == f.filamento_id ? 'selected' : ''}>${af.marca} ${af.nombre_comercial || ''} — ${af.material}</option>`).join('')}
         </select>
-        <input class="form-control" name="gramos_pieza[]" type="number" step="0.1" value="${f.gramos_pieza || ''}" placeholder="g" style="width:80px">
+        <input class="form-control" name="gramos_pieza[]" type="number" step="0.1" value="${f.gramos_pieza || ''}" placeholder="g" style="width:80px" autocomplete="off">
         <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button>
       </div>`
     ).join('');
 
     const existingProducts = (j.products || []).map((p, i) =>
       `<div class="extra-item" id="prod-row-${i}">
-        <input class="form-control" name="prod_desc[]" value="${p.descripcion || ''}" placeholder="Descripción" style="flex:2">
-        <input class="form-control" name="prod_qty[]" type="number" min="1" value="${p.cantidad || 1}" style="width:70px">
+        <input class="form-control" name="prod_desc[]" value="${p.descripcion || ''}" placeholder="Descripción" style="flex:2" autocomplete="off">
+        <input class="form-control" name="prod_qty[]" type="number" min="1" value="${p.cantidad || 1}" style="width:70px" autocomplete="off">
         <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button>
       </div>`
     ).join('');
 
     const existingExtras = (j.extras || []).map((x, i) =>
       `<div class="extra-item" id="extra-row-${i}">
-        <input class="form-control" name="extra_nombre[]" value="${x.nombre_extra || ''}" placeholder="Nombre" style="flex:2">
-        <input class="form-control" name="extra_qty[]" type="number" value="${x.cantidad || 1}" style="width:60px">
-        <input class="form-control" name="extra_costo[]" type="number" step="0.01" value="${x.costo_unitario || ''}" placeholder="$/u" style="width:80px">
+        <input class="form-control" name="extra_nombre[]" value="${x.nombre_extra || ''}" placeholder="Nombre" style="flex:2" autocomplete="off">
+        <input class="form-control" name="extra_qty[]" type="number" value="${x.cantidad || 1}" style="width:60px" autocomplete="off">
+        <input class="form-control" name="extra_costo[]" type="number" step="0.01" value="${x.costo_unitario || ''}" placeholder="$/u" style="width:80px" autocomplete="off">
         <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button>
       </div>`
     ).join('');
@@ -225,33 +225,33 @@
 
         <div style="font-weight:600;color:var(--accent-light);margin-bottom:8px">1. Básico</div>
         <div class="form-grid" style="margin-bottom:16px">
-          <div class="form-group form-full"><label>Nombre del proyecto *</label><input class="form-control" name="nombre_proyecto" value="${j.nombre_proyecto || ''}" required></div>
+          <div class="form-group form-full"><label>Nombre del proyecto *</label><input class="form-control" name="nombre_proyecto" value="${j.nombre_proyecto || ''}" required autocomplete="off"></div>
           <div class="form-group"><label>Cliente</label><select class="form-control" name="cliente_id"><option value="">— Sin cliente —</option>${clientOptions}</select></div>
           <div class="form-group"><label>Impresora</label><select class="form-control" name="impresora_id"><option value="">— Sin impresora —</option>${printerOptions}</select></div>
-          <div class="form-group"><label>Fecha</label><input class="form-control" name="fecha" type="date" value="${j.fecha ? j.fecha.substring(0,10) : new Date().toISOString().substring(0,10)}"></div>
-          <div class="form-group"><label><input type="checkbox" name="fallo" value="1" ${j.fallo ? 'checked' : ''}> Trabajo fallido</label></div>
+          <div class="form-group"><label>Fecha</label><input class="form-control" name="fecha" type="date" value="${j.fecha ? j.fecha.substring(0,10) : new Date().toISOString().substring(0,10)}" autocomplete="off"></div>
+          <div class="form-group"><label><input type="checkbox" name="fallo" value="1" ${j.fallo ? 'checked' : ''} autocomplete="off"> Trabajo fallido</label></div>
         </div>
 
         <div style="font-weight:600;color:var(--accent-light);margin-bottom:8px">2. Filamentos</div>
         <div id="filamentos-list" style="margin-bottom:8px">
           ${existingFilaments || `<div class="extra-item">
             <select class="form-control" name="filamento_id[]" style="flex:2"><option value="">— Seleccionar —</option>${filamentOptions}</select>
-            <input class="form-control" name="gramos_pieza[]" type="number" step="0.1" placeholder="g" style="width:80px">
+            <input class="form-control" name="gramos_pieza[]" type="number" step="0.1" placeholder="g" style="width:80px" autocomplete="off">
             <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button>
           </div>`}
         </div>
         <button type="button" class="btn btn-secondary btn-sm" onclick="jobAddFilament()" style="margin-bottom:16px">＋ Filamento</button>
         <div class="form-grid" style="margin-bottom:16px">
-          <div class="form-group"><label>Gramos purga</label><input class="form-control" name="gramos_purga" type="number" step="0.1" value="${j.gramos_purga || 0}"></div>
-          <div class="form-group"><label>Gramos perdidos</label><input class="form-control" name="gramos_perdidos" type="number" step="0.1" value="${j.gramos_perdidos || 0}"></div>
+          <div class="form-group"><label>Gramos purga</label><input class="form-control" name="gramos_purga" type="number" step="0.1" value="${j.gramos_purga || 0}" autocomplete="off"></div>
+          <div class="form-group"><label>Gramos perdidos</label><input class="form-control" name="gramos_perdidos" type="number" step="0.1" value="${j.gramos_perdidos || 0}" autocomplete="off"></div>
         </div>
 
         <div style="font-weight:600;color:var(--accent-light);margin-bottom:8px">3. Tiempos</div>
         <div class="form-grid" style="margin-bottom:16px">
-          <div class="form-group"><label>Impresión</label><input class="form-control" name="tiempo_impresion" placeholder="2:30h" value="${j.tiempo_impresion_min ? formatTime(j.tiempo_impresion_min) : ''}"></div>
-          <div class="form-group"><label>Preparación</label><input class="form-control" name="tiempo_preparacion" placeholder="0:30h" value="${j.tiempo_preparacion_min ? formatTime(j.tiempo_preparacion_min) : ''}"></div>
-          <div class="form-group"><label>Postproceso</label><input class="form-control" name="tiempo_postproceso" placeholder="0:15h" value="${j.tiempo_postproceso_min ? formatTime(j.tiempo_postproceso_min) : ''}"></div>
-          <div class="form-group"><label>Diseño</label><input class="form-control" name="tiempo_diseno" placeholder="1:00h" value="${j.tiempo_diseno_min ? formatTime(j.tiempo_diseno_min) : ''}"></div>
+          <div class="form-group"><label>Impresión</label><input class="form-control" name="tiempo_impresion" placeholder="2:30h" value="${j.tiempo_impresion_min ? formatTime(j.tiempo_impresion_min) : ''}" autocomplete="off"></div>
+          <div class="form-group"><label>Preparación</label><input class="form-control" name="tiempo_preparacion" placeholder="0:30h" value="${j.tiempo_preparacion_min ? formatTime(j.tiempo_preparacion_min) : ''}" autocomplete="off"></div>
+          <div class="form-group"><label>Postproceso</label><input class="form-control" name="tiempo_postproceso" placeholder="0:15h" value="${j.tiempo_postproceso_min ? formatTime(j.tiempo_postproceso_min) : ''}" autocomplete="off"></div>
+          <div class="form-group"><label>Diseño</label><input class="form-control" name="tiempo_diseno" placeholder="1:00h" value="${j.tiempo_diseno_min ? formatTime(j.tiempo_diseno_min) : ''}" autocomplete="off"></div>
         </div>
 
         <div style="font-weight:600;color:var(--accent-light);margin-bottom:8px">4. Productos</div>
@@ -268,17 +268,17 @@
             <label>Tipo de precio</label>
             <div style="display:flex;gap:16px;margin-top:4px">
               ${['menudeo','mayoreo','personalizado'].map(t =>
-                `<label><input type="radio" name="tipo_precio" value="${t}" ${(j.tipo_precio||'menudeo')===t?'checked':''}> ${t.charAt(0).toUpperCase()+t.slice(1)}</label>`
+                `<label><input type="radio" name="tipo_precio" value="${t}" ${(j.tipo_precio||'menudeo')===t?'checked':''} autocomplete="off"> ${t.charAt(0).toUpperCase()+t.slice(1)}</label>`
               ).join('')}
             </div>
           </div>
-          <div class="form-group"><label>Precio final</label><input class="form-control" name="precio_final" type="number" step="0.01" value="${j.precio_final || ''}"></div>
-          <div class="form-group"><label><input type="checkbox" name="requiere_factura" value="1" ${j.requiere_factura ? 'checked' : ''}> Requiere factura</label></div>
-          <div class="form-group form-full"><label>Notas</label><textarea class="form-control" name="notas" rows="2">${j.notas || ''}</textarea></div>
+          <div class="form-group"><label>Precio final</label><input class="form-control" name="precio_final" type="number" step="0.01" value="${j.precio_final || ''}" autocomplete="off"></div>
+          <div class="form-group"><label><input type="checkbox" name="requiere_factura" value="1" ${j.requiere_factura ? 'checked' : ''} autocomplete="off"> Requiere factura</label></div>
+          <div class="form-group form-full"><label>Notas</label><textarea class="form-control" name="notas" rows="2" autocomplete="off">${j.notas || ''}</textarea></div>
         </div>
 
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+          <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>`);
@@ -296,7 +296,7 @@
     row.className = 'extra-item';
     row.innerHTML = `
       <select class="form-control" name="filamento_id[]" style="flex:2"><option value="">— Seleccionar —</option>${window._jobFilamentOptions || ''}</select>
-      <input class="form-control" name="gramos_pieza[]" type="number" step="0.1" placeholder="g" style="width:80px">
+      <input class="form-control" name="gramos_pieza[]" type="number" step="0.1" placeholder="g" style="width:80px" autocomplete="off">
       <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button>`;
     list.appendChild(row);
   };
@@ -307,8 +307,8 @@
     const row = document.createElement('div');
     row.className = 'extra-item';
     row.innerHTML = `
-      <input class="form-control" name="prod_desc[]" placeholder="Descripción" style="flex:2">
-      <input class="form-control" name="prod_qty[]" type="number" min="1" value="1" style="width:70px">
+      <input class="form-control" name="prod_desc[]" placeholder="Descripción" style="flex:2" autocomplete="off">
+      <input class="form-control" name="prod_qty[]" type="number" min="1" value="1" style="width:70px" autocomplete="off">
       <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button>`;
     list.appendChild(row);
   };
@@ -319,9 +319,9 @@
     const row = document.createElement('div');
     row.className = 'extra-item';
     row.innerHTML = `
-      <input class="form-control" name="extra_nombre[]" placeholder="Nombre" style="flex:2">
-      <input class="form-control" name="extra_qty[]" type="number" value="1" style="width:60px">
-      <input class="form-control" name="extra_costo[]" type="number" step="0.01" placeholder="$/u" style="width:80px">
+      <input class="form-control" name="extra_nombre[]" placeholder="Nombre" style="flex:2" autocomplete="off">
+      <input class="form-control" name="extra_qty[]" type="number" value="1" style="width:60px" autocomplete="off">
+      <input class="form-control" name="extra_costo[]" type="number" step="0.01" placeholder="$/u" style="width:80px" autocomplete="off">
       <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button>`;
     list.appendChild(row);
   };

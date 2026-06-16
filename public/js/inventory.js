@@ -97,7 +97,7 @@
       <div class="table-container">
         <div class="table-toolbar">
           <input class="search-input form-control" style="width:220px" placeholder="Buscar filamento..." value="${filSearch}"
-            oninput="invSearchFil(this.value)">
+            oninput="invSearchFil(this.value)" autocomplete="off">
           <button class="btn btn-primary" onclick="invOpenFilamentForm()">＋ Agregar</button>
         </div>
         <table>
@@ -126,11 +126,11 @@
         <div class="form-grid">
           <div class="form-group">
             <label>Marca *</label>
-            <input class="form-control" name="marca" value="${f.marca || ''}" required>
+            <input class="form-control" name="marca" value="${f.marca || ''}" required autocomplete="off">
           </div>
           <div class="form-group">
             <label>Nombre comercial</label>
-            <input class="form-control" name="nombre_comercial" value="${f.nombre_comercial || ''}">
+            <input class="form-control" name="nombre_comercial" value="${f.nombre_comercial || ''}" autocomplete="off">
           </div>
           <div class="form-group">
             <label>Material</label>
@@ -140,7 +140,7 @@
           </div>
           <div class="form-group">
             <label>Color</label>
-            <input class="form-control" name="color" value="${f.color || ''}">
+            <input class="form-control" name="color" value="${f.color || ''}" autocomplete="off">
           </div>
           <div class="form-group">
             <label>Acabado</label>
@@ -150,39 +150,39 @@
           </div>
           <div class="form-group">
             <label>Diámetro (mm)</label>
-            <input class="form-control" name="diametro_mm" type="number" step="0.01" value="${f.diametro_mm || 1.75}">
+            <input class="form-control" name="diametro_mm" type="number" step="0.01" value="${f.diametro_mm || 1.75}" autocomplete="off">
           </div>
           <div class="form-group">
             <label>Peso inicial (g)</label>
-            <input class="form-control" name="peso_inicial_g" type="number" value="${f.peso_inicial_g || 1000}" id="fil-peso-inicial" oninput="invCalcCostG()">
+            <input class="form-control" name="peso_inicial_g" type="number" value="${f.peso_inicial_g || 1000}" id="fil-peso-inicial" oninput="invCalcCostG()" autocomplete="off">
           </div>
           <div class="form-group">
             <label>Peso actual (g)</label>
-            <input class="form-control" name="peso_actual_g" type="number" value="${f.peso_actual_g || 1000}">
+            <input class="form-control" name="peso_actual_g" type="number" value="${f.peso_actual_g || 1000}" autocomplete="off">
           </div>
           <div class="form-group">
             <label>Peso bobina vacía (g)</label>
-            <input class="form-control" name="peso_bobina_vacia_g" type="number" value="${f.peso_bobina_vacia_g || 200}" id="fil-peso-bobina" oninput="invCalcCostG()">
+            <input class="form-control" name="peso_bobina_vacia_g" type="number" value="${f.peso_bobina_vacia_g || 200}" id="fil-peso-bobina" oninput="invCalcCostG()" autocomplete="off">
           </div>
           <div class="form-group">
             <label>Costo total</label>
-            <input class="form-control" name="costo_total" type="number" step="0.01" value="${f.costo_total || ''}" id="fil-costo-total" oninput="invCalcCostG()">
+            <input class="form-control" name="costo_total" type="number" step="0.01" value="${f.costo_total || ''}" id="fil-costo-total" oninput="invCalcCostG()" autocomplete="off">
           </div>
           <div class="form-group">
             <label>Costo/g (auto)</label>
-            <input class="form-control" name="costo_por_gramo" type="number" step="0.0001" id="fil-cpg" value="${f.costo_por_gramo || ''}" placeholder="Se calcula solo">
+            <input class="form-control" name="costo_por_gramo" type="number" step="0.0001" id="fil-cpg" value="${f.costo_por_gramo || ''}" placeholder="Se calcula solo" autocomplete="off">
           </div>
           <div class="form-group">
             <label>Proveedor</label>
-            <input class="form-control" name="proveedor" value="${f.proveedor || ''}">
+            <input class="form-control" name="proveedor" value="${f.proveedor || ''}" autocomplete="off">
           </div>
           <div class="form-group form-full">
             <label>Notas</label>
-            <textarea class="form-control" name="notas" rows="2">${f.notas || ''}</textarea>
+            <textarea class="form-control" name="notas" rows="2" autocomplete="off">${f.notas || ''}</textarea>
           </div>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+          <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>`);
@@ -254,7 +254,7 @@
       <div class="table-container">
         <div class="table-toolbar">
           <input class="search-input form-control" style="width:220px" placeholder="Buscar resina..." value="${resinSearch}"
-            oninput="invSearchResin(this.value)">
+            oninput="invSearchResin(this.value)" autocomplete="off">
           <button class="btn btn-primary" onclick="invOpenResinaForm()">＋ Agregar</button>
         </div>
         <table>
@@ -274,23 +274,23 @@
     openModal(id ? 'Editar Resina' : 'Nueva Resina', `
       <form id="resin-form" onsubmit="invSaveResina(event, ${id || 'null'})">
         <div class="form-grid">
-          <div class="form-group"><label>Marca *</label><input class="form-control" name="marca" value="${r.marca || ''}" required></div>
-          <div class="form-group"><label>Nombre comercial</label><input class="form-control" name="nombre_comercial" value="${r.nombre_comercial || ''}"></div>
+          <div class="form-group"><label>Marca *</label><input class="form-control" name="marca" value="${r.marca || ''}" required autocomplete="off"></div>
+          <div class="form-group"><label>Nombre comercial</label><input class="form-control" name="nombre_comercial" value="${r.nombre_comercial || ''}" autocomplete="off"></div>
           <div class="form-group"><label>Tipo</label>
             <select class="form-control" name="tipo">
               ${['Estándar','Flexible','ABS-Like','Water-Washable','Dental','Castable'].map(t => `<option ${r.tipo===t?'selected':''}>${t}</option>`).join('')}
             </select>
           </div>
-          <div class="form-group"><label>Color</label><input class="form-control" name="color" value="${r.color || ''}"></div>
-          <div class="form-group"><label>Volumen total (ml)</label><input class="form-control" name="volumen_ml" type="number" value="${r.volumen_ml || 1000}" id="resin-vol" oninput="invCalcCostMl()"></div>
-          <div class="form-group"><label>Volumen actual (ml)</label><input class="form-control" name="volumen_actual_ml" type="number" value="${r.volumen_actual_ml || 1000}"></div>
-          <div class="form-group"><label>Costo total</label><input class="form-control" name="costo_total" type="number" step="0.01" value="${r.costo_total || ''}" id="resin-costo" oninput="invCalcCostMl()"></div>
-          <div class="form-group"><label>Costo/ml (auto)</label><input class="form-control" name="costo_por_ml" type="number" step="0.0001" id="resin-cpm" value="${r.costo_por_ml || ''}"></div>
-          <div class="form-group"><label>Proveedor</label><input class="form-control" name="proveedor" value="${r.proveedor || ''}"></div>
-          <div class="form-group form-full"><label>Notas</label><textarea class="form-control" name="notas" rows="2">${r.notas || ''}</textarea></div>
+          <div class="form-group"><label>Color</label><input class="form-control" name="color" value="${r.color || ''}" autocomplete="off"></div>
+          <div class="form-group"><label>Volumen total (ml)</label><input class="form-control" name="volumen_ml" type="number" value="${r.volumen_ml || 1000}" id="resin-vol" oninput="invCalcCostMl()" autocomplete="off"></div>
+          <div class="form-group"><label>Volumen actual (ml)</label><input class="form-control" name="volumen_actual_ml" type="number" value="${r.volumen_actual_ml || 1000}" autocomplete="off"></div>
+          <div class="form-group"><label>Costo total</label><input class="form-control" name="costo_total" type="number" step="0.01" value="${r.costo_total || ''}" id="resin-costo" oninput="invCalcCostMl()" autocomplete="off"></div>
+          <div class="form-group"><label>Costo/ml (auto)</label><input class="form-control" name="costo_por_ml" type="number" step="0.0001" id="resin-cpm" value="${r.costo_por_ml || ''}" autocomplete="off"></div>
+          <div class="form-group"><label>Proveedor</label><input class="form-control" name="proveedor" value="${r.proveedor || ''}" autocomplete="off"></div>
+          <div class="form-group form-full"><label>Notas</label><textarea class="form-control" name="notas" rows="2" autocomplete="off">${r.notas || ''}</textarea></div>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+          <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>`);
@@ -354,7 +354,7 @@
       <div class="table-container">
         <div class="table-toolbar">
           <input class="search-input form-control" style="width:220px" placeholder="Buscar consumible..." value="${laserSearch}"
-            oninput="invSearchLaser(this.value)">
+            oninput="invSearchLaser(this.value)" autocomplete="off">
           <button class="btn btn-primary" onclick="invOpenLaserForm()">＋ Agregar</button>
         </div>
         <table>
@@ -373,21 +373,21 @@
     const c = data || {};
     return `
       <div class="form-grid">
-        <div class="form-group"><label>Nombre *</label><input class="form-control" name="nombre" value="${c.nombre || ''}" required></div>
-        <div class="form-group"><label>Material</label><input class="form-control" name="material" value="${c.material || ''}"></div>
-        <div class="form-group"><label>Dimensiones</label><input class="form-control" name="dimensiones" value="${c.dimensiones || ''}"></div>
-        <div class="form-group"><label>Cantidad</label><input class="form-control" name="cantidad" type="number" value="${c.cantidad || 0}"></div>
+        <div class="form-group"><label>Nombre *</label><input class="form-control" name="nombre" value="${c.nombre || ''}" required autocomplete="off"></div>
+        <div class="form-group"><label>Material</label><input class="form-control" name="material" value="${c.material || ''}" autocomplete="off"></div>
+        <div class="form-group"><label>Dimensiones</label><input class="form-control" name="dimensiones" value="${c.dimensiones || ''}" autocomplete="off"></div>
+        <div class="form-group"><label>Cantidad</label><input class="form-control" name="cantidad" type="number" value="${c.cantidad || 0}" autocomplete="off"></div>
         <div class="form-group"><label>Unidad</label>
           <select class="form-control" name="unidad">
             ${['pcs','hojas','m','m²','kg'].map(u => `<option ${c.unidad===u?'selected':''}>${u}</option>`).join('')}
           </select>
         </div>
-        <div class="form-group"><label>Costo unitario</label><input class="form-control" name="costo_unitario" type="number" step="0.01" value="${c.costo_unitario || ''}"></div>
-        <div class="form-group"><label>Proveedor</label><input class="form-control" name="proveedor" value="${c.proveedor || ''}"></div>
-        <div class="form-group form-full"><label>Notas</label><textarea class="form-control" name="notas" rows="2">${c.notas || ''}</textarea></div>
+        <div class="form-group"><label>Costo unitario</label><input class="form-control" name="costo_unitario" type="number" step="0.01" value="${c.costo_unitario || ''}" autocomplete="off"></div>
+        <div class="form-group"><label>Proveedor</label><input class="form-control" name="proveedor" value="${c.proveedor || ''}" autocomplete="off"></div>
+        <div class="form-group form-full"><label>Notas</label><textarea class="form-control" name="notas" rows="2" autocomplete="off">${c.notas || ''}</textarea></div>
       </div>
       <div class="form-actions">
-        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+        <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
         <button type="submit" class="btn btn-primary">Guardar</button>
       </div>`;
   }
@@ -449,7 +449,7 @@
       <div class="table-container">
         <div class="table-toolbar">
           <input class="search-input form-control" style="width:220px" placeholder="Buscar consumible..." value="${cncSearch}"
-            oninput="invSearchCNC(this.value)">
+            oninput="invSearchCNC(this.value)" autocomplete="off">
           <button class="btn btn-primary" onclick="invOpenCNCForm()">＋ Agregar</button>
         </div>
         <table>
@@ -552,7 +552,7 @@
     tab.innerHTML = `
       <div class="table-container">
         <div class="table-toolbar">
-          <input class="search-input form-control" style="width:220px" placeholder="Buscar..." value="${extSearch}" oninput="invSearchExt(this.value)">
+          <input class="search-input form-control" style="width:220px" placeholder="Buscar..." value="${extSearch}" oninput="invSearchExt(this.value)" autocomplete="off">
           <button class="btn btn-primary" onclick="invOpenExtForm()">＋ Agregar</button>
         </div>
         <table>
@@ -570,21 +570,21 @@
     openModal(id ? `Editar ${tipo}` : `Nuevo ${tipo}`, `
       <form onsubmit="invSaveConsumible(event,'${tipo}',${id||'null'})">
         <div class="form-grid">
-          <div class="form-group"><label>Nombre *</label><input class="form-control" name="nombre" value="${data.nombre||''}" required></div>
-          <div class="form-group"><label>Categoría</label><input class="form-control" name="categoria" value="${data.categoria||''}"></div>
-          <div class="form-group"><label>Cantidad</label><input class="form-control" name="cantidad" type="number" step="0.01" value="${data.cantidad||0}"></div>
+          <div class="form-group"><label>Nombre *</label><input class="form-control" name="nombre" value="${data.nombre||''}" required autocomplete="off"></div>
+          <div class="form-group"><label>Categoría</label><input class="form-control" name="categoria" value="${data.categoria||''}" autocomplete="off"></div>
+          <div class="form-group"><label>Cantidad</label><input class="form-control" name="cantidad" type="number" step="0.01" value="${data.cantidad||0}" autocomplete="off"></div>
           <div class="form-group"><label>Unidad</label>
             <select class="form-control" name="unidad">
               ${['pcs','kg','L','m','hojas','rollo','bolsa'].map(u=>`<option ${(data.unidad||'pcs')===u?'selected':''}>${u}</option>`).join('')}
             </select>
           </div>
-          <div class="form-group"><label>Costo unitario</label><input class="form-control" name="costo_unitario" type="number" step="0.01" value="${data.costo_unitario||0}"></div>
-          <div class="form-group"><label>Stock mínimo</label><input class="form-control" name="stock_minimo" type="number" step="0.01" value="${data.stock_minimo||0}"></div>
-          <div class="form-group"><label>Proveedor</label><input class="form-control" name="proveedor" value="${data.proveedor||''}"></div>
-          <div class="form-group form-full"><label>Notas</label><input class="form-control" name="notas" value="${data.notas||''}"></div>
+          <div class="form-group"><label>Costo unitario</label><input class="form-control" name="costo_unitario" type="number" step="0.01" value="${data.costo_unitario||0}" autocomplete="off"></div>
+          <div class="form-group"><label>Stock mínimo</label><input class="form-control" name="stock_minimo" type="number" step="0.01" value="${data.stock_minimo||0}" autocomplete="off"></div>
+          <div class="form-group"><label>Proveedor</label><input class="form-control" name="proveedor" value="${data.proveedor||''}" autocomplete="off"></div>
+          <div class="form-group form-full"><label>Notas</label><input class="form-control" name="notas" value="${data.notas||''}" autocomplete="off"></div>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+          <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>`);
@@ -631,7 +631,7 @@
     tab.innerHTML = `
       <div class="table-container">
         <div class="table-toolbar">
-          <input class="search-input form-control" style="width:220px" placeholder="Buscar..." value="${intSearch}" oninput="invSearchInt(this.value)">
+          <input class="search-input form-control" style="width:220px" placeholder="Buscar..." value="${intSearch}" oninput="invSearchInt(this.value)" autocomplete="off">
           <button class="btn btn-primary" onclick="invOpenIntForm()">＋ Agregar</button>
         </div>
         <table>

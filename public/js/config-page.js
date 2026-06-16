@@ -47,64 +47,62 @@
       </div>`;
 
     document.getElementById('config-body').innerHTML = `
-      ${usersHtml}
-
-      <form id="cfg-form" onsubmit="cfgSave(event)">
+      <form id="cfg-form" onsubmit="cfgSave(event)" autocomplete="off">
 
         <!-- Negocio -->
         <div class="config-section">
           <div class="config-section-title">🏢 Negocio</div>
-          <div style="display:flex;gap:20px;align-items:flex-start">
+          <div style="display:flex;gap:16px;align-items:flex-start">
             <div style="flex-shrink:0">
               ${logoHtml}
-              <div style="margin-top:8px">
+              <div style="margin-top:6px">
                 <input type="file" accept="image/*" onchange="cfgUploadLogo(this)" style="font-size:11px;width:100px;color:var(--text-muted)">
               </div>
             </div>
-            <div style="flex:1;display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px">
-              <div class="form-group"><label>Nombre del negocio</label><input class="form-control" name="nombre_negocio" value="${val('nombre_negocio')}"></div>
-              <div class="form-group"><label>Teléfono</label><input class="form-control" name="telefono" value="${val('telefono')}"></div>
-              <div class="form-group"><label>Dirección</label><input class="form-control" name="direccion" value="${val('direccion')}"></div>
+            <div style="flex:1;display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">
+              <div class="form-group"><label>Nombre del negocio</label><input class="form-control" name="nombre_negocio" value="${val('nombre_negocio')}" autocomplete="off"></div>
+              <div class="form-group"><label>Teléfono</label><input class="form-control" name="telefono" value="${val('telefono')}" autocomplete="off"></div>
+              <div class="form-group"><label>Dirección</label><input class="form-control" name="direccion" value="${val('direccion')}" autocomplete="off"></div>
             </div>
           </div>
         </div>
 
-        <!-- Moneda + Tarifas (compact row) -->
-        <div class="config-section">
-          <div class="config-section-title">💱 Moneda & Tarifas</div>
-          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">
-            <div class="form-group"><label>Moneda</label>
-              <select class="form-control" name="moneda">
-                ${['CAD','USD','MXN','EUR','GBP'].map(m => `<option ${val('moneda','CAD')===m?'selected':''}>${m}</option>`).join('')}
-              </select>
+        <!-- Moneda+Tarifas | Márgenes+Mínimos (two columns) -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div class="config-section" style="margin-bottom:0">
+            <div class="config-section-title">💱 Moneda & Tarifas</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="form-group"><label>Moneda</label>
+                <select class="form-control" name="moneda">
+                  ${['CAD','USD','MXN','EUR','GBP'].map(m => `<option ${val('moneda','CAD')===m?'selected':''}>${m}</option>`).join('')}
+                </select>
+              </div>
+              <div class="form-group"><label>Símbolo</label><input class="form-control" name="simbolo_moneda" value="${val('simbolo_moneda','$')}" autocomplete="off"></div>
+              <div class="form-group"><label>Costo kWh</label><input class="form-control" name="costo_kwh" type="number" step="0.001" value="${val('costo_kwh','0.18')}" autocomplete="off"></div>
+              <div class="form-group"><label>Tarifa hora</label><input class="form-control" name="tarifa_hora" type="number" step="0.01" value="${val('tarifa_hora','25')}" autocomplete="off"></div>
+              <div class="form-group" style="grid-column:1/-1"><label>Impuesto (%)</label><input class="form-control" name="tax_rate" type="number" step="0.1" value="${parseFloat(val('tax_rate','0'))*100}" autocomplete="off"></div>
             </div>
-            <div class="form-group"><label>Símbolo</label><input class="form-control" name="simbolo_moneda" value="${val('simbolo_moneda','$')}"></div>
-            <div class="form-group"><label>Costo kWh</label><input class="form-control" name="costo_kwh" type="number" step="0.001" value="${val('costo_kwh','0.18')}"></div>
-            <div class="form-group"><label>Tarifa hora</label><input class="form-control" name="tarifa_hora" type="number" step="0.01" value="${val('tarifa_hora','25')}"></div>
-            <div class="form-group"><label>Impuesto (%)</label><input class="form-control" name="tax_rate" type="number" step="0.1" value="${parseFloat(val('tax_rate','0'))*100}"></div>
           </div>
-        </div>
-
-        <!-- Márgenes + Mínimos (compact row) -->
-        <div class="config-section">
-          <div class="config-section-title">📈 Márgenes & Precios mínimos</div>
-          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">
-            <div class="form-group"><label>Margen unitario</label><input class="form-control" name="margen_unitario" type="number" step="0.1" value="${val('margen_unitario','3')}"></div>
-            <div class="form-group"><label>Margen menudeo</label><input class="form-control" name="margen_menudeo" type="number" step="0.1" value="${val('margen_menudeo','2.5')}"></div>
-            <div class="form-group"><label>Margen mayoreo</label><input class="form-control" name="margen_mayoreo" type="number" step="0.1" value="${val('margen_mayoreo','1.8')}"></div>
-            <div class="form-group"><label>Mín. menudeo (pzas)</label><input class="form-control" name="minimo_menudeo" type="number" value="${val('minimo_menudeo','2')}"></div>
-            <div class="form-group"><label>Mín. mayoreo (pzas)</label><input class="form-control" name="minimo_mayoreo" type="number" value="${val('minimo_mayoreo','10')}"></div>
+          <div class="config-section" style="margin-bottom:0">
+            <div class="config-section-title">📈 Márgenes & Precios mínimos</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="form-group"><label>Margen unitario</label><input class="form-control" name="margen_unitario" type="number" step="0.1" value="${val('margen_unitario','3')}" autocomplete="off"></div>
+              <div class="form-group"><label>Margen menudeo</label><input class="form-control" name="margen_menudeo" type="number" step="0.1" value="${val('margen_menudeo','2.5')}" autocomplete="off"></div>
+              <div class="form-group"><label>Margen mayoreo</label><input class="form-control" name="margen_mayoreo" type="number" step="0.1" value="${val('margen_mayoreo','1.8')}" autocomplete="off"></div>
+              <div class="form-group"><label>Mín. menudeo (pzas)</label><input class="form-control" name="minimo_menudeo" type="number" value="${val('minimo_menudeo','2')}" autocomplete="off"></div>
+              <div class="form-group" style="grid-column:1/-1"><label>Mín. mayoreo (pzas)</label><input class="form-control" name="minimo_mayoreo" type="number" value="${val('minimo_mayoreo','10')}" autocomplete="off"></div>
+            </div>
           </div>
         </div>
 
         <!-- Clasificación clientes (1 row of 4) -->
         <div class="config-section">
           <div class="config-section-title">🏆 Clasificación de clientes (# de pedidos)</div>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
-            <div class="form-group"><label>Nuevo (hasta)</label><input class="form-control" name="nivel_nuevo" type="number" value="${val('nivel_nuevo','1')}"></div>
-            <div class="form-group"><label>Regular (hasta)</label><input class="form-control" name="nivel_regular" type="number" value="${val('nivel_regular','3')}"></div>
-            <div class="form-group"><label>Frecuente (hasta)</label><input class="form-control" name="nivel_frecuente" type="number" value="${val('nivel_frecuente','7')}"></div>
-            <div class="form-group"><label>VIP (más de)</label><input class="form-control" name="nivel_vip" type="number" value="${val('nivel_vip','15')}"></div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+            <div class="form-group"><label>Nuevo (hasta)</label><input class="form-control" name="nivel_nuevo" type="number" value="${val('nivel_nuevo','1')}" autocomplete="off"></div>
+            <div class="form-group"><label>Regular (hasta)</label><input class="form-control" name="nivel_regular" type="number" value="${val('nivel_regular','3')}" autocomplete="off"></div>
+            <div class="form-group"><label>Frecuente (hasta)</label><input class="form-control" name="nivel_frecuente" type="number" value="${val('nivel_frecuente','7')}" autocomplete="off"></div>
+            <div class="form-group"><label>VIP (más de)</label><input class="form-control" name="nivel_vip" type="number" value="${val('nivel_vip','15')}" autocomplete="off"></div>
           </div>
         </div>
 
@@ -123,19 +121,21 @@
         <!-- Términos y condiciones -->
         <div class="config-section">
           <div class="config-section-title">📝 Términos y condiciones</div>
-          <textarea class="form-control" name="terminos_condiciones" rows="4">${val('terminos_condiciones','')}</textarea>
+          <textarea class="form-control" name="terminos_condiciones" rows="4" autocomplete="off">${val('terminos_condiciones','')}</textarea>
         </div>
 
-        <div style="display:flex;justify-content:flex-end;margin-bottom:24px">
-          <button type="submit" class="btn btn-primary" style="padding:11px 28px">💾 Guardar configuración</button>
+        <div style="display:flex;justify-content:center;margin-bottom:24px">
+          <button type="submit" class="btn btn-primary" style="padding:11px 36px;font-size:15px">💾 Guardar configuración</button>
         </div>
       </form>
 
+      <!-- Usuarios -->
+      ${usersHtml}
+
       <!-- Zona de peligro -->
-      <div class="config-section" style="border-color:rgba(239,68,68,0.3)" data-admin-only>
-        <div class="config-section-title" style="color:var(--danger)">⚠️ Zona de peligro</div>
-        <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Estas acciones son irreversibles.</p>
-        <button class="btn btn-danger" onclick="cfgResetDB()">🗑️ Resetear Base de Datos</button>
+      <div class="config-section" style="border-color:rgba(239,68,68,0.3);padding:12px 16px" data-admin-only>
+        <div class="config-section-title" style="color:var(--danger);font-size:13px;margin-bottom:8px">⚠️ Zona de peligro</div>
+        <button class="btn btn-danger btn-sm" onclick="cfgResetDB()">🗑️ Resetear Base de Datos</button>
       </div>`;
 
     if (currentUser?.role === 'admin') {
@@ -234,20 +234,20 @@
 
   window.cfgOpenUserForm = function(id, userData) {
     openModal(id ? 'Editar usuario' : 'Nuevo usuario', `
-      <form onsubmit="cfgSaveUser(event,${id||'null'})">
+      <form onsubmit="cfgSaveUser(event,${id||'null'})" autocomplete="off">
         <div class="form-grid">
-          ${!id ? `<div class="form-group"><label>Usuario *</label><input class="form-control" name="username" required></div>` : ''}
-          <div class="form-group"><label>Nombre</label><input class="form-control" name="display_name" value="${userData?.display_name||''}"></div>
+          ${!id ? `<div class="form-group"><label>Usuario *</label><input class="form-control" name="username" required autocomplete="off"></div>` : ''}
+          <div class="form-group"><label>Nombre</label><input class="form-control" name="display_name" value="${userData?.display_name||''}" autocomplete="off"></div>
           <div class="form-group"><label>Rol</label>
             <select class="form-control" name="role">
               <option value="worker" ${userData?.role!=='admin'?'selected':''}>Worker</option>
               <option value="admin" ${userData?.role==='admin'?'selected':''}>Admin</option>
             </select>
           </div>
-          <div class="form-group form-full"><label>Contraseña ${id?'(vacío = sin cambio)':'*'}</label><input class="form-control" name="password" type="password" ${!id?'required':''}></div>
+          <div class="form-group form-full"><label>Contraseña ${id?'(vacío = sin cambio)':'*'}</label><input class="form-control" name="password" type="password" ${!id?'required':''} autocomplete="new-password"></div>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+          <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>`);
@@ -283,17 +283,17 @@
 
   window.cfgChangePassword = function() {
     openModal('Cambiar contraseña', `
-      <form onsubmit="cfgDoChangePassword(event)">
+      <form onsubmit="cfgDoChangePassword(event)" autocomplete="off">
         <div class="form-group" style="margin-bottom:12px">
           <label>Contraseña actual</label>
-          <input class="form-control" name="current_password" type="password" required>
+          <input class="form-control" name="current_password" type="password" required autocomplete="current-password">
         </div>
         <div class="form-group" style="margin-bottom:20px">
           <label>Nueva contraseña (mín. 4 caracteres)</label>
-          <input class="form-control" name="new_password" type="password" required minlength="4">
+          <input class="form-control" name="new_password" type="password" required minlength="4" autocomplete="new-password">
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+          <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
           <button type="submit" class="btn btn-primary">Cambiar contraseña</button>
         </div>
       </form>`);

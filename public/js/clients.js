@@ -14,7 +14,7 @@
       </div>
       <div class="table-container">
         <div class="table-toolbar">
-          <input class="search-input form-control" style="width:260px" placeholder="Buscar cliente..." oninput="clSearch2(this.value)">
+          <input class="search-input form-control" style="width:260px" placeholder="Buscar cliente..." oninput="clSearch2(this.value)" autocomplete="off">
         </div>
         <table>
           <thead><tr><th>Nombre</th><th>Teléfono</th><th>Email</th><th>Clasificación</th><th>Pedidos</th><th>Notas</th><th>Acciones</th></tr></thead>
@@ -94,14 +94,14 @@
     openModal(id ? 'Editar Cliente' : 'Nuevo Cliente', `
       <form id="cl-form" onsubmit="clSave(event, ${id || 'null'})">
         <div class="form-grid">
-          <div class="form-group"><label>Nombre *</label><input class="form-control" name="nombre" value="${c.nombre || ''}" required></div>
-          <div class="form-group"><label>Teléfono</label><input class="form-control" name="telefono" value="${c.telefono || ''}"></div>
-          <div class="form-group"><label>Email</label><input class="form-control" name="email" type="email" value="${c.email || ''}"></div>
-          <div class="form-group form-full"><label>Dirección</label><input class="form-control" name="direccion" value="${c.direccion || ''}"></div>
-          <div class="form-group form-full"><label>Notas</label><textarea class="form-control" name="notas" rows="2">${c.notas || ''}</textarea></div>
+          <div class="form-group"><label>Nombre *</label><input class="form-control" name="nombre" value="${c.nombre || ''}" required autocomplete="off"></div>
+          <div class="form-group"><label>Teléfono</label><input class="form-control" name="telefono" value="${c.telefono || ''}" autocomplete="off"></div>
+          <div class="form-group"><label>Email</label><input class="form-control" name="email" type="email" value="${c.email || ''}" autocomplete="off"></div>
+          <div class="form-group form-full"><label>Dirección</label><input class="form-control" name="direccion" value="${c.direccion || ''}" autocomplete="off"></div>
+          <div class="form-group form-full"><label>Notas</label><textarea class="form-control" name="notas" rows="2" autocomplete="off">${c.notas || ''}</textarea></div>
           <div class="form-group form-full">
             <label>
-              <input type="checkbox" id="cl-manual-chk" ${c.clasificacion_manual ? 'checked' : ''} onchange="clToggleManual(this.checked)">
+              <input type="checkbox" id="cl-manual-chk" ${c.clasificacion_manual ? 'checked' : ''} onchange="clToggleManual(this.checked)" autocomplete="off">
               Clasificación manual
             </label>
           </div>
@@ -110,11 +110,11 @@
             <select class="form-control" name="clasificacion">
               ${['Nuevo','Regular','Frecuente','VIP'].map(cl => `<option ${c.clasificacion===cl?'selected':''}>${cl}</option>`).join('')}
             </select>
-            <input type="hidden" name="clasificacion_manual" id="cl-manual-val" value="${c.clasificacion_manual ? '1' : '0'}">
+            <input type="hidden" name="clasificacion_manual" id="cl-manual-val" value="${c.clasificacion_manual ? '1' : '0'}" autocomplete="off">
           </div>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+          <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>`);
