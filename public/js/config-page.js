@@ -27,7 +27,7 @@
 
   function renderConfigPage() {
     const logoHtml = val('logo_path')
-      ? `<img src="/${val('logo_path')}" class="logo-preview" id="cfg-logo-img" style="object-fit:contain">`
+      ? `<img src="${val('logo_path')}" class="logo-preview" id="cfg-logo-img" style="object-fit:contain">`
       : `<div class="logo-preview" id="cfg-logo-img" style="display:flex;align-items:center;justify-content:center">⬡</div>`;
 
     document.getElementById('config-body').innerHTML = `
@@ -139,7 +139,7 @@
       }
     }
     try {
-      await api('PUT', '/api/config', { updates });
+      await api('PUT', '/api/config', updates);
       Object.assign(appConfig, updates);
       showToast('Configuración guardada');
     } catch (err) { showToast('Error: ' + err.message, 'error'); }
@@ -155,7 +155,7 @@
       const data = await res.json();
       const prev = document.getElementById('cfg-logo-img');
       if (prev && data.logo_path) {
-        prev.outerHTML = `<img src="/${data.logo_path}?t=${Date.now()}" class="logo-preview" id="cfg-logo-img" style="object-fit:contain">`;
+        prev.outerHTML = `<img src="${data.logo_path}?t=${Date.now()}" class="logo-preview" id="cfg-logo-img" style="object-fit:contain">`;
       }
       showToast('Logo actualizado');
     } catch (err) { showToast('Error subiendo logo: ' + err.message, 'error'); }

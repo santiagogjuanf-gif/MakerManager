@@ -49,7 +49,7 @@
     grid.innerHTML = items.map(p => {
       const icon = typeIcon[p.tipo] || '🖨️';
       const imgHtml = p.foto_path
-        ? `<img src="/${p.foto_path}" class="printer-card-img" style="object-fit:cover" onerror="this.outerHTML='<div class=\\'printer-card-img\\'>${icon}</div>'">`
+        ? `<img src="${p.foto_path}" class="printer-card-img" style="object-fit:cover" onerror="this.outerHTML='<div class=\\'printer-card-img\\'>${icon}</div>'">`
         : `<div class="printer-card-img">${icon}</div>`;
       const estadoCls = (p.estado || 'activa').toLowerCase().replace('ó', 'o');
       const ams = p.tipo === 'FDM' && p.tiene_ams ? '<span class="badge badge-default">AMS</span> ' : '';
@@ -105,7 +105,7 @@
     if (!p) return;
     const icon = typeIcon[p.tipo] || '🖨️';
     const imgHtml = p.foto_path
-      ? `<img src="/${p.foto_path}" style="width:100%;height:200px;object-fit:cover;border-radius:8px;margin-bottom:16px">`
+      ? `<img src="${p.foto_path}" style="width:100%;height:200px;object-fit:cover;border-radius:8px;margin-bottom:16px">`
       : `<div style="width:100%;height:120px;display:flex;align-items:center;justify-content:center;font-size:56px;margin-bottom:16px">${icon}</div>`;
 
     const extras = [];
@@ -147,7 +147,7 @@
     openModal(id ? 'Editar Impresora' : 'Nueva Impresora', `
       <form id="pr-form" onsubmit="prSave(event, ${id || 'null'})">
         <div id="pr-photo-preview" style="margin-bottom:12px">
-          ${p.foto_path ? `<img src="/${p.foto_path}" class="photo-preview" id="pr-preview-img">` : `<div class="photo-preview" id="pr-preview-img">📷</div>`}
+          ${p.foto_path ? `<img src="${p.foto_path}" class="photo-preview" id="pr-preview-img">` : `<div class="photo-preview" id="pr-preview-img">📷</div>`}
         </div>
         <div class="form-group" style="margin-bottom:12px">
           <label>Foto</label>

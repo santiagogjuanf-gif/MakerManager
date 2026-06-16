@@ -19,8 +19,11 @@ router.get('/', async (req, res) => {
     const now = new Date();
     const firstDay = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
     const monthStats = await db.getAsync(
-      `SELECT COUNT(*) as total_jobs, SUM(precio_final) as total_ingresos
-       FROM print_jobs WHERE fecha >= ? AND fallo = 0`, [firstDay]
+      `SELECT COUNT(*) as total_jobs, SUM(precio_final) as total_ingresos,
+       COALESCE((SELECT SUM(jf.gramos_pieza) FROM job_filaments jf
+         JOIN print_jobs pj2 ON jf.print_job_id = pj2.id
+         WHERE pj2.fecha >= ? AND pj2.fallo = 0), 0) as total_gramos
+       FROM print_jobs WHERE fecha >= ? AND fallo = 0`, [firstDay, firstDay]
     );
     const counts = await db.getAsync(`
       SELECT

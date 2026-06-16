@@ -70,12 +70,13 @@ pageLoaders['dashboard'] = async function loadDashboard() {
   const bizName = appConfig.nombre_negocio ? ` — ${appConfig.nombre_negocio}` : '';
 
   el.innerHTML = `
-    <div class="page-header" style="flex-wrap:wrap;gap:12px">
-      <div>
-        <div class="dash-greeting">${getGreeting()}${bizName}</div>
+    <div class="dash-hero">
+      <div class="dash-hero-left">
+        <div class="dash-greeting">${getGreeting()}</div>
+        <div class="dash-biz">${appConfig.nombre_negocio || 'MakerManager'}</div>
         <div class="dash-date">${dateStr}</div>
       </div>
-      <div id="weather-container" style="min-width:160px"></div>
+      <div id="weather-container"></div>
     </div>
     <div id="dash-content"><p style="color:var(--text-muted);padding:20px">Cargando...</p></div>`;
 
@@ -105,33 +106,51 @@ pageLoaders['dashboard'] = async function loadDashboard() {
       : '<tr><td colspan="4" class="empty-state" style="padding:20px">Sin trabajos recientes</td></tr>';
 
     document.getElementById('dash-content').innerHTML = `
-      <div class="stats-grid" id="stat-counters">
-        <div class="stat-card">
-          <div class="stat-label">Trabajos totales</div>
-          <div class="stat-value" id="sc-jobs">0</div>
-          <a class="stat-quick-add" href="#jobs" title="Nuevo trabajo">＋</a>
+      <div class="stats-row" id="stat-counters">
+        <div class="stat-chip">
+          <div class="stat-chip-icon">📋</div>
+          <div class="stat-chip-body">
+            <div class="stat-chip-val" id="sc-jobs">0</div>
+            <div class="stat-chip-lbl">Trabajos</div>
+          </div>
+          <a class="stat-chip-add" href="#jobs" title="Nuevo trabajo">＋</a>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Filamentos activos</div>
-          <div class="stat-value" id="sc-fil">0</div>
-          <a class="stat-quick-add" href="#inventory" title="Agregar filamento">＋</a>
+        <div class="stat-chip">
+          <div class="stat-chip-icon">🧵</div>
+          <div class="stat-chip-body">
+            <div class="stat-chip-val" id="sc-fil">0</div>
+            <div class="stat-chip-lbl">Filamentos</div>
+          </div>
+          <a class="stat-chip-add" href="#inventory" title="Agregar">＋</a>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Clientes</div>
-          <div class="stat-value" id="sc-cli">0</div>
-          <a class="stat-quick-add" href="#clients" title="Nuevo cliente">＋</a>
+        <div class="stat-chip">
+          <div class="stat-chip-icon">👥</div>
+          <div class="stat-chip-body">
+            <div class="stat-chip-val" id="sc-cli">0</div>
+            <div class="stat-chip-lbl">Clientes</div>
+          </div>
+          <a class="stat-chip-add" href="#clients" title="Nuevo cliente">＋</a>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Ingresos del mes</div>
-          <div class="stat-value" id="sc-rev">${fmtMoney(0)}</div>
+        <div class="stat-chip accent">
+          <div class="stat-chip-icon">💰</div>
+          <div class="stat-chip-body">
+            <div class="stat-chip-val" id="sc-rev">$0</div>
+            <div class="stat-chip-lbl">Ingresos del mes</div>
+          </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Trabajos este mes</div>
-          <div class="stat-value" id="sc-mjobs">0</div>
+        <div class="stat-chip">
+          <div class="stat-chip-icon">📅</div>
+          <div class="stat-chip-body">
+            <div class="stat-chip-val" id="sc-mjobs">0</div>
+            <div class="stat-chip-lbl">Trabajos del mes</div>
+          </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Gramos este mes</div>
-          <div class="stat-value" id="sc-mg">0</div>
+        <div class="stat-chip">
+          <div class="stat-chip-icon">⚖️</div>
+          <div class="stat-chip-body">
+            <div class="stat-chip-val" id="sc-mg">0g</div>
+            <div class="stat-chip-lbl">Gramos usados</div>
+          </div>
         </div>
       </div>
 
@@ -154,16 +173,17 @@ pageLoaders['dashboard'] = async function loadDashboard() {
         const el = document.getElementById(id);
         if (el) animateCounter(el, val, isFloat);
       };
-      sc('sc-jobs', stats.total_jobs || 0);
-      sc('sc-fil', stats.total_filaments || 0);
-      sc('sc-cli', stats.total_clients || 0);
-      sc('sc-rev', parseFloat(monthStats.revenue || 0), true);
-      sc('sc-mjobs', monthStats.jobs || 0);
-      sc('sc-mg', parseFloat(monthStats.grams || 0));
+      sc('sc-jobs', stats.jobs || 0);
+      sc('sc-fil', stats.filaments || 0);
+      sc('sc-cli', stats.clients || 0);
+      sc('sc-rev', parseFloat(monthStats.total_ingresos || 0), true);
+      sc('sc-mjobs', monthStats.total_jobs || 0);
+      const mgEl = document.getElementById('sc-mg');
+      if (mgEl) { const gv = parseFloat(monthStats.total_gramos || 0); animateCounter(mgEl, gv); mgEl.textContent = Math.round(gv) + 'g'; }
     }, 100);
 
     // Make quick-add links navigate properly
-    document.querySelectorAll('.stat-quick-add').forEach(a => {
+    document.querySelectorAll('.stat-chip-add').forEach(a => {
       a.addEventListener('click', (e) => {
         e.preventDefault();
         const page = a.getAttribute('href').replace('#', '');
