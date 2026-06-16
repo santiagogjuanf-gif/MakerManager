@@ -3,3 +3,5 @@ database/makermanager.db
 *.db-shm
 *.db-wal
 .env
+public/uploads/*
+!public/uploads/.gitkeep
