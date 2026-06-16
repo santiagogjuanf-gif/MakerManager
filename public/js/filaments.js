@@ -95,7 +95,7 @@ async function openFilamentForm(id) {
         <div class="form-group"><label>UID NFC</label><input class="form-control" name="uid_nfc" value="${f.uid_nfc || ''}" placeholder="Para futuro"></div>
       </div>
       <div class="form-actions">
-        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+        <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
         <button type="submit" class="btn btn-primary">${id ? 'Guardar cambios' : 'Agregar'}</button>
       </div>
     </form>
