@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MakerManager — Iniciar Sesión</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg); }
+    .login-wrap { width:100%; max-width:420px; padding:20px; }
+    .login-box { background:var(--card); border:1px solid var(--border); border-radius:20px; padding:48px 40px; box-shadow:0 24px 64px rgba(0,0,0,0.5); }
+    .login-logo { text-align:center; margin-bottom:28px; }
+    .login-logo img { width:80px; height:80px; object-fit:contain; border-radius:12px; }
+    .lp { width:80px; height:80px; background:var(--accent-dim); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:36px; margin:0 auto; }
+    .login-title { font-size:24px; font-weight:800; color:var(--accent-light); text-align:center; margin-bottom:4px; }
+    .login-sub { font-size:13px; color:var(--text-muted); text-align:center; margin-bottom:32px; }
+    .login-err { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#ef4444; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px; display:none; }
+    .login-btn { width:100%; padding:13px; font-size:15px; font-weight:700; border-radius:10px; border:none; background:var(--accent); color:white; cursor:pointer; transition:background 0.2s; }
+    .login-btn:hover { background:var(--accent-light); }
+    .login-btn:disabled { opacity:0.6; cursor:not-allowed; }
+    .login-footer { text-align:center; margin-top:20px; font-size:11px; color:var(--text-muted); }
+    .fg { margin-bottom:16px; }
+  </style>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-box">
+      <div class="login-logo" id="ll"><div class="lp">⚙️</div></div>
+      <div class="login-title" id="ln">MakerManager</div>
+      <div class="login-sub">Sistema de gestión de manufactura</div>
+      <div class="login-err" id="le"></div>
+      <form onsubmit="doLogin(event)">
+        <div class="form-group fg">
+          <label>Usuario</label>
+          <input class="form-control" id="lu" type="text" placeholder="usuario" autocomplete="username" required autofocus>
+        </div>
+        <div class="form-group" style="margin-bottom:20px">
+          <label>Contraseña</label>
+          <input class="form-control" id="lp" type="password" placeholder="••••••••" autocomplete="current-password" required>
+        </div>
+        <button class="login-btn" type="submit" id="lb">Iniciar Sesión</button>
+      </form>
+    </div>
+    <div class="login-footer">MakerManager v2.0</div>
+  </div>
+  <script>
+    const THEMES={morado:{accent:'#6c63ff',accentLight:'#8b84ff',bg:'#0f1117',surface:'#1a1d27',card:'#1e2130',border:'#2d3148',text:'#e2e8f0',textMuted:'#8892a4'},cerberus:{accent:'#f97316',accentLight:'#fb923c',bg:'#080b10',surface:'#111318',card:'#14171e',border:'#1f2330',text:'#f1f5f9',textMuted:'#8892a4'},cian:{accent:'#06b6d4',accentLight:'#22d3ee',bg:'#f8fafc',surface:'#f1f5f9',card:'#ffffff',border:'#e2e8f0',text:'#1e293b',textMuted:'#64748b'},bambu:{accent:'#4ade80',accentLight:'#86efac',bg:'#f8fafc',surface:'#f0fdf4',card:'#ffffff',border:'#d1fae5',text:'#1e293b',textMuted:'#64748b'}};
+    function applyTheme(t){const th=THEMES[t]||THEMES.morado;const r=document.documentElement.style;[['--accent',th.accent],['--accent-light',th.accentLight],['--accent-dim',th.accent+'26'],['--bg',th.bg],['--surface',th.surface],['--card',th.card],['--border',th.border],['--text',th.text],['--text-muted',th.textMuted]].forEach(([k,v])=>r.setProperty(k,v));}
+    fetch('/api/config').then(r=>r.json()).then(cfg=>{
+      if(cfg.nombre_negocio) document.getElementById('ln').textContent=cfg.nombre_negocio;
+      if(cfg.logo_path) document.getElementById('ll').innerHTML=`<img src="${cfg.logo_path}" alt="Logo">`;
+      if(cfg.theme_color) applyTheme(cfg.theme_color);
+    }).catch(()=>{});
+    const tok=localStorage.getItem('mm_token');
+    if(tok){fetch('/api/auth/me',{headers:{Authorization:'Bearer '+tok}}).then(r=>{if(r.ok)window.location.href='/';}).catch(()=>{});}
+    async function doLogin(e){
+      e.preventDefault();
+      const btn=document.getElementById('lb'),err=document.getElementById('le');
+      err.style.display='none';btn.textContent='Verificando...';btn.disabled=true;
+      try{
+        const res=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:document.getElementById('lu').value,password:document.getElementById('lp').value})});
+        const data=await res.json();
+        if(!res.ok) throw new Error(data.error||'Error al iniciar sesión');
+        localStorage.setItem('mm_token',data.token);
+        localStorage.setItem('mm_user',JSON.stringify(data.user));
+        window.location.href='/';
+      }catch(ex){err.textContent=ex.message;err.style.display='block';btn.textContent='Iniciar Sesión';btn.disabled=false;}
+    }
+  </script>
+</body>
+</html>

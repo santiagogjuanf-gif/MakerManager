@@ -70,6 +70,14 @@ router.put('/:id', upload.single('foto'), async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
+    const printer = await db.getAsync('SELECT tipo FROM printers WHERE id=?', [req.params.id]);
+    if (!printer) return res.status(404).json({ error: 'Not found' });
+    if (req.query.delete_inventory === 'true') {
+      if (printer.tipo === 'FDM') await db.runAsync('DELETE FROM filaments');
+      else if (printer.tipo === 'Resina') await db.runAsync('DELETE FROM resinas');
+      else if (printer.tipo === 'Laser') await db.runAsync('DELETE FROM consumibles_laser');
+      else if (printer.tipo === 'CNC') await db.runAsync('DELETE FROM consumibles_cnc');
+    }
     await db.runAsync('DELETE FROM printers WHERE id=?', [req.params.id]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }

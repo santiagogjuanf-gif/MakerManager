@@ -25,6 +25,8 @@ app.use('/api/jobs', require('./routes/jobs'));
 app.use('/api/extras', require('./routes/extras'));
 app.use('/api/config', require('./routes/config'));
 app.use('/api/pdf', require('./routes/pdf'));
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/consumibles', require('./routes/consumibles'));
 
 app.post('/api/seed', async (req, res) => {
   try {
@@ -42,6 +44,8 @@ app.delete('/api/reset', async (req, res) => {
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
+
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

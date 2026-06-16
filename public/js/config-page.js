@@ -28,103 +28,122 @@
   function renderConfigPage() {
     const logoHtml = val('logo_path')
       ? `<img src="${val('logo_path')}" class="logo-preview" id="cfg-logo-img" style="object-fit:contain">`
-      : `<div class="logo-preview" id="cfg-logo-img" style="display:flex;align-items:center;justify-content:center">⬡</div>`;
+      : `<div class="logo-preview" id="cfg-logo-img" style="display:flex;align-items:center;justify-content:center;font-size:32px">⬡</div>`;
+
+    const usersHtml = currentUser?.role === 'admin' ? `
+      <div class="config-section">
+        <div class="config-section-title" style="justify-content:space-between">
+          <span>👥 Usuarios del sistema</span>
+          <button type="button" class="btn btn-primary btn-sm" onclick="cfgOpenUserForm()">＋ Nuevo</button>
+        </div>
+        <div id="cfg-users-list"><p style="color:var(--text-muted);font-size:13px">Cargando...</p></div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="cfgChangePassword()">🔑 Cambiar mi contraseña</button>
+        </div>
+      </div>` : `
+      <div class="config-section">
+        <div class="config-section-title">🔑 Mi cuenta</div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="cfgChangePassword()">Cambiar contraseña</button>
+      </div>`;
 
     document.getElementById('config-body').innerHTML = `
+      ${usersHtml}
+
       <form id="cfg-form" onsubmit="cfgSave(event)">
 
         <!-- Negocio -->
         <div class="config-section">
           <div class="config-section-title">🏢 Negocio</div>
-          <div style="display:flex;gap:24px;align-items:flex-start">
-            <div>
+          <div style="display:flex;gap:20px;align-items:flex-start">
+            <div style="flex-shrink:0">
               ${logoHtml}
               <div style="margin-top:8px">
-                <input type="file" class="form-control" accept="image/*" onchange="cfgUploadLogo(this)" style="font-size:12px">
-                <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Logo del negocio</div>
+                <input type="file" accept="image/*" onchange="cfgUploadLogo(this)" style="font-size:11px;width:100px;color:var(--text-muted)">
               </div>
             </div>
-            <div class="form-grid" style="flex:1">
+            <div style="flex:1;display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px">
               <div class="form-group"><label>Nombre del negocio</label><input class="form-control" name="nombre_negocio" value="${val('nombre_negocio')}"></div>
               <div class="form-group"><label>Teléfono</label><input class="form-control" name="telefono" value="${val('telefono')}"></div>
-              <div class="form-group form-full"><label>Dirección</label><input class="form-control" name="direccion" value="${val('direccion')}"></div>
+              <div class="form-group"><label>Dirección</label><input class="form-control" name="direccion" value="${val('direccion')}"></div>
             </div>
           </div>
         </div>
 
-        <!-- Moneda -->
+        <!-- Moneda + Tarifas (compact row) -->
         <div class="config-section">
-          <div class="config-section-title">💱 Moneda</div>
-          <div class="form-grid">
+          <div class="config-section-title">💱 Moneda & Tarifas</div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">
             <div class="form-group"><label>Moneda</label>
               <select class="form-control" name="moneda">
                 ${['CAD','USD','MXN','EUR','GBP'].map(m => `<option ${val('moneda','CAD')===m?'selected':''}>${m}</option>`).join('')}
               </select>
             </div>
-            <div class="form-group"><label>Símbolo</label><input class="form-control" name="simbolo_moneda" value="${val('simbolo_moneda','$')}" placeholder="$"></div>
-          </div>
-        </div>
-
-        <!-- Tarifas -->
-        <div class="config-section">
-          <div class="config-section-title">⚡ Tarifas</div>
-          <div class="form-grid">
-            <div class="form-group"><label>Costo kWh</label><input class="form-control" name="costo_kwh" type="number" step="0.001" value="${val('costo_kwh','0.14')}"></div>
-            <div class="form-group"><label>Tarifa hora (mano de obra)</label><input class="form-control" name="tarifa_hora" type="number" step="0.01" value="${val('tarifa_hora','15')}"></div>
+            <div class="form-group"><label>Símbolo</label><input class="form-control" name="simbolo_moneda" value="${val('simbolo_moneda','$')}"></div>
+            <div class="form-group"><label>Costo kWh</label><input class="form-control" name="costo_kwh" type="number" step="0.001" value="${val('costo_kwh','0.18')}"></div>
+            <div class="form-group"><label>Tarifa hora</label><input class="form-control" name="tarifa_hora" type="number" step="0.01" value="${val('tarifa_hora','25')}"></div>
             <div class="form-group"><label>Impuesto (%)</label><input class="form-control" name="tax_rate" type="number" step="0.1" value="${parseFloat(val('tax_rate','0'))*100}"></div>
           </div>
         </div>
 
-        <!-- Márgenes -->
+        <!-- Márgenes + Mínimos (compact row) -->
         <div class="config-section">
-          <div class="config-section-title">📈 Márgenes</div>
-          <div class="form-grid">
-            <div class="form-group"><label>Margen unitario (%)</label><input class="form-control" name="margen_unitario" type="number" step="0.1" value="${parseFloat(val('margen_unitario','30'))}"></div>
-            <div class="form-group"><label>Margen menudeo (%)</label><input class="form-control" name="margen_menudeo" type="number" step="0.1" value="${parseFloat(val('margen_menudeo','20'))}"></div>
-            <div class="form-group"><label>Margen mayoreo (%)</label><input class="form-control" name="margen_mayoreo" type="number" step="0.1" value="${parseFloat(val('margen_mayoreo','10'))}"></div>
+          <div class="config-section-title">📈 Márgenes & Precios mínimos</div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">
+            <div class="form-group"><label>Margen unitario</label><input class="form-control" name="margen_unitario" type="number" step="0.1" value="${val('margen_unitario','3')}"></div>
+            <div class="form-group"><label>Margen menudeo</label><input class="form-control" name="margen_menudeo" type="number" step="0.1" value="${val('margen_menudeo','2.5')}"></div>
+            <div class="form-group"><label>Margen mayoreo</label><input class="form-control" name="margen_mayoreo" type="number" step="0.1" value="${val('margen_mayoreo','1.8')}"></div>
+            <div class="form-group"><label>Mín. menudeo (pzas)</label><input class="form-control" name="minimo_menudeo" type="number" value="${val('minimo_menudeo','2')}"></div>
+            <div class="form-group"><label>Mín. mayoreo (pzas)</label><input class="form-control" name="minimo_mayoreo" type="number" value="${val('minimo_mayoreo','10')}"></div>
           </div>
         </div>
 
-        <!-- Precios mínimos -->
+        <!-- Clasificación clientes (1 row of 4) -->
         <div class="config-section">
-          <div class="config-section-title">🏷️ Precios mínimos</div>
-          <div class="form-grid">
-            <div class="form-group"><label>Mínimo menudeo</label><input class="form-control" name="minimo_menudeo" type="number" step="0.01" value="${val('minimo_menudeo','5')}"></div>
-            <div class="form-group"><label>Mínimo mayoreo</label><input class="form-control" name="minimo_mayoreo" type="number" step="0.01" value="${val('minimo_mayoreo','50')}"></div>
+          <div class="config-section-title">🏆 Clasificación de clientes (# de pedidos)</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+            <div class="form-group"><label>Nuevo (hasta)</label><input class="form-control" name="nivel_nuevo" type="number" value="${val('nivel_nuevo','1')}"></div>
+            <div class="form-group"><label>Regular (hasta)</label><input class="form-control" name="nivel_regular" type="number" value="${val('nivel_regular','3')}"></div>
+            <div class="form-group"><label>Frecuente (hasta)</label><input class="form-control" name="nivel_frecuente" type="number" value="${val('nivel_frecuente','7')}"></div>
+            <div class="form-group"><label>VIP (más de)</label><input class="form-control" name="nivel_vip" type="number" value="${val('nivel_vip','15')}"></div>
           </div>
         </div>
 
-        <!-- Clasificación clientes -->
+        <!-- Tema visual -->
         <div class="config-section">
-          <div class="config-section-title">👥 Clasificación de clientes (# de pedidos)</div>
-          <div class="form-grid">
-            <div class="form-group"><label>Nuevo (0 a...)</label><input class="form-control" name="nivel_nuevo" type="number" value="${val('nivel_nuevo','1')}"></div>
-            <div class="form-group"><label>Regular (hasta...)</label><input class="form-control" name="nivel_regular" type="number" value="${val('nivel_regular','5')}"></div>
-            <div class="form-group"><label>Frecuente (hasta...)</label><input class="form-control" name="nivel_frecuente" type="number" value="${val('nivel_frecuente','15')}"></div>
-            <div class="form-group"><label>VIP (más de...)</label><input class="form-control" name="nivel_vip" type="number" value="${val('nivel_vip','15')}"></div>
+          <div class="config-section-title">🎨 Tema visual</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            ${[{id:'morado',color:'#6c63ff',name:'Morado'},{id:'cerberus',color:'#f97316',name:'Cerberus'},{id:'cian',color:'#06b6d4',name:'Cian'},{id:'bambu',color:'#4ade80',name:'Bambú'}]
+              .map(t => `<button type="button" onclick="cfgSetTheme('${t.id}')" class="theme-btn ${val('theme_color','morado')===t.id?'active':''}" data-theme="${t.id}" style="--th:${t.color}">
+                <div class="theme-dot" style="background:${t.color}"></div>
+                <span style="font-size:12px;color:var(--text)">${t.name}</span>
+              </button>`).join('')}
           </div>
         </div>
 
         <!-- Términos y condiciones -->
         <div class="config-section">
           <div class="config-section-title">📝 Términos y condiciones</div>
-          <div class="form-group">
-            <label>Texto para PDFs</label>
-            <textarea class="form-control" name="terminos_condiciones" rows="5">${val('terminos_condiciones','')}</textarea>
-          </div>
+          <textarea class="form-control" name="terminos_condiciones" rows="4">${val('terminos_condiciones','')}</textarea>
         </div>
 
-        <div style="display:flex;justify-content:flex-end;margin-bottom:32px">
-          <button type="submit" class="btn btn-primary" style="padding:12px 32px">💾 Guardar configuración</button>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:24px">
+          <button type="submit" class="btn btn-primary" style="padding:11px 28px">💾 Guardar configuración</button>
         </div>
       </form>
 
       <!-- Zona de peligro -->
-      <div class="config-section" style="border-color:rgba(239,68,68,0.3)">
+      <div class="config-section" style="border-color:rgba(239,68,68,0.3)" data-admin-only>
         <div class="config-section-title" style="color:var(--danger)">⚠️ Zona de peligro</div>
-        <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Estas acciones son irreversibles. Procede con precaución.</p>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Estas acciones son irreversibles.</p>
         <button class="btn btn-danger" onclick="cfgResetDB()">🗑️ Resetear Base de Datos</button>
       </div>`;
+
+    if (currentUser?.role === 'admin') {
+      cfgLoadUsers();
+      document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = '');
+    } else {
+      document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'none');
+    }
   }
 
   window.cfgSave = async function (e) {
@@ -175,6 +194,119 @@
           </div>
         </div>`);
     }, '⚠️');
+  };
+
+  window.cfgSetTheme = async function(theme) {
+    try {
+      await api('PUT', '/api/config', { theme_color: theme });
+      appConfig.theme_color = theme;
+      applyTheme(theme);
+      document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.theme === theme));
+      showToast('Tema aplicado');
+    } catch(e) { showToast('Error: '+e.message,'error'); }
+  };
+
+  window.cfgLoadUsers = async function() {
+    const el = document.getElementById('cfg-users-list');
+    if (!el) return;
+    try {
+      const users = await api('GET', '/api/auth/users');
+      el.innerHTML = `<table style="width:100%">
+        <thead><tr style="color:var(--text-muted);font-size:11px">
+          <th style="padding:6px 8px;text-align:left">Usuario</th>
+          <th style="padding:6px 8px;text-align:left">Nombre</th>
+          <th style="padding:6px 8px;text-align:left">Rol</th>
+          <th style="padding:6px 8px"></th>
+        </tr></thead>
+        <tbody>${users.map(u => `<tr style="border-top:1px solid var(--border)">
+          <td style="padding:6px 8px;font-size:13px">${u.username}</td>
+          <td style="padding:6px 8px;font-size:13px">${u.display_name||'-'}</td>
+          <td style="padding:6px 8px"><span class="badge ${u.role==='admin'?'badge-frecuente':'badge-regular'}">${u.role}</span></td>
+          <td style="padding:6px 8px;text-align:right;white-space:nowrap">
+            ${u.id !== currentUser?.id
+              ? `<button class="btn btn-sm btn-secondary" onclick="cfgEditUser(${u.id})" style="margin-right:4px">✏️</button><button class="btn btn-sm btn-danger" onclick="cfgDeleteUser(${u.id},'${u.username}')">🗑️</button>`
+              : '<span style="color:var(--text-muted);font-size:11px">Tú</span>'}
+          </td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+    } catch(e) { if (el) el.innerHTML = `<p style="color:var(--danger);font-size:13px">Error: ${e.message}</p>`; }
+  };
+
+  window.cfgOpenUserForm = function(id, userData) {
+    openModal(id ? 'Editar usuario' : 'Nuevo usuario', `
+      <form onsubmit="cfgSaveUser(event,${id||'null'})">
+        <div class="form-grid">
+          ${!id ? `<div class="form-group"><label>Usuario *</label><input class="form-control" name="username" required></div>` : ''}
+          <div class="form-group"><label>Nombre</label><input class="form-control" name="display_name" value="${userData?.display_name||''}"></div>
+          <div class="form-group"><label>Rol</label>
+            <select class="form-control" name="role">
+              <option value="worker" ${userData?.role!=='admin'?'selected':''}>Worker</option>
+              <option value="admin" ${userData?.role==='admin'?'selected':''}>Admin</option>
+            </select>
+          </div>
+          <div class="form-group form-full"><label>Contraseña ${id?'(vacío = sin cambio)':'*'}</label><input class="form-control" name="password" type="password" ${!id?'required':''}></div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>`);
+  };
+
+  window.cfgEditUser = async function(id) {
+    try {
+      const users = await api('GET', '/api/auth/users');
+      cfgOpenUserForm(id, users.find(x=>x.id===id)||{});
+    } catch(e) { showToast('Error: '+e.message,'error'); }
+  };
+
+  window.cfgSaveUser = async function(e, id) {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const body = {};
+    for (const [k,v] of fd.entries()) if (v) body[k] = v;
+    try {
+      if (id) await api('PUT', `/api/auth/users/${id}`, body);
+      else await api('POST', '/api/auth/users', body);
+      closeModal();
+      showToast(id ? 'Usuario actualizado' : 'Usuario creado');
+      await cfgLoadUsers();
+    } catch(e) { showToast('Error: '+e.message,'error'); }
+  };
+
+  window.cfgDeleteUser = function(id, username) {
+    confirmModal(`¿Eliminar usuario "${username}"?`, async () => {
+      try { await api('DELETE', `/api/auth/users/${id}`); showToast('Usuario eliminado'); await cfgLoadUsers(); }
+      catch(e) { showToast('Error: '+e.message,'error'); }
+    }, '🗑️');
+  };
+
+  window.cfgChangePassword = function() {
+    openModal('Cambiar contraseña', `
+      <form onsubmit="cfgDoChangePassword(event)">
+        <div class="form-group" style="margin-bottom:12px">
+          <label>Contraseña actual</label>
+          <input class="form-control" name="current_password" type="password" required>
+        </div>
+        <div class="form-group" style="margin-bottom:20px">
+          <label>Nueva contraseña (mín. 4 caracteres)</label>
+          <input class="form-control" name="new_password" type="password" required minlength="4">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Cambiar contraseña</button>
+        </div>
+      </form>`);
+  };
+
+  window.cfgDoChangePassword = async function(e) {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    try {
+      await api('PUT', '/api/auth/password', { current_password: fd.get('current_password'), new_password: fd.get('new_password') });
+      closeModal();
+      showToast('Contraseña cambiada exitosamente');
+    } catch(err) { showToast('Error: '+err.message,'error'); }
   };
 
   window.cfgConfirmReset = async function () {

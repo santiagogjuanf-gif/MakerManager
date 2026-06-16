@@ -1,29 +1,42 @@
-// Inventory page: 4 tabs (Filamentos, Resinas, Láser, CNC)
+// Inventory page — dynamic tabs based on registered printer types
 (function () {
   let allFilaments = [], allResinas = [], allLaser = [], allCNC = [];
-  let filPage = 1, resinPage = 1, laserPage = 1, cncPage = 1;
-  let filSearch = '', resinSearch = '', laserSearch = '', cncSearch = '';
-  let activeTab = 'filamentos';
+  let allExternos = [], allInternos = [];
+  let filPage = 1, resinPage = 1, laserPage = 1, cncPage = 1, extPage = 1, intPage = 1;
+  let filSearch = '', resinSearch = '', laserSearch = '', cncSearch = '', extSearch = '', intSearch = '';
+  let activeTab = 'externos';
 
   pageLoaders['inventory'] = async function loadInventory() {
     const el = document.getElementById('page-inventory');
-    el.innerHTML = `
-      <div class="page-header">
-        <div>
-          <div class="page-title">Inventario</div>
-          <div class="page-subtitle">Filamentos, resinas y consumibles</div>
-        </div>
-      </div>
+    el.innerHTML = `<div class="page-header"><div><div class="page-title">Inventario</div><div class="page-subtitle">Consumibles y materiales</div></div></div><div id="inv-tabs-wrap"><p style="color:var(--text-muted)">Cargando...</p></div>`;
+
+    // Determine which tabs to show
+    const [printers, filaments, resinas, laser, cnc] = await Promise.all([
+      api('GET', '/api/printers').catch(() => []),
+      api('GET', '/api/filaments').catch(() => []),
+      api('GET', '/api/resinas').catch(() => []),
+      api('GET', '/api/laser').catch(() => []),
+      api('GET', '/api/cnc').catch(() => []),
+    ]);
+    allFilaments = filaments; allResinas = resinas; allLaser = laser; allCNC = cnc;
+
+    const tipos = new Set(printers.map(p => p.tipo));
+    const tabs = [
+      { id: 'externos', label: '📦 Externos', always: true },
+      { id: 'internos', label: '🧴 Internos', always: true },
+      { id: 'filamentos', label: '🧵 Filamentos', show: tipos.has('FDM') || filaments.length > 0 },
+      { id: 'resinas',    label: '🫙 Resinas',    show: tipos.has('Resina') || resinas.length > 0 },
+      { id: 'laser',      label: '🔥 Láser',      show: tipos.has('Laser') || laser.length > 0 },
+      { id: 'cnc',        label: '🔩 CNC',        show: tipos.has('CNC') || cnc.length > 0 },
+    ].filter(t => t.always || t.show);
+
+    if (!tabs.find(t => t.id === activeTab)) activeTab = tabs[0].id;
+
+    document.getElementById('inv-tabs-wrap').innerHTML = `
       <div class="tabs" id="inv-tabs">
-        <button class="tab-btn active" data-tab="filamentos">🧵 Filamentos</button>
-        <button class="tab-btn" data-tab="resinas">🫙 Resinas</button>
-        <button class="tab-btn" data-tab="laser">🔥 Láser</button>
-        <button class="tab-btn" data-tab="cnc">🔩 CNC</button>
+        ${tabs.map(t => `<button class="tab-btn ${t.id === activeTab ? 'active' : ''}" data-tab="${t.id}">${t.label}</button>`).join('')}
       </div>
-      <div id="inv-tab-filamentos" class="inv-tab"></div>
-      <div id="inv-tab-resinas" class="inv-tab hidden"></div>
-      <div id="inv-tab-laser" class="inv-tab hidden"></div>
-      <div id="inv-tab-cnc" class="inv-tab hidden"></div>`;
+      ${tabs.map(t => `<div id="inv-tab-${t.id}" class="inv-tab ${t.id === activeTab ? '' : 'hidden'}"></div>`).join('')}`;
 
     document.querySelectorAll('#inv-tabs .tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -31,15 +44,17 @@
         btn.classList.add('active');
         document.querySelectorAll('.inv-tab').forEach(t => t.classList.add('hidden'));
         activeTab = btn.dataset.tab;
-        document.getElementById(`inv-tab-${activeTab}`).classList.remove('hidden');
+        document.getElementById(`inv-tab-${activeTab}`)?.classList.remove('hidden');
       });
     });
 
     await Promise.all([
-      refreshFilaments(),
-      refreshResinas(),
-      refreshLaser(),
-      refreshCNC()
+      refreshExternos(),
+      refreshInternos(),
+      tabs.find(t=>t.id==='filamentos') ? renderFilaments() : Promise.resolve(),
+      tabs.find(t=>t.id==='resinas') ? refreshResinas() : Promise.resolve(),
+      tabs.find(t=>t.id==='laser') ? refreshLaser() : Promise.resolve(),
+      tabs.find(t=>t.id==='cnc') ? refreshCNC() : Promise.resolve(),
     ]);
   };
 
@@ -505,4 +520,153 @@
     }
     makeBtn('›', current + 1, current === total, false);
   }
+
+  // ===================== CONSUMIBLES EXTERNOS =====================
+  async function refreshExternos() {
+    try { allExternos = await api('GET', '/api/consumibles/externos'); } catch { allExternos = []; }
+    extPage = 1; renderExternos();
+  }
+
+  function renderExternos() {
+    const tab = document.getElementById('inv-tab-externos');
+    if (!tab) return;
+    const q = extSearch.toLowerCase();
+    const filtered = allExternos.filter(c => `${c.nombre} ${c.categoria||''}`.toLowerCase().includes(q));
+    const { items, totalPages, page } = paginate(filtered, extPage);
+    extPage = page;
+    const rows = items.length ? items.map(c => {
+      const lowStock = c.stock_minimo > 0 && c.cantidad <= c.stock_minimo;
+      return `<tr>
+        <td><strong>${c.nombre}</strong>${lowStock ? ' <span class="badge badge-low">⚠️ Stock bajo</span>' : ''}</td>
+        <td>${c.categoria || '-'}</td>
+        <td>${fmtNum(c.cantidad, 2)} ${c.unidad}</td>
+        <td>${fmtMoney(c.costo_unitario)}</td>
+        <td>${fmtNum(c.stock_minimo, 0)} ${c.unidad}</td>
+        <td class="actions">
+          <button class="btn btn-secondary btn-sm" onclick="invEditExt(${c.id})">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="invDeleteExt(${c.id})">🗑️</button>
+        </td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="6" class="empty-state"><div class="empty-state-icon">📦</div>Sin consumibles externos</td></tr>';
+
+    tab.innerHTML = `
+      <div class="table-container">
+        <div class="table-toolbar">
+          <input class="search-input form-control" style="width:220px" placeholder="Buscar..." value="${extSearch}" oninput="invSearchExt(this.value)">
+          <button class="btn btn-primary" onclick="invOpenExtForm()">＋ Agregar</button>
+        </div>
+        <table>
+          <thead><tr><th>Nombre</th><th>Categoría</th><th>Cantidad</th><th>Costo unit.</th><th>Stock mín.</th><th>Acciones</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="pagination" id="ext-pagination"></div>
+      </div>`;
+    renderPaginationInline('ext-pagination', extPage, totalPages, p => { extPage = p; renderExternos(); });
+  }
+
+  window.invSearchExt = function(q) { extSearch = q; extPage = 1; renderExternos(); };
+
+  function consumibleForm(tipo, id, data = {}) {
+    openModal(id ? `Editar ${tipo}` : `Nuevo ${tipo}`, `
+      <form onsubmit="invSaveConsumible(event,'${tipo}',${id||'null'})">
+        <div class="form-grid">
+          <div class="form-group"><label>Nombre *</label><input class="form-control" name="nombre" value="${data.nombre||''}" required></div>
+          <div class="form-group"><label>Categoría</label><input class="form-control" name="categoria" value="${data.categoria||''}"></div>
+          <div class="form-group"><label>Cantidad</label><input class="form-control" name="cantidad" type="number" step="0.01" value="${data.cantidad||0}"></div>
+          <div class="form-group"><label>Unidad</label>
+            <select class="form-control" name="unidad">
+              ${['pcs','kg','L','m','hojas','rollo','bolsa'].map(u=>`<option ${(data.unidad||'pcs')===u?'selected':''}>${u}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group"><label>Costo unitario</label><input class="form-control" name="costo_unitario" type="number" step="0.01" value="${data.costo_unitario||0}"></div>
+          <div class="form-group"><label>Stock mínimo</label><input class="form-control" name="stock_minimo" type="number" step="0.01" value="${data.stock_minimo||0}"></div>
+          <div class="form-group"><label>Proveedor</label><input class="form-control" name="proveedor" value="${data.proveedor||''}"></div>
+          <div class="form-group form-full"><label>Notas</label><input class="form-control" name="notas" value="${data.notas||''}"></div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>`);
+  }
+
+  window.invOpenExtForm = function(id) { consumibleForm('externo', id, id ? allExternos.find(x=>x.id===id)||{} : {}); };
+  window.invEditExt = function(id) { invOpenExtForm(id); };
+  window.invDeleteExt = function(id) {
+    const c = allExternos.find(x=>x.id===id);
+    confirmModal(`¿Eliminar "${c?.nombre}"?`, async () => {
+      try { await api('DELETE', `/api/consumibles/externos/${id}`); showToast('Eliminado'); await refreshExternos(); }
+      catch(e) { showToast('Error: '+e.message,'error'); }
+    }, '🗑️');
+  };
+
+  // ===================== CONSUMIBLES INTERNOS =====================
+  async function refreshInternos() {
+    try { allInternos = await api('GET', '/api/consumibles/internos'); } catch { allInternos = []; }
+    intPage = 1; renderInternos();
+  }
+
+  function renderInternos() {
+    const tab = document.getElementById('inv-tab-internos');
+    if (!tab) return;
+    const q = intSearch.toLowerCase();
+    const filtered = allInternos.filter(c => `${c.nombre} ${c.categoria||''}`.toLowerCase().includes(q));
+    const { items, totalPages, page } = paginate(filtered, intPage);
+    intPage = page;
+    const rows = items.length ? items.map(c => {
+      const lowStock = c.stock_minimo > 0 && c.cantidad <= c.stock_minimo;
+      return `<tr>
+        <td><strong>${c.nombre}</strong>${lowStock ? ' <span class="badge badge-low">⚠️ Stock bajo</span>' : ''}</td>
+        <td>${c.categoria || '-'}</td>
+        <td>${fmtNum(c.cantidad, 2)} ${c.unidad}</td>
+        <td>${fmtMoney(c.costo_unitario)}</td>
+        <td>${fmtNum(c.stock_minimo, 0)} ${c.unidad}</td>
+        <td class="actions">
+          <button class="btn btn-secondary btn-sm" onclick="invEditInt(${c.id})">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="invDeleteInt(${c.id})">🗑️</button>
+        </td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="6" class="empty-state"><div class="empty-state-icon">🧴</div>Sin consumibles internos</td></tr>';
+
+    tab.innerHTML = `
+      <div class="table-container">
+        <div class="table-toolbar">
+          <input class="search-input form-control" style="width:220px" placeholder="Buscar..." value="${intSearch}" oninput="invSearchInt(this.value)">
+          <button class="btn btn-primary" onclick="invOpenIntForm()">＋ Agregar</button>
+        </div>
+        <table>
+          <thead><tr><th>Nombre</th><th>Categoría</th><th>Cantidad</th><th>Costo unit.</th><th>Stock mín.</th><th>Acciones</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="pagination" id="int-pagination"></div>
+      </div>`;
+    renderPaginationInline('int-pagination', intPage, totalPages, p => { intPage = p; renderInternos(); });
+  }
+
+  window.invSearchInt = function(q) { intSearch = q; intPage = 1; renderInternos(); };
+  window.invOpenIntForm = function(id) { consumibleForm('interno', id, id ? allInternos.find(x=>x.id===id)||{} : {}); };
+  window.invEditInt = function(id) { invOpenIntForm(id); };
+  window.invDeleteInt = function(id) {
+    const c = allInternos.find(x=>x.id===id);
+    confirmModal(`¿Eliminar "${c?.nombre}"?`, async () => {
+      try { await api('DELETE', `/api/consumibles/internos/${id}`); showToast('Eliminado'); await refreshInternos(); }
+      catch(e) { showToast('Error: '+e.message,'error'); }
+    }, '🗑️');
+  };
+
+  window.invSaveConsumible = async function(e, tipo, id) {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const body = {};
+    for (const [k,v] of fd.entries()) body[k] = v;
+    const endpoint = tipo === 'externo' ? 'externos' : 'internos';
+    const refresh = tipo === 'externo' ? refreshExternos : refreshInternos;
+    try {
+      if (id) { await api('PUT', `/api/consumibles/${endpoint}/${id}`, body); }
+      else { await api('POST', `/api/consumibles/${endpoint}`, body); }
+      closeModal();
+      showToast(id ? 'Actualizado' : 'Agregado');
+      await refresh();
+    } catch(err) { showToast('Error: '+err.message,'error'); }
+  };
 })();

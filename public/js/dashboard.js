@@ -87,13 +87,21 @@ pageLoaders['dashboard'] = async function loadDashboard() {
     const { lowFilaments = [], recentJobs = [], monthStats = {}, stats = {} } = data;
 
     const lowRows = lowFilaments.length
-      ? lowFilaments.map(f => `
-        <tr>
-          <td><span class="color-dot" style="background:${colorHex(f.color)}"></span>${f.marca} ${f.nombre_comercial || ''}</td>
-          <td>${materialBadge(f.material)}</td>
-          <td><span class="badge badge-low">${fmtNum(f.peso_actual_g, 0)}g</span></td>
-        </tr>`).join('')
-      : '<tr><td colspan="3" class="empty-state" style="padding:20px">Sin filamentos bajos ✓</td></tr>';
+      ? lowFilaments.map(f => {
+          const pct = Math.max(0, Math.min(100, (f.peso_actual_g / f.peso_inicial_g) * 100));
+          const cls = pct < 10 ? 'danger' : pct < 20 ? 'warning' : 'success';
+          const badgeCls = cls === 'danger' ? 'low' : cls === 'warning' ? 'warn' : 'ok';
+          return `<tr>
+            <td><span class="color-dot" style="background:${colorHex(f.color)}"></span>${f.marca}</td>
+            <td>${materialBadge(f.material)}</td>
+            <td><span class="badge badge-${badgeCls}">${fmtNum(f.peso_actual_g,0)}g</span></td>
+            <td style="min-width:90px">
+              <div class="progress-bar"><div class="progress-fill" style="width:${pct.toFixed(0)}%;background:var(--${cls})"></div></div>
+              <span style="font-size:10px;color:var(--text-muted)">${pct.toFixed(0)}%</span>
+            </td>
+          </tr>`;
+        }).join('')
+      : '<tr><td colspan="4" class="empty-state" style="padding:20px">Sin filamentos bajos ✓</td></tr>';
 
     const recentRows = recentJobs.length
       ? recentJobs.map(j => `
@@ -157,7 +165,7 @@ pageLoaders['dashboard'] = async function loadDashboard() {
       <div class="grid-2">
         <div class="table-container">
           <div class="table-toolbar"><span class="card-title" style="margin:0">⚠️ Filamentos bajos</span></div>
-          <table><thead><tr><th>Filamento</th><th>Material</th><th>Peso</th></tr></thead>
+          <table><thead><tr><th>Filamento</th><th>Material</th><th>Peso</th><th>Nivel</th></tr></thead>
           <tbody>${lowRows}</tbody></table>
         </div>
         <div class="table-container">

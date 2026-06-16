@@ -113,6 +113,30 @@ async function init() {
       print_job_id INTEGER REFERENCES print_jobs(id) ON DELETE CASCADE,
       nombre_extra TEXT, cantidad REAL DEFAULT 1,
       costo_unitario REAL DEFAULT 0, costo_total REAL DEFAULT 0)`,
+
+    `CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      display_name TEXT,
+      password_hash TEXT NOT NULL,
+      role TEXT DEFAULT 'worker',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
+
+    `CREATE TABLE IF NOT EXISTS consumibles_externos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT NOT NULL, categoria TEXT,
+      cantidad REAL DEFAULT 0, unidad TEXT DEFAULT 'pcs',
+      costo_unitario REAL DEFAULT 0, stock_minimo REAL DEFAULT 0,
+      proveedor TEXT, notas TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
+
+    `CREATE TABLE IF NOT EXISTS consumibles_internos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT NOT NULL, categoria TEXT,
+      cantidad REAL DEFAULT 0, unidad TEXT DEFAULT 'pcs',
+      costo_unitario REAL DEFAULT 0, stock_minimo REAL DEFAULT 0,
+      proveedor TEXT, notas TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
   ];
 
   for (const sql of tables) await db.runAsync(sql);
@@ -136,11 +160,22 @@ async function init() {
     nivel_frecuente: '7',
     nivel_vip: '15',
     logo_path: '',
+    theme_color: 'morado',
     terminos_condiciones: 'Al recibir y aceptar el producto, el cliente confirma que está conforme con el trabajo realizado. Los productos cuentan con una garantía de 15 días naturales a partir de la fecha de entrega, aplicable únicamente a defectos de fabricación como mala fusión de capas o fallas estructurales del material. La garantía no cubre daños causados por mal uso, caídas, exposición al calor o negligencia del cliente. Cada caso será evaluado individualmente. Una vez aceptado el producto, no se aceptan devoluciones.',
   };
 
   for (const [key, value] of Object.entries(defaults)) {
     await db.runAsync('INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)', [key, value]);
+  }
+
+  const bcrypt = require('bcryptjs');
+  const userCount = await db.getAsync('SELECT COUNT(*) as cnt FROM users');
+  if (userCount.cnt === 0) {
+    const hash = await bcrypt.hash('admin', 10);
+    await db.runAsync(
+      'INSERT INTO users (username, display_name, password_hash, role) VALUES (?,?,?,?)',
+      ['admin', 'Administrador', hash, 'admin']
+    );
   }
 }
 

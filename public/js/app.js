@@ -1,12 +1,59 @@
+// Auth
+let currentUser = null;
+
+function getToken() { return localStorage.getItem('mm_token'); }
+
+async function checkAuth() {
+  const token = getToken();
+  if (!token) { window.location.href = '/login'; return false; }
+  try {
+    const res = await fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + token } });
+    if (!res.ok) { localStorage.removeItem('mm_token'); localStorage.removeItem('mm_user'); window.location.href = '/login'; return false; }
+    currentUser = await res.json();
+    if (currentUser.is_default_password) {
+      setTimeout(() => showToast('⚠️ Credenciales por defecto. Cámbialas en Configuración.', 'error'), 1500);
+    }
+    if (currentUser.role === 'worker') {
+      document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'none');
+    }
+    const userEl = document.getElementById('sidebar-user');
+    if (userEl) userEl.innerHTML = `<div style="font-size:12px;font-weight:600;color:var(--text)">${currentUser.display_name || currentUser.username}</div><div style="font-size:10px;color:var(--text-muted);margin-top:1px">${currentUser.role === 'admin' ? '👑 Admin' : '👷 Worker'}</div>`;
+    return true;
+  } catch { window.location.href = '/login'; return false; }
+}
+
+function logout() {
+  localStorage.removeItem('mm_token');
+  localStorage.removeItem('mm_user');
+  window.location.href = '/login';
+}
+
+// Themes
+const THEMES = {
+  morado:   { accent:'#6c63ff', accentLight:'#8b84ff', bg:'#0f1117', surface:'#1a1d27', card:'#1e2130', border:'#2d3148', text:'#e2e8f0', textMuted:'#8892a4' },
+  cerberus: { accent:'#f97316', accentLight:'#fb923c', bg:'#080b10', surface:'#111318', card:'#14171e', border:'#1f2330', text:'#f1f5f9', textMuted:'#8892a4' },
+  cian:     { accent:'#06b6d4', accentLight:'#22d3ee', bg:'#f8fafc', surface:'#f1f5f9', card:'#ffffff', border:'#e2e8f0', text:'#1e293b', textMuted:'#64748b' },
+  bambu:    { accent:'#4ade80', accentLight:'#86efac', bg:'#f8fafc', surface:'#f0fdf4', card:'#ffffff', border:'#d1fae5', text:'#1e293b', textMuted:'#64748b' },
+};
+
+function applyTheme(t) {
+  const th = THEMES[t] || THEMES.morado;
+  const r = document.documentElement.style;
+  [['--accent',th.accent],['--accent-light',th.accentLight],['--accent-dim',th.accent+'26'],['--bg',th.bg],['--surface',th.surface],['--card',th.card],['--border',th.border],['--text',th.text],['--text-muted',th.textMuted]].forEach(([k,v]) => r.setProperty(k,v));
+}
+
 // Global config store
 let appConfig = {};
 
-// Global API helper
+// Global API helper — includes auth header, handles 401
 async function api(method, url, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  const token = getToken();
+  if (token) opts.headers['Authorization'] = 'Bearer ' + token;
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(url, opts);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (res.status === 401) { localStorage.removeItem('mm_token'); window.location.href = '/login'; throw new Error('No autenticado'); }
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `HTTP ${res.status}`); }
   return res.json();
 }
 
@@ -16,7 +63,7 @@ function showToast(msg, type = 'success') {
   t.textContent = msg;
   t.className = `toast ${type}`;
   t.classList.remove('hidden');
-  setTimeout(() => t.classList.add('hidden'), 3000);
+  setTimeout(() => t.classList.add('hidden'), 3500);
 }
 
 // Modal
@@ -43,10 +90,7 @@ function confirmModal(msg, onYes, icon = '⚠️') {
   const btn = document.getElementById('confirm-yes-btn');
   const newBtn = btn.cloneNode(true);
   btn.parentNode.replaceChild(newBtn, btn);
-  newBtn.addEventListener('click', () => {
-    closeConfirm();
-    onYes();
-  });
+  newBtn.addEventListener('click', () => { closeConfirm(); onYes(); });
 }
 
 function closeConfirm() {
@@ -61,8 +105,8 @@ document.getElementById('confirm-overlay').addEventListener('click', (e) => {
 function fmtMoney(v) {
   if (v == null || v === '') return '-';
   const sym = appConfig.simbolo_moneda || '$';
-  const cur = appConfig.moneda || 'CAD';
-  return `${sym}${parseFloat(v).toFixed(2)} ${cur}`;
+  const cur = appConfig.moneda || '';
+  return `${sym}${parseFloat(v).toFixed(2)}${cur ? ' ' + cur : ''}`;
 }
 
 function fmtNum(v, dec = 2) {
@@ -76,7 +120,6 @@ function materialBadge(mat) {
   return `<span class="badge badge-${cls}">${mat || '-'}</span>`;
 }
 
-// Color name to hex approximation
 function colorHex(name) {
   const map = {
     negro: '#222', blanco: '#eee', gris: '#888', azul: '#3b82f6',
@@ -86,15 +129,13 @@ function colorHex(name) {
   return map[(name || '').toLowerCase()] || '#6c63ff';
 }
 
-// Pagination helper
+// Pagination
 function paginate(data, page, perPage = 10) {
   const totalPages = Math.max(1, Math.ceil(data.length / perPage));
   const p = Math.min(Math.max(1, page), totalPages);
-  const items = data.slice((p - 1) * perPage, p * perPage);
-  return { items, totalPages, page: p };
+  return { items: data.slice((p - 1) * perPage, p * perPage), totalPages, page: p };
 }
 
-// Render pagination controls
 function renderPagination(containerId, current, total, onPageChange) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -111,18 +152,12 @@ function renderPagination(containerId, current, total, onPageChange) {
   container.innerHTML = html;
 }
 
-// Load app config from API
+// Load app config
 async function loadConfig() {
   try {
     const cfg = await api('GET', '/api/config');
-    if (Array.isArray(cfg)) {
-      cfg.forEach(row => { appConfig[row.key] = row.value; });
-    } else {
-      appConfig = cfg;
-    }
-  } catch (e) {
-    console.warn('Could not load config:', e.message);
-  }
+    appConfig = Array.isArray(cfg) ? cfg.reduce((a, r) => ({ ...a, [r.key]: r.value }), {}) : cfg;
+  } catch(e) { console.warn('Config load failed:', e.message); }
 }
 
 // Router
@@ -131,6 +166,8 @@ const pageLoaders = {};
 
 function navigate(page) {
   if (!pages.includes(page)) page = 'dashboard';
+  // Workers can't access config
+  if (page === 'config' && currentUser?.role === 'worker') { page = 'dashboard'; }
   pages.forEach(p => {
     document.getElementById(`page-${p}`).classList.toggle('hidden', p !== page);
   });
@@ -154,8 +191,13 @@ function handleRoute() {
   navigate(hash);
 }
 
-window.addEventListener('hashchange', handleRoute);
-window.addEventListener('load', async () => {
+async function startup() {
+  const ok = await checkAuth();
+  if (!ok) return;
   await loadConfig();
+  if (appConfig.theme_color) applyTheme(appConfig.theme_color);
   handleRoute();
-});
+}
+
+window.addEventListener('hashchange', () => { if (currentUser) handleRoute(); });
+window.addEventListener('load', startup);

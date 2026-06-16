@@ -258,13 +258,31 @@
 
   window.prDelete = function (id) {
     const p = allPrinters.find(x => x.id === id);
-    confirmModal(`¿Eliminar impresora "${p?.nombre}"?`, async () => {
-      try {
-        await api('DELETE', `/api/printers/${id}`);
-        closeModal();
-        showToast('Impresora eliminada');
-        await refreshPrinters();
-      } catch (err) { showToast('Error: ' + err.message, 'error'); }
+    const invNames = { FDM:'filamentos', Resina:'resinas', Laser:'consumibles láser', CNC:'consumibles CNC' };
+    const invName = invNames[p?.tipo] || 'inventario';
+    confirmModal(`¿Eliminar impresora "${p?.nombre}"?`, () => {
+      openModal('¿Qué hacemos con el inventario?', `
+        <div style="text-align:center;padding:16px">
+          <div style="font-size:40px;margin-bottom:12px">📦</div>
+          <p style="margin-bottom:24px;color:var(--text)">¿Deseas también eliminar los <strong>${invName}</strong> asociados a este tipo de impresora?</p>
+          <div class="form-actions" style="justify-content:center;gap:12px">
+            <button class="btn btn-secondary" onclick="prDoDelete(${id},false)">Mantener inventario</button>
+            <button class="btn btn-danger" onclick="prDoDelete(${id},true)">Eliminar también</button>
+          </div>
+        </div>`);
     }, '🗑️');
+  };
+
+  window.prDoDelete = async function(id, deleteInventory) {
+    try {
+      const res = await fetch(`/api/printers/${id}?delete_inventory=${deleteInventory}`, {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + getToken() }
+      });
+      if (!res.ok) throw new Error('Error eliminando');
+      closeModal();
+      showToast('Impresora eliminada');
+      await refreshPrinters();
+    } catch(err) { showToast('Error: ' + err.message, 'error'); }
   };
 })();
