@@ -149,6 +149,12 @@ async function init() {
     try { await db.runAsync(`ALTER TABLE print_jobs ADD COLUMN ${colDef}`); } catch (e) { /* column already exists */ }
   }
 
+  // Migrate filaments table with new columns
+  const filColumns = ["tipo_bobina TEXT DEFAULT 'Bobina completa'", 'color_hex TEXT'];
+  for (const colDef of filColumns) {
+    try { await db.runAsync(`ALTER TABLE filaments ADD COLUMN ${colDef}`); } catch (e) { /* column already exists */ }
+  }
+
   const defaults = {
     nombre_negocio: 'MakerManager Studio',
     telefono: '',

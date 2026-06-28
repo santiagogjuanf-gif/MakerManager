@@ -47,6 +47,19 @@ app.delete('/api/reset', async (req, res) => {
 
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 
+// NFC tag tap → redirect to app with filament highlighted
+app.get('/nfc/:id', (req, res) => {
+  res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MakerManager — Filamento</title>
+  <script>
+    const id = ${parseInt(req.params.id)||0};
+    localStorage.setItem('mm_nfc_open', id);
+    window.location.href = '/#inventory';
+  </script></head><body style="background:#0f0f13;color:#e2e8f0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh">
+  <p>Abriendo filamento...</p></body></html>`);
+});
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

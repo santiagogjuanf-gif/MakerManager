@@ -59,127 +59,339 @@
   };
 
   // ===================== FILAMENTOS =====================
+  let filFilterMat = '', filFilterAcabado = '', filFilterMarca = '';
+
+  const FIL_MATERIALES = ['PLA','PETG','ABS','TPU','ASA','PA','PC','PLA+','FLEX','PPS','HIPS'];
+  const FIL_ACABADOS   = [
+    'Estándar','Mate','Silk','Traslúcido','Galaxy','Marble','Wood',
+    'Gradient','Glow','Sparkly','CF','Metal','Pure','Rainbow','HS'
+  ];
+
+  function makeSpool(f, size) {
+    const CX = size / 2, CY = size / 2;
+    const R   = size * 0.415;
+    const SW  = size * 0.248;
+    const hubR  = size * 0.128;
+    const hub2R = size * 0.075;
+    const hub3R = size * 0.040;
+    const circ  = 2 * Math.PI * R;
+    const pct   = f.peso_inicial_g > 0 ? Math.max(0, Math.min(1, f.peso_actual_g / f.peso_inicial_g)) : 0;
+    const fill  = circ * pct;
+    const empty = circ - fill;
+    const offset = circ * 0.25;
+    const isFull = pct >= 0.99;
+    const isLow  = pct < 0.10;
+    const acabadoL = (f.acabado || '').toLowerCase();
+    const isGalaxy = acabadoL.includes('galaxy');
+    const isMarble = acabadoL.includes('marble') || acabadoL.includes('marmol');
+    const gradId   = `spg${f.id}_${size}`;
+    const hexColor = f.color_hex || colorHex(f.color);
+    let strokeColor = hexColor;
+    let gradDefs = '';
+    if (isGalaxy) {
+      gradDefs = `<defs><radialGradient id="${gradId}" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#c084fc"/><stop offset="55%" stop-color="#6366f1"/><stop offset="100%" stop-color="#1e1b4b"/></radialGradient></defs>`;
+      strokeColor = `url(#${gradId})`;
+    } else if (isMarble) {
+      gradDefs = `<defs><linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e2e8f0"/><stop offset="40%" stop-color="#94a3b8"/><stop offset="75%" stop-color="#e2e8f0"/><stop offset="100%" stop-color="#64748b"/></linearGradient></defs>`;
+      strokeColor = `url(#${gradId})`;
+    }
+    return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+      ${gradDefs}
+      <circle cx="${CX}" cy="${CY+size*0.017}" r="${R+SW/2}" fill="#00000030"/>
+      <circle cx="${CX}" cy="${CY}" r="${R+SW/2}" fill="#252535"/>
+      ${!isFull ? `<circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="#18181f" stroke-width="${SW}"/>` : ''}
+      <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${strokeColor}" stroke-width="${SW}" opacity="0.93"
+        ${!isFull ? `stroke-dasharray="${fill.toFixed(2)} ${empty.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}" stroke-linecap="round"` : ''}/>
+      <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="white" stroke-width="${SW*0.18}" opacity="0.09"
+        stroke-dasharray="${(size*0.36).toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(-size*0.06).toFixed(1)}"/>
+      <circle cx="${CX}" cy="${CY}" r="${hubR}" fill="#18181f"/>
+      <circle cx="${CX}" cy="${CY}" r="${hubR}" fill="none" stroke="${isLow?'#ef444455':'#2e2e48'}" stroke-width="1.5"/>
+      <circle cx="${CX}" cy="${CY}" r="${hub2R}" fill="#111118"/>
+      <circle cx="${CX}" cy="${CY}" r="${hub3R}" fill="#1e1e2e"/>
+    </svg>`;
+  }
+
   async function refreshFilaments() {
-    try {
-      allFilaments = await api('GET', '/api/filaments');
-    } catch (e) { allFilaments = []; }
+    try { allFilaments = await api('GET', '/api/filaments'); } catch (e) { allFilaments = []; }
     filPage = 1;
     renderFilaments();
+    // Check if opened via NFC tap
+    const nfcId = parseInt(localStorage.getItem('mm_nfc_open') || '0');
+    if (nfcId) { localStorage.removeItem('mm_nfc_open'); invViewFilament(nfcId); }
   }
 
   function renderFilaments() {
+    const tab = document.getElementById('inv-tab-filamentos');
+    if (!tab) return;
     const q = filSearch.toLowerCase();
-    const filtered = allFilaments.filter(f =>
-      `${f.marca} ${f.nombre_comercial} ${f.material} ${f.color}`.toLowerCase().includes(q)
-    );
-    const { items, totalPages, page } = paginate(filtered, filPage);
+    const marcas = [...new Set(allFilaments.map(f => f.marca).filter(Boolean))].sort();
+    const filtered = allFilaments.filter(f => {
+      const text = `${f.marca} ${f.nombre_comercial} ${f.material} ${f.color} ${f.acabado}`.toLowerCase();
+      return (!q || text.includes(q))
+        && (!filFilterMat     || f.material === filFilterMat)
+        && (!filFilterAcabado || f.acabado  === filFilterAcabado)
+        && (!filFilterMarca   || f.marca    === filFilterMarca);
+    });
+    const { items, totalPages, page } = paginate(filtered, filPage, 12);
     filPage = page;
 
-    const rows = items.length ? items.map(f => {
-      const pct = f.peso_inicial_g > 0 ? Math.round((f.peso_actual_g / f.peso_inicial_g) * 100) : 0;
-      const pctColor = pct < 20 ? 'var(--danger)' : pct < 40 ? 'var(--warning)' : 'var(--success)';
-      return `<tr>
-        <td><strong>${f.marca || '-'}</strong><br><small style="color:var(--text-muted)">${f.nombre_comercial || ''}</small></td>
-        <td>${materialBadge(f.material)} <span class="color-dot" style="background:${colorHex(f.color)}"></span>${f.color || '-'}</td>
-        <td>${fmtNum(f.peso_actual_g, 0)}g
-          <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${pctColor}"></div></div>
-        </td>
-        <td>${pct}%</td>
-        <td>${fmtMoney(f.costo_por_gramo)}/g</td>
-        <td class="actions">
-          <button class="btn btn-secondary btn-sm" onclick="invEditFilament(${f.id})">✏️</button>
-          <button class="btn btn-danger btn-sm" onclick="invDeleteFilament(${f.id})">🗑️</button>
-        </td>
-      </tr>`;
-    }).join('') : '<tr><td colspan="6" class="empty-state"><div class="empty-state-icon">🧵</div>Sin filamentos</td></tr>';
+    const matOpts   = FIL_MATERIALES.map(m => `<option value="${m}" ${filFilterMat===m?'selected':''}>${m}</option>`).join('');
+    const acabOpts  = FIL_ACABADOS.map(a => `<option value="${a}" ${filFilterAcabado===a?'selected':''}>${a}</option>`).join('');
+    const marcaOpts = marcas.map(m => `<option value="${m}" ${filFilterMarca===m?'selected':''}>${m}</option>`).join('');
 
-    document.getElementById('inv-tab-filamentos').innerHTML = `
-      <div class="table-container">
-        <div class="table-toolbar">
-          <input class="search-input form-control" style="width:220px" placeholder="Buscar filamento..." value="${filSearch}"
-            oninput="invSearchFil(this.value)" autocomplete="off">
-          <button class="btn btn-primary" onclick="invOpenFilamentForm()">＋ Agregar</button>
-        </div>
-        <table>
-          <thead><tr><th>Marca</th><th>Color / Material</th><th>Peso actual</th><th>%</th><th>Costo/g</th><th>Acciones</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-        <div class="pagination" id="fil-pagination"></div>
-      </div>`;
+    const cardsHTML = items.length
+      ? `<div class="fil-cards-grid">${items.map(f => {
+          const pct   = f.peso_inicial_g > 0 ? f.peso_actual_g / f.peso_inicial_g : 0;
+          const isLow = pct < 0.10;
+          const barClr = isLow ? 'var(--danger)' : (f.color_hex || colorHex(f.color));
+          const gLbl  = isLow
+            ? `<span style="color:var(--danger)">${fmtNum(f.peso_actual_g,0)}g</span>`
+            : `${fmtNum(f.peso_actual_g,0)}g`;
+          return `<div class="fil-card${isLow?' fil-card-low':''}" onclick="invViewFilament(${f.id})">
+            ${isLow ? '<span class="fil-alert-badge">⚠️ BAJO</span>' : ''}
+            ${f.tiene_nfc ? '<span class="fil-nfc-badge" title="NFC vinculado">📡</span>' : ''}
+            ${makeSpool(f, 110)}
+            <div class="fil-card-name">${f.marca||'-'} — ${f.material} ${f.acabado||''}</div>
+            <div class="fil-card-sub">${f.color||'-'}</div>
+            <div class="weight-wrap" style="width:100%">
+              <div class="weight-label"><span>${gLbl} restantes</span><span>${fmtNum(f.peso_inicial_g,0)}g</span></div>
+              <div class="weight-bar-bg"><div class="weight-bar-fill" style="width:${Math.round(pct*100)}%;background:${barClr}"></div></div>
+            </div>
+            <span class="${f.tipo_bobina==='Refil'?'badge badge-default':'badge badge-regular'}">${f.tipo_bobina||'Bobina completa'}</span>
+          </div>`;
+        }).join('')}</div>`
+      : `<div class="empty-state"><div class="empty-state-icon">🧵</div>Sin filamentos que coincidan</div>`;
 
-    if (totalPages > 1) {
-      const onPage = (p) => { filPage = p; renderFilaments(); };
-      renderPaginationInline('fil-pagination', filPage, totalPages, onPage);
-    }
+    tab.innerHTML = `
+      <div class="fil-toolbar">
+        <input class="search-input form-control" style="flex:1;min-width:160px;max-width:240px"
+          placeholder="Buscar filamento..." value="${filSearch}"
+          oninput="invSearchFil(this.value)" autocomplete="off">
+        <select class="form-control" style="width:auto" onchange="invSetFilFilter('mat',this.value)">
+          <option value="">Material</option>${matOpts}
+        </select>
+        <select class="form-control" style="width:auto" onchange="invSetFilFilter('acabado',this.value)">
+          <option value="">Acabado</option>${acabOpts}
+        </select>
+        <select class="form-control" style="width:auto" onchange="invSetFilFilter('marca',this.value)">
+          <option value="">Marca</option>${marcaOpts}
+        </select>
+        <span style="color:var(--text-muted);font-size:12px;white-space:nowrap">${filtered.length} filamento${filtered.length!==1?'s':''}</span>
+        <button class="btn btn-primary" onclick="invOpenFilamentForm()">＋ Agregar</button>
+      </div>
+      ${cardsHTML}
+      <div class="pagination" id="fil-pagination"></div>`;
+
+    if (totalPages > 1) renderPaginationInline('fil-pagination', filPage, totalPages, p => { filPage = p; renderFilaments(); });
   }
 
   window.invSearchFil = function (q) { filSearch = q; filPage = 1; renderFilaments(); };
+  window.invSetFilFilter = function (field, val) {
+    if (field === 'mat') filFilterMat = val;
+    else if (field === 'acabado') filFilterAcabado = val;
+    else if (field === 'marca') filFilterMarca = val;
+    filPage = 1; renderFilaments();
+  };
 
+  // ---------- FILAMENT DETAIL MODAL ----------
+  function ensureFilDetailModal() {
+    if (document.getElementById('fil-detail-overlay')) return;
+    const el = document.createElement('div');
+    el.id = 'fil-detail-overlay';
+    el.className = 'fil-detail-overlay';
+    el.innerHTML = `
+      <div class="fil-detail-modal">
+        <div class="fil-detail-header">
+          <span class="fil-detail-title" id="fil-det-title"></span>
+          <button class="modal-close" onclick="invCloseFilDetail()">✕</button>
+        </div>
+        <div class="fil-detail-body">
+          <div class="fil-detail-left">
+            <div id="fil-det-spool"></div>
+            <div class="weight-wrap" style="width:170px">
+              <div class="weight-label">
+                <span id="fil-det-g-actual"></span>
+                <span id="fil-det-g-total"></span>
+              </div>
+              <div class="weight-bar-bg" style="height:8px">
+                <div class="weight-bar-fill" id="fil-det-bar" style="height:8px"></div>
+              </div>
+            </div>
+            <div style="font-size:24px;font-weight:800;text-align:center" id="fil-det-pct"></div>
+          </div>
+          <div class="fil-detail-right" id="fil-det-data"></div>
+        </div>
+        <div class="fil-detail-footer">
+          <button class="btn btn-primary" id="fil-det-edit">✏️ Editar</button>
+          <button class="btn btn-success" id="fil-det-nfc">📡 NFC</button>
+          <button class="btn btn-secondary" id="fil-det-hist">📋 Historial</button>
+          <button class="btn btn-secondary" style="margin-left:auto" onclick="invCloseFilDetail()">Cerrar</button>
+          <button class="btn btn-danger" id="fil-det-del">🗑️ Eliminar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(el);
+  }
+
+  window.invViewFilament = function (id) {
+    ensureFilDetailModal();
+    const f = allFilaments.find(x => x.id === id);
+    if (!f) return;
+    const pct   = f.peso_inicial_g > 0 ? Math.max(0, Math.min(1, f.peso_actual_g / f.peso_inicial_g)) : 0;
+    const isLow = pct < 0.10;
+    const barClr = isLow ? '#ef4444' : (f.color_hex || colorHex(f.color));
+    const gClr  = isLow ? '#ef4444' : 'var(--text-primary)';
+
+    document.getElementById('fil-det-title').textContent = `${f.marca||'-'} — ${f.material} ${f.acabado||''}`;
+    document.getElementById('fil-det-spool').innerHTML = makeSpool(f, 175);
+    document.getElementById('fil-det-g-actual').innerHTML = `<span style="color:${gClr};font-weight:700">${fmtNum(f.peso_actual_g,0)}g restantes</span>`;
+    document.getElementById('fil-det-g-total').textContent = `${fmtNum(f.peso_inicial_g,0)}g inicial`;
+    document.getElementById('fil-det-bar').style.cssText = `width:${Math.round(pct*100)}%;background:${barClr};height:8px;border-radius:99px`;
+    document.getElementById('fil-det-pct').innerHTML = `<span style="color:${barClr}">${Math.round(pct*100)}%</span>`;
+
+    const nfcLine = f.tiene_nfc
+      ? `<span style="color:#22c55e;font-size:12px">● Vinculado · UID: ${f.uid_nfc||'—'}</span>`
+      : `<span style="color:var(--text-muted);font-size:12px">○ Sin tag vinculado</span>`;
+
+    const rows = [
+      ['Marca',           f.marca||'—'],
+      ['Material',        f.material||'—'],
+      ['Acabado',         f.acabado||'—'],
+      ['Color', `<span class="color-dot" style="background:${f.color_hex||colorHex(f.color)}"></span>${f.color||'—'}`],
+      ['Tipo de bobina',  f.tipo_bobina||'Bobina completa'],
+      ['Diámetro',        `${f.diametro_mm||1.75} mm`],
+      ['Costo/g',         fmtMoney(f.costo_por_gramo)],
+      ['Proveedor',       f.proveedor||'—'],
+      ['NFC',             nfcLine],
+      ...(f.notas ? [['Notas', f.notas]] : []),
+    ];
+    document.getElementById('fil-det-data').innerHTML = rows.map(([lbl,val]) =>
+      `<div class="fil-data-row"><div class="fil-data-label">${lbl}</div><div class="fil-data-value">${val}</div></div>`
+    ).join('');
+
+    document.getElementById('fil-det-edit').onclick = () => { invCloseFilDetail(); invOpenFilamentForm(id); };
+    document.getElementById('fil-det-del').onclick = () => { invCloseFilDetail(); invDeleteFilament(id); };
+    document.getElementById('fil-det-nfc').onclick = () => invNFCMenu(f);
+    document.getElementById('fil-detail-overlay').classList.add('open');
+  };
+
+  window.invCloseFilDetail = function () {
+    document.getElementById('fil-detail-overlay')?.classList.remove('open');
+  };
+
+  // ---------- NFC ----------
+  function invNFCMenu(f) {
+    const url = `${location.protocol}//${location.host}/nfc/${f.id}`;
+    const hasNDEF = 'NDEFReader' in window;
+    openModal(`📡 NFC — ${f.marca||''} ${f.material}`, `
+      <div style="display:flex;flex-direction:column;gap:14px;padding:4px 0">
+        <div>
+          <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;margin-bottom:6px">URL del tag (cópiala en NFC Tools)</div>
+          <code style="display:block;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;word-break:break-all">${url}</code>
+          <button class="btn btn-secondary" style="margin-top:8px;width:100%"
+            onclick="navigator.clipboard.writeText('${url}').then(()=>showToast('URL copiada ✓'))">📋 Copiar URL</button>
+        </div>
+        ${hasNDEF ? `
+          <div>
+            <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;margin-bottom:6px">Escritura directa (requiere HTTPS)</div>
+            <button class="btn btn-success" style="width:100%;margin-bottom:8px" onclick="invNFCWrite(${f.id},'${url}')">✍️ Escribir URL al tag NFC</button>
+            <button class="btn btn-secondary" style="width:100%" onclick="invNFCRead()">📡 Leer tag NFC</button>
+          </div>` : `
+          <div class="alert alert-info" style="font-size:13px">
+            ℹ️ Para escritura NFC descarga <strong>NFC Tools</strong> en tu teléfono.<br>
+            Escribe la URL de arriba como tipo <em>URL</em> en el tag.<br>
+            Al tocarlo, Chrome abrirá este filamento automáticamente.
+          </div>`}
+        ${f.tiene_nfc ? `<div style="color:#22c55e;font-size:13px">✅ Tag ya vinculado · UID: ${f.uid_nfc||'—'}</div>` : ''}
+      </div>
+      <div class="form-actions"><button class="btn btn-secondary" onclick="closeModal()">Cerrar</button></div>`);
+  }
+
+  window.invNFCWrite = async function (id, url) {
+    if (!('NDEFReader' in window)) { showToast('Web NFC no disponible — usa NFC Tools app', 'error'); return; }
+    try {
+      const ndef = new NDEFReader();
+      showToast('Acerca el tag NFC al teléfono…');
+      await ndef.write({ records: [{ recordType: 'url', data: url }] });
+      const serial = ndef.serialNumber || '';
+      await api('PUT', `/api/filaments/${id}`, { tiene_nfc: 1, uid_nfc: serial });
+      showToast('Tag NFC escrito y vinculado ✓');
+      await refreshFilaments(); closeModal();
+    } catch (e) {
+      showToast('Error NFC: ' + e.message + (e.message.includes('secure') ? ' — necesitas HTTPS' : ''), 'error');
+    }
+  };
+
+  window.invNFCRead = async function () {
+    if (!('NDEFReader' in window)) { showToast('Web NFC no disponible', 'error'); return; }
+    try {
+      const ndef = new NDEFReader();
+      showToast('Acerca el tag al teléfono…');
+      await ndef.scan();
+      ndef.onreading = ({ serialNumber, message }) => {
+        let found = allFilaments.find(f => f.uid_nfc && f.uid_nfc.toLowerCase() === serialNumber.toLowerCase());
+        if (!found) {
+          for (const rec of (message?.records || [])) {
+            if (rec.recordType === 'url') {
+              const txt = new TextDecoder().decode(rec.data);
+              const m = txt.match(/\/nfc\/(\d+)/);
+              if (m) found = allFilaments.find(f => f.id === parseInt(m[1]));
+            }
+          }
+        }
+        if (found) { closeModal(); invViewFilament(found.id); }
+        else showToast('Tag no vinculado a ningún filamento', 'error');
+      };
+    } catch (e) { showToast('Error NFC: ' + e.message, 'error'); }
+  };
+
+  // ---------- FORM ----------
   window.invOpenFilamentForm = async function (id) {
     let f = {};
-    if (id) {
-      try { f = allFilaments.find(x => x.id === id) || {}; } catch (e) {}
-    }
-    const title = id ? 'Editar Filamento' : 'Nuevo Filamento';
-    openModal(title, `
-      <form id="fil-form" onsubmit="invSaveFilament(event, ${id || 'null'})">
+    if (id) { try { f = allFilaments.find(x => x.id === id) || {}; } catch (e) {} }
+    const matOpts  = FIL_MATERIALES.map(m => `<option ${f.material===m?'selected':''}>${m}</option>`).join('');
+    const acabOpts = FIL_ACABADOS.map(a => `<option ${f.acabado===a?'selected':''}>${a}</option>`).join('');
+    openModal(id ? 'Editar Filamento' : 'Nuevo Filamento', `
+      <form id="fil-form" onsubmit="invSaveFilament(event,${id||'null'})">
         <div class="form-grid">
-          <div class="form-group">
-            <label>Marca *</label>
-            <input class="form-control" name="marca" value="${f.marca || ''}" required autocomplete="off">
+          <div class="form-group"><label>Marca *</label>
+            <input class="form-control" name="marca" value="${f.marca||''}" required autocomplete="off"></div>
+          <div class="form-group"><label>Nombre comercial</label>
+            <input class="form-control" name="nombre_comercial" value="${f.nombre_comercial||''}" autocomplete="off"></div>
+          <div class="form-group"><label>Material</label>
+            <select class="form-control" name="material">${matOpts}</select></div>
+          <div class="form-group"><label>Acabado</label>
+            <select class="form-control" name="acabado">${acabOpts}</select></div>
+          <div class="form-group"><label>Color (nombre)</label>
+            <input class="form-control" name="color" value="${f.color||''}" placeholder="Ej. Rojo, Azul cielo" autocomplete="off"></div>
+          <div class="form-group"><label>Color exacto</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="color" name="color_hex" value="${f.color_hex||colorHex(f.color||'')}"
+                style="width:48px;height:36px;border:1px solid var(--border);border-radius:8px;padding:2px;background:var(--surface);cursor:pointer">
+              <span style="font-size:11px;color:var(--text-muted)">Elige el color de la bobina</span>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Nombre comercial</label>
-            <input class="form-control" name="nombre_comercial" value="${f.nombre_comercial || ''}" autocomplete="off">
-          </div>
-          <div class="form-group">
-            <label>Material</label>
-            <select class="form-control" name="material">
-              ${['PLA','PETG','ABS','TPU','ASA','Nylon','PC','HIPS'].map(m => `<option ${f.material===m?'selected':''}>${m}</option>`).join('')}
+          <div class="form-group"><label>Tipo de bobina</label>
+            <select class="form-control" name="tipo_bobina">
+              <option ${(f.tipo_bobina||'Bobina completa')==='Bobina completa'?'selected':''}>Bobina completa</option>
+              <option ${f.tipo_bobina==='Refil'?'selected':''}>Refil</option>
             </select>
           </div>
-          <div class="form-group">
-            <label>Color</label>
-            <input class="form-control" name="color" value="${f.color || ''}" autocomplete="off">
-          </div>
-          <div class="form-group">
-            <label>Acabado</label>
-            <select class="form-control" name="acabado">
-              ${['Mate','Brillante','Seda','Transparente'].map(a => `<option ${f.acabado===a?'selected':''}>${a}</option>`).join('')}
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Diámetro (mm)</label>
-            <input class="form-control" name="diametro_mm" type="number" step="0.01" value="${f.diametro_mm || 1.75}" autocomplete="off">
-          </div>
-          <div class="form-group">
-            <label>Peso inicial (g)</label>
-            <input class="form-control" name="peso_inicial_g" type="number" value="${f.peso_inicial_g || 1000}" id="fil-peso-inicial" oninput="invCalcCostG()" autocomplete="off">
-          </div>
-          <div class="form-group">
-            <label>Peso actual (g)</label>
-            <input class="form-control" name="peso_actual_g" type="number" value="${f.peso_actual_g || 1000}" autocomplete="off">
-          </div>
-          <div class="form-group">
-            <label>Peso bobina vacía (g)</label>
-            <input class="form-control" name="peso_bobina_vacia_g" type="number" value="${f.peso_bobina_vacia_g || 200}" id="fil-peso-bobina" oninput="invCalcCostG()" autocomplete="off">
-          </div>
-          <div class="form-group">
-            <label>Costo total</label>
-            <input class="form-control" name="costo_total" type="number" step="0.01" value="${f.costo_total || ''}" id="fil-costo-total" oninput="invCalcCostG()" autocomplete="off">
-          </div>
-          <div class="form-group">
-            <label>Costo/g (auto)</label>
-            <input class="form-control" name="costo_por_gramo" type="number" step="0.0001" id="fil-cpg" value="${f.costo_por_gramo || ''}" placeholder="Se calcula solo" autocomplete="off">
-          </div>
-          <div class="form-group">
-            <label>Proveedor</label>
-            <input class="form-control" name="proveedor" value="${f.proveedor || ''}" autocomplete="off">
-          </div>
-          <div class="form-group form-full">
-            <label>Notas</label>
-            <textarea class="form-control" name="notas" rows="2" autocomplete="off">${f.notas || ''}</textarea>
-          </div>
+          <div class="form-group"><label>Diámetro (mm)</label>
+            <input class="form-control" name="diametro_mm" type="number" step="0.01" value="${f.diametro_mm||1.75}" autocomplete="off"></div>
+          <div class="form-group"><label>Peso inicial (g)</label>
+            <input class="form-control" name="peso_inicial_g" type="number" value="${f.peso_inicial_g||1000}" id="fil-peso-inicial" oninput="invCalcCostG()" autocomplete="off"></div>
+          <div class="form-group"><label>Peso actual (g)</label>
+            <input class="form-control" name="peso_actual_g" type="number" value="${f.peso_actual_g!=null?f.peso_actual_g:f.peso_inicial_g||1000}" autocomplete="off"></div>
+          <div class="form-group"><label>Peso bobina vacía (g)</label>
+            <input class="form-control" name="peso_bobina_vacia_g" type="number" value="${f.peso_bobina_vacia_g||200}" id="fil-peso-bobina" oninput="invCalcCostG()" autocomplete="off"></div>
+          <div class="form-group"><label>Costo total</label>
+            <input class="form-control" name="costo_total" type="number" step="0.01" value="${f.costo_total||''}" id="fil-costo-total" oninput="invCalcCostG()" autocomplete="off"></div>
+          <div class="form-group"><label>Costo/g (auto)</label>
+            <input class="form-control" name="costo_por_gramo" type="number" step="0.0001" id="fil-cpg" value="${f.costo_por_gramo||''}" placeholder="Se calcula solo" autocomplete="off"></div>
+          <div class="form-group"><label>Proveedor</label>
+            <input class="form-control" name="proveedor" value="${f.proveedor||''}" autocomplete="off"></div>
+          <div class="form-group form-full"><label>Notas</label>
+            <textarea class="form-control" name="notas" rows="2" autocomplete="off">${f.notas||''}</textarea></div>
         </div>
         <div class="form-actions">
           <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
@@ -199,22 +411,21 @@
 
   window.invSaveFilament = async function (e, id) {
     e.preventDefault();
-    const fd = new FormData(e.target);
-    const body = Object.fromEntries(fd.entries());
+    const body = Object.fromEntries(new FormData(e.target).entries());
     try {
       if (id) await api('PUT', `/api/filaments/${id}`, body);
-      else await api('POST', '/api/filaments', body);
+      else    await api('POST', '/api/filaments', body);
       closeModal();
       showToast(id ? 'Filamento actualizado' : 'Filamento agregado');
       await refreshFilaments();
     } catch (err) { showToast('Error: ' + err.message, 'error'); }
   };
 
-  window.invEditFilament = function (id) { invOpenFilamentForm(id); };
+  window.invEditFilament   = function (id) { invOpenFilamentForm(id); };
 
   window.invDeleteFilament = function (id) {
     const f = allFilaments.find(x => x.id === id);
-    confirmModal(`¿Eliminar filamento "${f?.marca} ${f?.nombre_comercial || ''}"?`, async () => {
+    confirmModal(`¿Eliminar filamento "${f?.marca} ${f?.nombre_comercial||''}"?`, async () => {
       try {
         await api('DELETE', `/api/filaments/${id}`);
         showToast('Filamento eliminado');
