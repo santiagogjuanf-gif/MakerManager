@@ -1,10 +1,13 @@
 (function () {
   let allPrinters = [];
   let prPage = 1, prSearch = '';
+  let liveData = {}; // cache de status en vivo por printer id
+  let liveTimer = null;
 
   const typeIcon = { FDM: '🖨️', Resina: '🫙', Laser: '🔥', CNC: '🔩' };
 
   pageLoaders['printers'] = async function loadPrinters() {
+    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
     const el = document.getElementById('page-printers');
     el.innerHTML = `
       <div class="page-header">
@@ -21,7 +24,43 @@
       <div class="pagination" id="pr-pagination"></div>`;
 
     await refreshPrinters();
+    fetchAllLive();
+    liveTimer = setInterval(fetchAllLive, 30000);
   };
+
+  async function fetchAllLive() {
+    const monitored = allPrinters.filter(p => p.octoprint_url && p.octoprint_apikey);
+    if (!monitored.length) return;
+    await Promise.all(monitored.map(async p => {
+      try {
+        const d = await api('GET', `/api/printers/${p.id}/live`);
+        liveData[p.id] = d;
+      } catch { liveData[p.id] = { configured: true, online: false }; }
+    }));
+    updateLiveBadges();
+  }
+
+  function updateLiveBadges() {
+    allPrinters.forEach(p => {
+      const badge = document.getElementById(`live-badge-${p.id}`);
+      if (!badge) return;
+      badge.innerHTML = liveBadgeHtml(p.id);
+    });
+  }
+
+  function liveBadgeHtml(id) {
+    const d = liveData[id];
+    if (!d || !d.configured) return '';
+    if (!d.online) return `<span class="live-badge offline">⚫ Offline</span>`;
+    const state = d.printer?.state || '';
+    const isPrinting = state.toLowerCase().includes('printing') || (d.job?.progress > 0 && d.job?.progress < 100);
+    if (isPrinting) {
+      const pct = Math.round(d.job?.progress || 0);
+      return `<span class="live-badge printing">🟢 ${pct}%</span>`;
+    }
+    if (state.toLowerCase().includes('paused')) return `<span class="live-badge paused">🟡 Pausado</span>`;
+    return `<span class="live-badge idle">🔵 Listo</span>`;
+  }
 
   async function refreshPrinters() {
     try { allPrinters = await api('GET', '/api/printers'); } catch (e) { allPrinters = []; }
@@ -52,14 +91,17 @@
         ? `<img src="${p.foto_path}" class="printer-card-img" style="object-fit:cover" onerror="this.outerHTML='<div class=\\'printer-card-img\\'>${icon}</div>'">`
         : `<div class="printer-card-img">${icon}</div>`;
       const estadoCls = (p.estado || 'activa').toLowerCase().replace('ó', 'o');
-      const ams = p.tipo === 'FDM' && p.tiene_ams ? '<span class="badge badge-default">AMS</span> ' : '';
+      const hasLive = p.octoprint_url && p.octoprint_apikey;
       return `
         <div class="printer-card" onclick="prViewDetail(${p.id})">
           ${imgHtml}
           <div class="printer-card-body">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
               <div class="printer-card-name">${p.nombre || '-'}</div>
-              <span class="badge badge-${estadoCls}">${p.estado || 'Activa'}</span>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+                <span class="badge badge-${estadoCls}">${p.estado || 'Activa'}</span>
+                ${hasLive ? `<span id="live-badge-${p.id}">${liveBadgeHtml(p.id)}</span>` : ''}
+              </div>
             </div>
             <div class="printer-card-sub">${p.marca || ''} ${p.modelo || ''}</div>
             <div class="printer-card-stats">
@@ -99,6 +141,65 @@
   }
 
   window.prSearch2 = function (q) { prSearch = q; prPage = 1; renderPrinters(); };
+  window.prStopLive = function() { if (liveTimer) { clearInterval(liveTimer); liveTimer = null; } };
+
+  async function prLoadLivePanel(id) {
+    const panel = document.getElementById('pr-live-panel');
+    if (!panel) return;
+    try {
+      const d = await api('GET', `/api/printers/${id}/live`);
+      liveData[id] = d;
+      if (!d.configured) { panel.innerHTML = ''; return; }
+      if (!d.online) {
+        panel.innerHTML = `<div class="live-monitor offline"><span style="font-size:24px">⚫</span><div><div style="font-weight:700">Offline</div><div style="font-size:11px;color:var(--text-muted)">No se pudo conectar con OctoPrint</div></div></div>`;
+        return;
+      }
+      const pr = d.printer || {};
+      const job = d.job || {};
+      const isPrinting = (pr.state || '').toLowerCase().includes('printing') || (job.progress > 0 && job.progress < 100);
+      const pct = Math.round(job.progress || 0);
+
+      const tempRow = (label, t) => t ? `<div class="live-temp"><span>${label}</span><strong>${Math.round(t.actual || 0)}°<small>/${Math.round(t.target || 0)}°</small></strong></div>` : '';
+      const temps = [
+        tempRow('🔧 Extrusor', pr.tool0),
+        tempRow('🔧 Extrusor 2', pr.tool1),
+        tempRow('🛏️ Cama', pr.bed),
+        tempRow('📦 Cámara', pr.chamber),
+      ].filter(Boolean).join('');
+
+      const fmtTime = (s) => {
+        if (!s && s !== 0) return '-';
+        const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+        return h > 0 ? `${h}h ${m}m` : `${m}m`;
+      };
+
+      panel.innerHTML = `
+        <div class="live-monitor ${isPrinting ? 'printing' : 'idle'}">
+          <div class="live-monitor-top">
+            <div class="live-status-dot ${isPrinting ? 'pulse' : ''}"></div>
+            <div>
+              <div style="font-weight:700;font-size:14px">${pr.state || 'Desconocido'}</div>
+              ${job.file ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">📄 ${job.file}</div>` : ''}
+            </div>
+            <button onclick="prLoadLivePanel(${id})" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px" title="Actualizar">🔄</button>
+          </div>
+          ${isPrinting ? `
+          <div class="live-progress-bar"><div class="live-progress-fill" style="width:${pct}%"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:4px">
+            <span>${pct}% completado</span>
+            <span>⏱️ Restante: ${fmtTime(job.printTimeLeft)}</span>
+          </div>` : ''}
+          ${temps ? `<div class="live-temps">${temps}</div>` : ''}
+        </div>`;
+
+      updateLiveBadges();
+    } catch (e) {
+      if (document.getElementById('pr-live-panel')) {
+        document.getElementById('pr-live-panel').innerHTML = `<div class="alert alert-warning" style="font-size:12px">Error: ${e.message}</div>`;
+      }
+    }
+  }
+  window.prLoadLivePanel = prLoadLivePanel;
 
   window.prViewDetail = function (id) {
     const p = allPrinters.find(x => x.id === id);
@@ -130,14 +231,23 @@
       ...extras,
     ].map(([k, v]) => `<div class="cost-row"><span>${k}</span><strong>${v || '-'}</strong></div>`).join('');
 
+    const livePanel = p.octoprint_url && p.octoprint_apikey
+      ? `<div id="pr-live-panel" style="margin-bottom:12px"><div style="color:var(--text-muted);font-size:12px;text-align:center;padding:12px">⏳ Cargando estado en vivo...</div></div>`
+      : '';
+
     openModal(p.nombre, `
       ${imgHtml}
+      ${livePanel}
       <div class="cost-breakdown">${rows}</div>
       ${p.notas ? `<div class="alert alert-info" style="margin-top:12px">${p.notas}</div>` : ''}
       <div class="form-actions">
         <button class="btn btn-secondary" onclick="prOpenForm(${p.id})">✏️ Editar</button>
         <button class="btn btn-danger" onclick="prDelete(${p.id})">🗑️ Eliminar</button>
       </div>`);
+
+    if (p.octoprint_url && p.octoprint_apikey) {
+      prLoadLivePanel(p.id);
+    }
   };
 
   window.prOpenForm = function (id) {
@@ -174,6 +284,23 @@
           <div class="form-group form-full"><label>Notas</label><textarea class="form-control" name="notas" rows="2" autocomplete="off">${p.notas || ''}</textarea></div>
         </div>
         <div id="pr-type-fields"></div>
+
+        <!-- Monitoreo en vivo -->
+        <div style="margin-top:16px;padding:14px;background:var(--surface);border-radius:10px;border:1px solid var(--border)">
+          <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--text)">📡 Monitoreo en vivo (OctoPrint)</div>
+          <div class="form-grid">
+            <div class="form-group form-full">
+              <label>URL de OctoPrint <span style="font-size:10px;color:var(--text-muted)">(ej: http://192.168.1.100)</span></label>
+              <input class="form-control" name="octoprint_url" value="${p.octoprint_url || ''}" placeholder="http://octopi.local" autocomplete="off">
+            </div>
+            <div class="form-group form-full">
+              <label>API Key de OctoPrint</label>
+              <input class="form-control" name="octoprint_apikey" value="${p.octoprint_apikey || ''}" placeholder="API key de OctoPrint → Settings → API" autocomplete="off">
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">💡 Con OctoPrint configurado verás temperatura, progreso y tiempo restante en tiempo real.</div>
+        </div>
+
         <div class="form-actions">
           <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>

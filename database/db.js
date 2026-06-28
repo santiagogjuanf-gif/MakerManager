@@ -163,6 +163,12 @@ async function init() {
     try { await db.runAsync(`ALTER TABLE filaments ADD COLUMN ${colDef}`); } catch (e) { /* column already exists */ }
   }
 
+  // Migrate printers table with OctoPrint integration columns
+  const printerColumns = ['octoprint_url TEXT', 'octoprint_apikey TEXT', "monitor_type TEXT DEFAULT 'octoprint'"];
+  for (const colDef of printerColumns) {
+    try { await db.runAsync(`ALTER TABLE printers ADD COLUMN ${colDef}`); } catch (e) { /* column already exists */ }
+  }
+
   const defaults = {
     nombre_negocio: 'MakerManager Studio',
     telefono: '',

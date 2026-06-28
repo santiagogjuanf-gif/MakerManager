@@ -833,3 +833,29 @@ select.form-control option { background: var(--card); }
   .fil-detail-footer { grid-template-columns: 1fr; }
   .fil-det-close-row { flex-direction: column; }
 }
+
+/* Live monitor (OctoPrint) */
+.live-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 99px; white-space: nowrap; }
+.live-badge.printing { background: rgba(34,197,94,0.15); color: #22c55e; }
+.live-badge.idle { background: rgba(59,130,246,0.15); color: #60a5fa; }
+.live-badge.paused { background: rgba(251,191,36,0.15); color: #fbbf24; }
+.live-badge.offline { background: rgba(148,163,184,0.1); color: #94a3b8; }
+
+.live-monitor { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.live-monitor.printing { border-color: rgba(34,197,94,0.4); }
+.live-monitor.offline { display: flex; align-items: center; gap: 12px; color: var(--text-muted); }
+
+.live-monitor-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+
+.live-status-dot { width: 10px; height: 10px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+.live-status-dot.pulse { animation: livePulse 1.5s ease-in-out infinite; }
+@keyframes livePulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.3); } }
+
+.live-progress-bar { height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; margin-top: 10px; }
+.live-progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent-light)); transition: width 0.5s; }
+
+.live-temps { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.live-temp { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12px; display: flex; flex-direction: column; gap: 2px; }
+.live-temp span { color: var(--text-muted); font-size: 10px; }
+.live-temp strong { color: var(--text); }
+.live-temp strong small { color: var(--text-muted); font-size: 10px; }
