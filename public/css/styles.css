@@ -22,6 +22,7 @@ body {
   color: var(--text);
   min-height: 100vh;
   font-size: 14px;
+  overflow-x: hidden;
 }
 
 .app { display: flex; min-height: 100vh; }
@@ -169,6 +170,7 @@ body {
   padding: 8px 14px 8px 36px;
   font-size: 13px;
   width: 240px;
+  max-width: 100%;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238892a4' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: 10px center;
@@ -511,9 +513,34 @@ select.form-control option { background: var(--card); }
   .nav-item span:not(.nav-icon) { font-size: 9px; display: block; }
   .nav-icon { font-size: 18px; }
   .sidebar-footer { display: none; }
-  .content { margin-left: 0; padding: 12px; padding-top: 68px; }
+  .content { margin-left: 0; padding: 12px; padding-top: 68px; overflow-x: hidden; }
+
+  /* Forms */
   .form-grid { grid-template-columns: 1fr; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .form-actions { flex-wrap: wrap; gap: 8px; }
+  .form-control { max-width: 100%; }
+  .search-input { width: 100%; max-width: 100%; }
+
+  /* Tables */
+  .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 10px; }
+  table { min-width: 480px; }
+  .table-toolbar { flex-wrap: wrap; gap: 8px; padding: 12px; }
+  .table-toolbar .search-input { width: 100%; max-width: 100%; }
+  .table-toolbar .btn { flex-shrink: 0; }
+
+  /* Page headers */
+  .page-header { flex-wrap: wrap; gap: 8px; }
+  .page-title { font-size: 18px; }
+
+  /* Modal */
+  .modal { width: 96%; max-width: 96%; border-radius: 12px; max-height: 92vh; }
+  .modal-body { padding: 16px; }
+  .modal-header { padding: 14px 16px; }
+
+  /* Tabs */
+  .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; padding-bottom: 2px; }
+  .tab-btn { white-space: nowrap; padding: 8px 12px; font-size: 12px; }
 }
 
 /* Color dot */
@@ -751,8 +778,8 @@ select.form-control option { background: var(--card); }
 .fil-detail-overlay.open { display: flex; }
 .fil-detail-modal {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 20px; width: 100%; max-width: 680px; max-height: 92vh;
-  overflow-y: auto; box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+  border-radius: 20px; width: 96%; max-width: 680px; max-height: 92vh;
+  overflow-y: auto; overflow-x: hidden; box-shadow: 0 24px 80px rgba(0,0,0,0.6);
   animation: popIn 0.18s ease;
 }
 .fil-detail-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 0; }

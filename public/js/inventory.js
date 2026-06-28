@@ -69,9 +69,9 @@
 
   function makeSpool(f, size) {
     const CX = size / 2, CY = size / 2;
-    const R   = size * 0.415;
-    const SW  = size * 0.248;
-    const hubR  = size * 0.128;
+    const R     = size * 0.38;
+    const SW    = size * 0.16;   // thinner ring so it always looks like a full circle
+    const hubR  = size * 0.13;
     const hub2R = size * 0.075;
     const hub3R = size * 0.040;
     const circ  = 2 * Math.PI * R;
@@ -97,13 +97,13 @@
     }
     return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
       ${gradDefs}
-      <circle cx="${CX}" cy="${CY+size*0.017}" r="${R+SW/2}" fill="#00000030"/>
-      <circle cx="${CX}" cy="${CY}" r="${R+SW/2}" fill="#252535"/>
-      ${!isFull ? `<circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="#18181f" stroke-width="${SW}"/>` : ''}
-      <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${strokeColor}" stroke-width="${SW}" opacity="0.93"
+      <circle cx="${CX}" cy="${CY+size*0.017}" r="${R+SW/2+2}" fill="#00000030"/>
+      <circle cx="${CX}" cy="${CY}" r="${R+SW/2+2}" fill="#252535"/>
+      <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="#35354f" stroke-width="${SW}"/>
+      <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${strokeColor}" stroke-width="${SW}" opacity="0.95"
         ${!isFull ? `stroke-dasharray="${fill.toFixed(2)} ${empty.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}" stroke-linecap="round"` : ''}/>
-      <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="white" stroke-width="${SW*0.18}" opacity="0.09"
-        stroke-dasharray="${(size*0.36).toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(-size*0.06).toFixed(1)}"/>
+      <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="white" stroke-width="${SW*0.18}" opacity="0.08"
+        stroke-dasharray="${(size*0.32).toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(-size*0.05).toFixed(1)}"/>
       <circle cx="${CX}" cy="${CY}" r="${hubR}" fill="#18181f"/>
       <circle cx="${CX}" cy="${CY}" r="${hubR}" fill="none" stroke="${isLow?'#ef444455':'#2e2e48'}" stroke-width="1.5"/>
       <circle cx="${CX}" cy="${CY}" r="${hub2R}" fill="#111118"/>
@@ -150,7 +150,7 @@
           return `<div class="fil-card${isLow?' fil-card-low':''}" onclick="invViewFilament(${f.id})">
             ${isLow ? '<span class="fil-alert-badge">⚠️ BAJO</span>' : ''}
             ${f.tiene_nfc ? '<span class="fil-nfc-badge" title="NFC vinculado">📡</span>' : ''}
-            ${makeSpool(f, 86)}
+            ${makeSpool(f, 110)}
             <div class="fil-card-name">${f.marca||'-'} — ${f.material} ${f.acabado||''}</div>
             <div class="fil-card-sub">${f.color||'-'}</div>
             <div class="weight-wrap" style="width:100%">
