@@ -258,6 +258,13 @@ tbody td {
 }
 .btn-success:hover { background: var(--success); color: white; }
 
+.btn-warning {
+  background: rgba(245,158,11,0.1);
+  color: var(--warning);
+  border: 1px solid rgba(245,158,11,0.3);
+}
+.btn-warning:hover { background: var(--warning); color: white; }
+
 /* Badges */
 .badge {
   display: inline-block;
@@ -796,7 +803,7 @@ select.form-control option { background: var(--card); }
 .fil-data-value { font-size: 13px; color: var(--text-primary); font-weight: 500; display: flex; align-items: center; gap: 8px; word-break: break-word; }
 .fil-detail-footer {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
   padding: 0 24px 24px;
 }

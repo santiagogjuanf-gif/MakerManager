@@ -117,7 +117,7 @@
     renderFilaments();
     // Check if opened via NFC tap
     const nfcId = parseInt(localStorage.getItem('mm_nfc_open') || '0');
-    if (nfcId) { localStorage.removeItem('mm_nfc_open'); invViewFilament(nfcId); }
+    if (nfcId) { localStorage.removeItem('mm_nfc_open'); invQuickWeight(allFilaments.find(x => x.id === nfcId)); }
   }
 
   function renderFilaments() {
@@ -232,6 +232,7 @@
           <button class="btn btn-primary" id="fil-det-edit">✏️ Editar</button>
           <button class="btn btn-success" id="fil-det-nfc">📡 NFC</button>
           <button class="btn btn-secondary" id="fil-det-hist">📋 Historial</button>
+          <button class="btn btn-warning" id="fil-det-weight">⚖️ Actualizar peso</button>
           <div class="fil-det-close-row">
             <button class="btn btn-danger" id="fil-det-del">🗑️ Eliminar</button>
             <button class="btn btn-secondary" onclick="invCloseFilDetail()">✕ Cerrar</button>
@@ -280,11 +281,96 @@
     document.getElementById('fil-det-edit').onclick = () => { invCloseFilDetail(); invOpenFilamentForm(id); };
     document.getElementById('fil-det-del').onclick = () => { invCloseFilDetail(); invDeleteFilament(id); };
     document.getElementById('fil-det-nfc').onclick = () => invNFCMenu(f);
+    document.getElementById('fil-det-hist').onclick = () => invShowHistory(id, f);
+    document.getElementById('fil-det-weight').onclick = () => invQuickWeight(f);
     document.getElementById('fil-detail-overlay').classList.add('open');
   };
 
   window.invCloseFilDetail = function () {
     document.getElementById('fil-detail-overlay')?.classList.remove('open');
+  };
+
+  // ---------- QUICK WEIGHT UPDATE (NFC tap) ----------
+  window.invQuickWeight = function (f) {
+    if (!f) return;
+    const pct = f.peso_inicial_g > 0 ? Math.max(0, Math.min(1, f.peso_actual_g / f.peso_inicial_g)) : 0;
+    const barClr = f.color_hex || colorHex(f.color);
+    openModal(`⚖️ ${f.marca||''} ${f.material} ${f.acabado||''}`, `
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;align-items:center;gap:12px">
+          ${makeSpool(f, 80)}
+          <div>
+            <div style="font-size:13px;color:var(--text-muted)">${f.color||''} · ${f.tipo_bobina||'Bobina completa'}</div>
+            <div style="font-size:22px;font-weight:800;color:${barClr}">${Math.round(pct*100)}%</div>
+            <div style="font-size:12px;color:var(--text-muted)">Actual: <strong style="color:var(--text)">${fmtNum(f.peso_actual_g,0)}g</strong> / ${fmtNum(f.peso_inicial_g,0)}g</div>
+          </div>
+        </div>
+        <div class="weight-wrap">
+          <div class="weight-label"><span id="qw-lbl-act">${fmtNum(f.peso_actual_g,0)}g restantes</span><span>${fmtNum(f.peso_inicial_g,0)}g inicial</span></div>
+          <div class="weight-bar-bg"><div class="weight-bar-fill" id="qw-bar" style="width:${Math.round(pct*100)}%;background:${barClr}"></div></div>
+        </div>
+        <div class="form-group">
+          <label style="font-weight:700">Nuevo peso actual (g)</label>
+          <input id="qw-input" class="form-control" type="number" min="0" max="${f.peso_inicial_g}"
+            value="${f.peso_actual_g}" style="font-size:20px;text-align:center;padding:12px"
+            oninput="invQWPreview(${f.peso_inicial_g},'${barClr}')">
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+          <button class="btn btn-primary" onclick="invQWSave(${f.id})">💾 Guardar</button>
+        </div>
+      </div>`);
+    setTimeout(() => document.getElementById('qw-input')?.focus(), 100);
+  };
+
+  window.invQWPreview = function (pesoInicial, barClr) {
+    const val = parseFloat(document.getElementById('qw-input')?.value || 0);
+    const pct = pesoInicial > 0 ? Math.max(0, Math.min(1, val / pesoInicial)) : 0;
+    const bar = document.getElementById('qw-bar');
+    const lbl = document.getElementById('qw-lbl-act');
+    if (bar) bar.style.width = Math.round(pct * 100) + '%';
+    if (lbl) lbl.textContent = Math.round(val) + 'g restantes';
+  };
+
+  window.invQWSave = async function (id) {
+    const val = parseFloat(document.getElementById('qw-input')?.value);
+    if (isNaN(val) || val < 0) { showToast('Ingresa un peso válido', 'error'); return; }
+    try {
+      await api('PUT', `/api/filaments/${id}`, { peso_actual_g: val });
+      showToast('Peso actualizado ✓');
+      closeModal();
+      await refreshFilaments();
+    } catch (e) { showToast('Error: ' + e.message, 'error'); }
+  };
+
+  // ---------- HISTORY ----------
+  window.invShowHistory = async function (id, f) {
+    try {
+      const rows = await api('GET', `/api/filaments/${id}/history`);
+      const body = rows.length === 0
+        ? `<div class="empty-state"><div class="empty-state-icon">📋</div><div>Sin historial de cambios</div></div>`
+        : `<table style="width:100%;border-collapse:collapse">
+            <thead><tr>
+              <th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid var(--border)">Fecha</th>
+              <th style="text-align:right;padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid var(--border)">Anterior</th>
+              <th style="text-align:right;padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid var(--border)">Nuevo</th>
+              <th style="text-align:right;padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid var(--border)">Δ</th>
+            </tr></thead>
+            <tbody>${rows.map(r => {
+              const diff = r.peso_nuevo - r.peso_anterior;
+              const diffClr = diff < 0 ? 'var(--danger)' : 'var(--success)';
+              const fecha = new Date(r.fecha).toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'});
+              return `<tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:9px 10px;font-size:12px">${fecha}</td>
+                <td style="padding:9px 10px;font-size:12px;text-align:right">${fmtNum(r.peso_anterior,0)}g</td>
+                <td style="padding:9px 10px;font-size:12px;text-align:right;font-weight:700">${fmtNum(r.peso_nuevo,0)}g</td>
+                <td style="padding:9px 10px;font-size:12px;text-align:right;color:${diffClr};font-weight:700">${diff>0?'+':''}${fmtNum(diff,0)}g</td>
+              </tr>`;
+            }).join('')}</tbody>
+           </table>`;
+      openModal(`📋 Historial — ${f.marca||''} ${f.material}`,
+        body + `<div class="form-actions"><button class="btn btn-secondary" onclick="closeModal()">Cerrar</button></div>`);
+    } catch (e) { showToast('Error al cargar historial', 'error'); }
   };
 
   // ---------- NFC ----------
@@ -403,7 +489,7 @@
             <textarea class="form-control" name="notas" rows="2" autocomplete="off">${f.notas||''}</textarea></div>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>`);
@@ -510,7 +596,7 @@
           <div class="form-group form-full"><label>Notas</label><textarea class="form-control" name="notas" rows="2" autocomplete="off">${r.notas || ''}</textarea></div>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>`);
@@ -607,7 +693,7 @@
         <div class="form-group form-full"><label>Notas</label><textarea class="form-control" name="notas" rows="2" autocomplete="off">${c.notas || ''}</textarea></div>
       </div>
       <div class="form-actions">
-        <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
         <button type="submit" class="btn btn-primary">Guardar</button>
       </div>`;
   }
@@ -804,7 +890,7 @@
           <div class="form-group form-full"><label>Notas</label><input class="form-control" name="notas" value="${data.notas||''}" autocomplete="off"></div>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>`);

@@ -6,18 +6,27 @@ router.get('/', async (req, res) => {
   try { res.json(await db.allAsync('SELECT * FROM filaments ORDER BY created_at DESC')); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
-router.get('/:id', async (req, res) => {
-  try {
-    const r = await db.getAsync('SELECT * FROM filaments WHERE id=?', [req.params.id]);
-    if (!r) return res.status(404).json({ error: 'Not found' });
-    res.json(r);
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
 router.get('/nfc/:uid', async (req, res) => {
   try {
     const row = await db.getAsync('SELECT id FROM filaments WHERE uid_nfc=?', [req.params.uid]);
     if (!row) return res.status(404).json({ error: 'Filamento no encontrado para este UID' });
     res.json({ id: row.id });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+router.get('/:id/history', async (req, res) => {
+  try {
+    const rows = await db.allAsync(
+      'SELECT * FROM filament_history WHERE filament_id=? ORDER BY fecha DESC LIMIT 50',
+      [req.params.id]
+    );
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+router.get('/:id', async (req, res) => {
+  try {
+    const r = await db.getAsync('SELECT * FROM filaments WHERE id=?', [req.params.id]);
+    if (!r) return res.status(404).json({ error: 'Not found' });
+    res.json(r);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -57,6 +66,15 @@ router.put('/:id', async (req, res) => {
        merged.costo_total, cpg, merged.proveedor,
        merged.tiene_nfc?1:0, merged.uid_nfc||null, merged.notas, req.params.id]
     );
+    // Log weight change if peso_actual_g changed
+    const newPeso = parseFloat(merged.peso_actual_g);
+    const oldPeso = parseFloat(old.peso_actual_g);
+    if (d.peso_actual_g !== undefined && Math.abs(newPeso - oldPeso) > 0.001) {
+      await db.runAsync(
+        'INSERT INTO filament_history (filament_id, peso_anterior, peso_nuevo, nota) VALUES (?,?,?,?)',
+        [req.params.id, oldPeso, newPeso, d._nota_historial || null]
+      );
+    }
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

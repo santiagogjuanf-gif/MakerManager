@@ -139,6 +139,14 @@ async function init() {
       costo_unitario REAL DEFAULT 0, stock_minimo REAL DEFAULT 0,
       proveedor TEXT, notas TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
+
+    `CREATE TABLE IF NOT EXISTS filament_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      filament_id INTEGER REFERENCES filaments(id) ON DELETE CASCADE,
+      fecha TEXT DEFAULT CURRENT_TIMESTAMP,
+      peso_anterior REAL,
+      peso_nuevo REAL,
+      nota TEXT)`,
   ];
 
   for (const sql of tables) await db.runAsync(sql);
