@@ -1,0 +1,13 @@
+{
+  "name": "MakerManager",
+  "short_name": "MakerManager",
+  "description": "Gestión de taller maker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#6c63ff",
+  "icons": [
+    { "src": "/favicon.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/favicon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

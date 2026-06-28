@@ -6,6 +6,12 @@
   <title>MakerManager</title>
   <link rel="stylesheet" href="/css/styles.css">
   <link rel="icon" href="/favicon.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#6c63ff">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MakerManager">
 </head>
 <body>
   <div class="app">
@@ -95,5 +101,6 @@
   <script src="/js/clients.js"></script>
   <script src="/js/jobs.js"></script>
   <script src="/js/config-page.js"></script>
+  <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 </body>
 </html>

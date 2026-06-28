@@ -150,7 +150,7 @@
           return `<div class="fil-card${isLow?' fil-card-low':''}" onclick="invViewFilament(${f.id})">
             ${isLow ? '<span class="fil-alert-badge">⚠️ BAJO</span>' : ''}
             ${f.tiene_nfc ? '<span class="fil-nfc-badge" title="NFC vinculado">📡</span>' : ''}
-            ${makeSpool(f, 110)}
+            ${makeSpool(f, 86)}
             <div class="fil-card-name">${f.marca||'-'} — ${f.material} ${f.acabado||''}</div>
             <div class="fil-card-sub">${f.color||'-'}</div>
             <div class="weight-wrap" style="width:100%">
@@ -163,7 +163,12 @@
       : `<div class="empty-state"><div class="empty-state-icon">🧵</div>Sin filamentos que coincidan</div>`;
 
     tab.innerHTML = `
-      <div class="fil-toolbar">
+      <div class="fil-toolbar-top">
+        <button class="btn btn-secondary btn-sm" onclick="invToggleFilFilter()" id="fil-filter-btn">🔍 Filtrar</button>
+        <span style="color:var(--text-muted);font-size:12px;flex:1">${filtered.length} filamento${filtered.length!==1?'s':''}</span>
+        <button class="btn btn-primary btn-sm" onclick="invOpenFilamentForm()">＋ Agregar</button>
+      </div>
+      <div class="fil-filter-panel${window.innerWidth <= 640 ? ' fil-filter-hidden' : ''}" id="fil-filter-panel">
         <input class="search-input form-control" style="flex:1;min-width:160px;max-width:240px"
           placeholder="Buscar filamento..." value="${filSearch}"
           oninput="invSearchFil(this.value)" autocomplete="off">
@@ -176,8 +181,6 @@
         <select class="form-control" style="width:auto" onchange="invSetFilFilter('marca',this.value)">
           <option value="">Marca</option>${marcaOpts}
         </select>
-        <span style="color:var(--text-muted);font-size:12px;white-space:nowrap">${filtered.length} filamento${filtered.length!==1?'s':''}</span>
-        <button class="btn btn-primary" onclick="invOpenFilamentForm()">＋ Agregar</button>
       </div>
       ${cardsHTML}
       <div class="pagination" id="fil-pagination"></div>`;
@@ -185,6 +188,10 @@
     if (totalPages > 1) renderPaginationInline('fil-pagination', filPage, totalPages, p => { filPage = p; renderFilaments(); });
   }
 
+  window.invToggleFilFilter = function () {
+    const panel = document.getElementById('fil-filter-panel');
+    if (panel) panel.classList.toggle('fil-filter-hidden');
+  };
   window.invSearchFil = function (q) { filSearch = q; filPage = 1; renderFilaments(); };
   window.invSetFilFilter = function (field, val) {
     if (field === 'mat') filFilterMat = val;
@@ -225,8 +232,10 @@
           <button class="btn btn-primary" id="fil-det-edit">✏️ Editar</button>
           <button class="btn btn-success" id="fil-det-nfc">📡 NFC</button>
           <button class="btn btn-secondary" id="fil-det-hist">📋 Historial</button>
-          <button class="btn btn-secondary" style="margin-left:auto" onclick="invCloseFilDetail()">Cerrar</button>
-          <button class="btn btn-danger" id="fil-det-del">🗑️ Eliminar</button>
+          <div class="fil-det-close-row">
+            <button class="btn btn-danger" id="fil-det-del">🗑️ Eliminar</button>
+            <button class="btn btn-secondary" onclick="invCloseFilDetail()">✕ Cerrar</button>
+          </div>
         </div>
       </div>`;
     document.body.appendChild(el);
