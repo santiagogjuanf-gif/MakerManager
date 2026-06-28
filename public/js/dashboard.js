@@ -86,22 +86,24 @@ pageLoaders['dashboard'] = async function loadDashboard() {
     const data = await api('GET', '/api/dashboard');
     const { lowFilaments = [], recentJobs = [], monthStats = {}, stats = {} } = data;
 
-    const lowRows = lowFilaments.length
-      ? lowFilaments.map(f => {
-          const pct = Math.max(0, Math.min(100, (f.peso_actual_g / f.peso_inicial_g) * 100));
-          const cls = pct < 10 ? 'danger' : pct < 20 ? 'warning' : 'success';
-          const badgeCls = cls === 'danger' ? 'low' : cls === 'warning' ? 'warn' : 'ok';
-          return `<tr>
-            <td><span class="color-dot" style="background:${colorHex(f.color)}"></span>${f.marca}</td>
-            <td>${materialBadge(f.material)}</td>
-            <td><span class="badge badge-${badgeCls}">${fmtNum(f.peso_actual_g,0)}g</span></td>
-            <td style="min-width:90px">
-              <div class="progress-bar"><div class="progress-fill" style="width:${pct.toFixed(0)}%;background:var(--${cls})"></div></div>
-              <span style="font-size:10px;color:var(--text-muted)">${pct.toFixed(0)}%</span>
-            </td>
-          </tr>`;
-        }).join('')
-      : '<tr><td colspan="4" class="empty-state" style="padding:20px">Sin filamentos bajos ✓</td></tr>';
+    const lowSection = lowFilaments.length === 0 ? '' : `
+  <div style="margin-bottom:24px">
+    <div style="font-weight:700;font-size:14px;margin-bottom:12px;color:var(--warning)">⚠️ Filamentos bajos</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">
+      ${lowFilaments.map(f => {
+        const pct = f.peso_inicial_g > 0 ? Math.max(0, Math.min(1, f.peso_actual_g / f.peso_inicial_g)) : 0;
+        const hexColor = f.color_hex || colorHex(f.color);
+        const barClr = pct < 0.10 ? '#ef4444' : hexColor;
+        return `<div onclick="dashOpenFilament(${f.id})" style="background:var(--card);border:1px solid rgba(239,68,68,0.4);border-radius:12px;padding:10px;cursor:pointer;text-align:center;transition:all 0.2s" onmouseover="this.style.borderColor='rgba(239,68,68,0.8)'" onmouseout="this.style.borderColor='rgba(239,68,68,0.4)'">
+          ${typeof makeSpool==='function' ? makeSpool(f, 70) : `<div style="width:70px;height:70px;border-radius:50%;background:${hexColor};margin:0 auto"></div>`}
+          <div style="font-size:11px;font-weight:700;margin-top:6px;color:var(--text)">${f.marca||'-'}</div>
+          <div style="font-size:10px;color:var(--text-muted)">${f.material} ${f.acabado||''}</div>
+          <div style="font-size:12px;font-weight:700;color:#ef4444;margin-top:4px">${Math.round(f.peso_actual_g||0)}g</div>
+          <div style="background:var(--surface);border-radius:99px;height:4px;margin-top:6px;overflow:hidden"><div style="height:4px;border-radius:99px;background:${barClr};width:${Math.round(pct*100)}%"></div></div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
 
     const recentRows = recentJobs.length
       ? recentJobs.map(j => `
@@ -162,17 +164,11 @@ pageLoaders['dashboard'] = async function loadDashboard() {
         </div>
       </div>
 
-      <div class="grid-2">
-        <div class="table-container">
-          <div class="table-toolbar"><span class="card-title" style="margin:0">⚠️ Filamentos bajos</span></div>
-          <table><thead><tr><th>Filamento</th><th>Material</th><th>Peso</th><th>Nivel</th></tr></thead>
-          <tbody>${lowRows}</tbody></table>
-        </div>
-        <div class="table-container">
-          <div class="table-toolbar"><span class="card-title" style="margin:0">🕐 Trabajos recientes</span></div>
-          <table><thead><tr><th>Proyecto</th><th>Cliente</th><th>Fecha</th><th>Precio</th></tr></thead>
-          <tbody>${recentRows}</tbody></table>
-        </div>
+      ${lowSection}
+      <div class="table-container">
+        <div class="table-toolbar"><span class="card-title" style="margin:0">🕐 Trabajos recientes</span></div>
+        <table><thead><tr><th>Proyecto</th><th>Cliente</th><th>Fecha</th><th>Precio</th></tr></thead>
+        <tbody>${recentRows}</tbody></table>
       </div>`;
 
     // Animate counters
@@ -210,4 +206,11 @@ window.dashOpenJob = function(id) {
   window._jobToOpen = id;
   window.location.hash = 'jobs';
   navigate('jobs');
+};
+
+window.dashOpenFilament = function(id) {
+  window._invTargetTab = 'filamentos';
+  window._invOpenFilament = id;
+  window.location.hash = 'inventory';
+  navigate('inventory');
 };

@@ -43,16 +43,11 @@
         </div>
         <button class="btn btn-primary" onclick="jobOpenForm()">＋ Nuevo Trabajo</button>
       </div>
-      <div class="table-container">
-        <div class="table-toolbar">
-          <input class="search-input form-control" style="width:260px" placeholder="Buscar trabajo..." oninput="jobSearch2(this.value)" autocomplete="off">
-        </div>
-        <table>
-          <thead><tr><th>#</th><th>Proyecto</th><th>Cliente</th><th>Etapa</th><th>Fecha</th><th>Piezas</th><th>Precio final</th><th>Acciones</th></tr></thead>
-          <tbody id="job-tbody"></tbody>
-        </table>
-        <div class="pagination" id="job-pagination"></div>
-      </div>`;
+      <div class="fil-toolbar-top" style="margin-bottom:12px">
+        <input class="search-input form-control" style="flex:1;max-width:300px" placeholder="Buscar trabajo..." oninput="jobSearch2(this.value)" autocomplete="off">
+      </div>
+      <div id="job-cards"></div>
+      <div class="pagination" id="job-pagination"></div>`;
 
     await refreshJobs();
 
@@ -84,30 +79,41 @@
     const { items, totalPages, page } = paginate(filtered, jobPage);
     jobPage = page;
 
-    const tbody = document.getElementById('job-tbody');
-    if (!tbody) return;
+    const container = document.getElementById('job-cards');
+    if (!container) return;
 
-    tbody.innerHTML = items.length ? items.map(j => {
+    if (!items.length) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div>Sin trabajos</div>';
+      renderPaginationInline('job-pagination', jobPage, totalPages, p => { jobPage = p; renderJobs(); });
+      return;
+    }
+
+    container.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
+    ${items.map(j => {
       const multicolor = j.filament_count > 1 ? '<span class="badge badge-default" style="margin-left:4px">Multicolor</span>' : '';
       const fallo = j.fallo ? '<span class="badge badge-low" style="margin-left:4px">Falló</span>' : '';
-      return `<tr>
-        <td style="cursor:pointer;color:var(--accent-light)" onclick="jobView(${j.id})">#${j.id}</td>
-        <td>${j.nombre_proyecto || '-'}${multicolor}${fallo}</td>
-        <td>${j.cliente_nombre || '-'}</td>
-        <td>${stageBadge(j.estado)}</td>
-        <td>${j.fecha ? j.fecha.substring(0,10) : '-'}</td>
-        <td>${j.piezas || '-'}</td>
-        <td><strong>${fmtMoney(j.precio_final)}</strong></td>
-        <td class="actions">
-          <button class="btn btn-secondary btn-sm" title="Ver" onclick="jobView(${j.id})">👁️</button>
-          <button class="btn btn-secondary btn-sm" title="Editar" onclick="jobOpenForm(${j.id})">✏️</button>
-          <button class="btn btn-success btn-sm" title="PDF cliente" onclick="jobPDF(${j.id},'cliente')">📄</button>
-          <button class="btn btn-danger btn-sm" title="Eliminar" onclick="jobDelete(${j.id})">🗑️</button>
-        </td>
-      </tr>`;
-    }).join('') : '<tr><td colspan="8" class="empty-state"><div class="empty-state-icon">📋</div>Sin trabajos</td></tr>';
+      const clienteName = j.cliente_nombre || '—';
+      return `<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px;cursor:pointer;transition:all 0.2s" onclick="jobView(${j.id})" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="font-weight:700;font-size:14px;color:var(--text);line-height:1.3;flex:1">${j.nombre_proyecto || 'Sin nombre'}${multicolor}${fallo}</div>
+          ${stageBadge(j.estado)}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted)">
+          <span>👥 ${clienteName}</span>
+          <span style="margin-left:auto">📅 ${j.fecha ? j.fecha.substring(0,10) : '-'}</span>
+        </div>
+        <div style="font-size:16px;font-weight:800;color:var(--accent-light)">${fmtMoney(j.precio_final)}</div>
+        <div style="display:flex;gap:6px;margin-top:2px" onclick="event.stopPropagation()">
+          <button class="btn btn-secondary btn-sm" style="flex:1" onclick="jobView(${j.id})">👁️ Ver</button>
+          <button class="btn btn-secondary btn-sm" onclick="jobOpenForm(${j.id})">✏️</button>
+          <button class="btn btn-success btn-sm" onclick="jobPDF(${j.id},'cliente')">📄</button>
+          <button class="btn btn-danger btn-sm" onclick="jobDelete(${j.id})">🗑️</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
 
-    renderPaginationInline('job-pagination', jobPage, totalPages, (p) => { jobPage = p; renderJobs(); });
+    renderPaginationInline('job-pagination', jobPage, totalPages, p => { jobPage = p; renderJobs(); });
   }
 
   function renderPaginationInline(containerId, current, total, onPageChange) {

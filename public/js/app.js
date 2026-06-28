@@ -68,7 +68,7 @@ function showToast(msg, type = 'success') {
 
 // Modal
 function openModal(title, bodyHtml) {
-  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-title').innerHTML = title;
   document.getElementById('modal-body').innerHTML = bodyHtml;
   document.getElementById('modal-overlay').classList.remove('hidden');
 }

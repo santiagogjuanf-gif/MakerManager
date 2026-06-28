@@ -73,6 +73,14 @@
       const filament = allFilaments.find(x => x.id === nfcId);
       if (filament) invQuickWeight(filament);
     }
+
+    // Dashboard filament open
+    const dashFil = parseInt(window._invOpenFilament || '0');
+    if (dashFil) {
+      delete window._invOpenFilament;
+      const filament = allFilaments.find(x => x.id === dashFil);
+      if (filament) setTimeout(() => invViewFilament(dashFil), 100);
+    }
   };
 
   // ===================== FILAMENTOS =====================
@@ -127,6 +135,8 @@
       <circle cx="${CX}" cy="${CY}" r="${hub3R}" fill="#1e1e2e"/>
     </svg>`;
   }
+
+  window.makeSpool = makeSpool;
 
   async function refreshFilaments() {
     try { allFilaments = await api('GET', '/api/filaments'); } catch (e) { allFilaments = []; }
@@ -853,35 +863,39 @@
     if (!tab) return;
     const q = extSearch.toLowerCase();
     const filtered = allExternos.filter(c => `${c.nombre} ${c.categoria||''}`.toLowerCase().includes(q));
-    const { items, totalPages, page } = paginate(filtered, extPage);
+    const { items, totalPages, page } = paginate(filtered, extPage, 12);
     extPage = page;
-    const rows = items.length ? items.map(c => {
+
+    const cards = items.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;padding:16px">
+    ${items.map(c => {
       const lowStock = c.stock_minimo > 0 && c.cantidad <= c.stock_minimo;
-      return `<tr>
-        <td><strong>${c.nombre}</strong>${lowStock ? ' <span class="badge badge-low">⚠️ Stock bajo</span>' : ''}</td>
-        <td>${c.categoria || '-'}</td>
-        <td>${fmtNum(c.cantidad, 2)} ${c.unidad}</td>
-        <td>${fmtMoney(c.costo_unitario)}</td>
-        <td>${fmtNum(c.stock_minimo, 0)} ${c.unidad}</td>
-        <td class="actions">
-          <button class="btn btn-secondary btn-sm" onclick="invEditExt(${c.id})">✏️</button>
-          <button class="btn btn-danger btn-sm" onclick="invDeleteExt(${c.id})">🗑️</button>
-        </td>
-      </tr>`;
-    }).join('') : '<tr><td colspan="6" class="empty-state"><div class="empty-state-icon">📦</div>Sin consumibles externos</td></tr>';
+      const nombre = c.nombre || '';
+      // Extract leading emoji if present (emoji are typically 2+ chars / surrogate pairs)
+      const emojiMatch = nombre.match(/^(\p{Emoji_Presentation}|\p{Emoji}️)\s*/u);
+      const icon = emojiMatch ? emojiMatch[0].trim() : '📦';
+      const displayName = emojiMatch ? nombre.slice(emojiMatch[0].length) : nombre;
+      return `<div style="background:var(--card);border:1px solid ${lowStock?'rgba(239,68,68,0.4)':' var(--border)'};border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:32px;text-align:center">${icon}</div>
+        <div style="font-weight:700;font-size:13px;text-align:center;color:var(--text);line-height:1.3">${displayName}</div>
+        ${c.categoria ? `<div style="font-size:11px;color:var(--text-muted);text-align:center">${c.categoria}</div>` : ''}
+        <div style="font-size:14px;font-weight:700;text-align:center;color:${lowStock?'#ef4444':'var(--accent-light)'}">${fmtNum(c.cantidad,2)} <span style="font-size:11px;font-weight:400;color:var(--text-muted)">${c.unidad}</span></div>
+        ${lowStock ? `<div style="text-align:center"><span class="badge badge-low">⚠️ Stock bajo</span></div>` : ''}
+        <div style="font-size:11px;color:var(--text-muted);text-align:center">Mín: ${fmtNum(c.stock_minimo,0)} ${c.unidad}</div>
+        <div style="display:flex;gap:6px;margin-top:4px">
+          <button class="btn btn-secondary btn-sm" style="flex:1" onclick="invEditExt(${c.id})">✏️</button>
+          <button class="btn btn-danger btn-sm" style="flex:1" onclick="invDeleteExt(${c.id})">🗑️</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>` : `<div class="empty-state"><div class="empty-state-icon">📦</div>Sin consumibles externos</div>`;
 
     tab.innerHTML = `
-      <div class="table-container">
-        <div class="table-toolbar">
-          <input class="search-input form-control" style="width:220px" placeholder="Buscar..." value="${extSearch}" oninput="invSearchExt(this.value)" autocomplete="off">
-          <button class="btn btn-primary" onclick="invOpenExtForm()">＋ Agregar</button>
-        </div>
-        <table>
-          <thead><tr><th>Nombre</th><th>Categoría</th><th>Cantidad</th><th>Costo unit.</th><th>Stock mín.</th><th>Acciones</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-        <div class="pagination" id="ext-pagination"></div>
-      </div>`;
+    <div class="fil-toolbar-top">
+      <input class="search-input form-control" style="flex:1;max-width:280px" placeholder="Buscar..." value="${extSearch}" oninput="invSearchExt(this.value)" autocomplete="off">
+      <button class="btn btn-primary btn-sm" onclick="invOpenExtForm()">＋ Agregar</button>
+    </div>
+    ${cards}
+    <div class="pagination" id="ext-pagination"></div>`;
     renderPaginationInline('ext-pagination', extPage, totalPages, p => { extPage = p; renderExternos(); });
   }
 
@@ -932,35 +946,38 @@
     if (!tab) return;
     const q = intSearch.toLowerCase();
     const filtered = allInternos.filter(c => `${c.nombre} ${c.categoria||''}`.toLowerCase().includes(q));
-    const { items, totalPages, page } = paginate(filtered, intPage);
+    const { items, totalPages, page } = paginate(filtered, intPage, 12);
     intPage = page;
-    const rows = items.length ? items.map(c => {
+
+    const cards = items.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;padding:16px">
+    ${items.map(c => {
       const lowStock = c.stock_minimo > 0 && c.cantidad <= c.stock_minimo;
-      return `<tr>
-        <td><strong>${c.nombre}</strong>${lowStock ? ' <span class="badge badge-low">⚠️ Stock bajo</span>' : ''}</td>
-        <td>${c.categoria || '-'}</td>
-        <td>${fmtNum(c.cantidad, 2)} ${c.unidad}</td>
-        <td>${fmtMoney(c.costo_unitario)}</td>
-        <td>${fmtNum(c.stock_minimo, 0)} ${c.unidad}</td>
-        <td class="actions">
-          <button class="btn btn-secondary btn-sm" onclick="invEditInt(${c.id})">✏️</button>
-          <button class="btn btn-danger btn-sm" onclick="invDeleteInt(${c.id})">🗑️</button>
-        </td>
-      </tr>`;
-    }).join('') : '<tr><td colspan="6" class="empty-state"><div class="empty-state-icon">🧴</div>Sin consumibles internos</td></tr>';
+      const nombre = c.nombre || '';
+      const emojiMatch = nombre.match(/^(\p{Emoji_Presentation}|\p{Emoji}️)\s*/u);
+      const icon = emojiMatch ? emojiMatch[0].trim() : '🧴';
+      const displayName = emojiMatch ? nombre.slice(emojiMatch[0].length) : nombre;
+      return `<div style="background:var(--card);border:1px solid ${lowStock?'rgba(239,68,68,0.4)':'var(--border)'};border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:32px;text-align:center">${icon}</div>
+        <div style="font-weight:700;font-size:13px;text-align:center;color:var(--text);line-height:1.3">${displayName}</div>
+        ${c.categoria ? `<div style="font-size:11px;color:var(--text-muted);text-align:center">${c.categoria}</div>` : ''}
+        <div style="font-size:14px;font-weight:700;text-align:center;color:${lowStock?'#ef4444':'var(--accent-light)'}">${fmtNum(c.cantidad,2)} <span style="font-size:11px;font-weight:400;color:var(--text-muted)">${c.unidad}</span></div>
+        ${lowStock ? `<div style="text-align:center"><span class="badge badge-low">⚠️ Stock bajo</span></div>` : ''}
+        <div style="font-size:11px;color:var(--text-muted);text-align:center">Mín: ${fmtNum(c.stock_minimo,0)} ${c.unidad}</div>
+        <div style="display:flex;gap:6px;margin-top:4px">
+          <button class="btn btn-secondary btn-sm" style="flex:1" onclick="invEditInt(${c.id})">✏️</button>
+          <button class="btn btn-danger btn-sm" style="flex:1" onclick="invDeleteInt(${c.id})">🗑️</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>` : `<div class="empty-state"><div class="empty-state-icon">🧴</div>Sin consumibles internos</div>`;
 
     tab.innerHTML = `
-      <div class="table-container">
-        <div class="table-toolbar">
-          <input class="search-input form-control" style="width:220px" placeholder="Buscar..." value="${intSearch}" oninput="invSearchInt(this.value)" autocomplete="off">
-          <button class="btn btn-primary" onclick="invOpenIntForm()">＋ Agregar</button>
-        </div>
-        <table>
-          <thead><tr><th>Nombre</th><th>Categoría</th><th>Cantidad</th><th>Costo unit.</th><th>Stock mín.</th><th>Acciones</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-        <div class="pagination" id="int-pagination"></div>
-      </div>`;
+    <div class="fil-toolbar-top">
+      <input class="search-input form-control" style="flex:1;max-width:280px" placeholder="Buscar..." value="${intSearch}" oninput="invSearchInt(this.value)" autocomplete="off">
+      <button class="btn btn-primary btn-sm" onclick="invOpenIntForm()">＋ Agregar</button>
+    </div>
+    ${cards}
+    <div class="pagination" id="int-pagination"></div>`;
     renderPaginationInline('int-pagination', intPage, totalPages, p => { intPage = p; renderInternos(); });
   }
 
