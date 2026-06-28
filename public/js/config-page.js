@@ -52,14 +52,15 @@
         <!-- Negocio -->
         <div class="config-section">
           <div class="config-section-title">🏢 Negocio</div>
-          <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
-            <div style="flex-shrink:0">
+          <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
+            <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:110px">
               ${logoHtml}
-              <div style="margin-top:6px">
-                <input type="file" accept="image/*" onchange="cfgUploadLogo(this)" style="font-size:11px;width:100px;color:var(--text-muted)">
-              </div>
+              <label style="cursor:pointer;font-size:11px;padding:5px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text-muted);white-space:nowrap">
+                📁 Seleccionar logo
+                <input type="file" accept="image/*" onchange="cfgUploadLogo(this)" style="display:none">
+              </label>
             </div>
-            <div style="flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
+            <div style="flex:1;min-width:220px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">
               <div class="form-group" style="grid-column:1/-1"><label>Nombre del negocio</label><input class="form-control" name="nombre_negocio" value="${val('nombre_negocio')}" autocomplete="off"></div>
               <div class="form-group"><label>Teléfono</label><input class="form-control" name="telefono" value="${val('telefono')}" autocomplete="off"></div>
               <div class="form-group"><label>Dirección</label><input class="form-control" name="direccion" value="${val('direccion')}" autocomplete="off"></div>
