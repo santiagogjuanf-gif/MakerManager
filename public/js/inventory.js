@@ -56,6 +56,22 @@
       tabs.find(t=>t.id==='laser') ? refreshLaser() : Promise.resolve(),
       tabs.find(t=>t.id==='cnc') ? refreshCNC() : Promise.resolve(),
     ]);
+
+    // NFC tap: switch to filamentos tab and open quick-weight modal
+    const nfcId = parseInt(localStorage.getItem('mm_nfc_open') || '0');
+    if (nfcId) {
+      localStorage.removeItem('mm_nfc_open');
+      const filTab = tabs.find(t => t.id === 'filamentos');
+      if (filTab) {
+        document.querySelectorAll('#inv-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.inv-tab').forEach(t => t.classList.add('hidden'));
+        document.querySelector(`#inv-tabs [data-tab="filamentos"]`)?.classList.add('active');
+        document.getElementById('inv-tab-filamentos')?.classList.remove('hidden');
+        activeTab = 'filamentos';
+      }
+      const filament = allFilaments.find(x => x.id === nfcId);
+      if (filament) invQuickWeight(filament);
+    }
   };
 
   // ===================== FILAMENTOS =====================
@@ -116,8 +132,6 @@
     filPage = 1;
     renderFilaments();
     // Check if opened via NFC tap
-    const nfcId = parseInt(localStorage.getItem('mm_nfc_open') || '0');
-    if (nfcId) { localStorage.removeItem('mm_nfc_open'); invQuickWeight(allFilaments.find(x => x.id === nfcId)); }
   }
 
   function renderFilaments() {
