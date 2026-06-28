@@ -22,14 +22,15 @@
 
     const tipos = new Set(printers.map(p => p.tipo));
     const tabs = [
+      { id: 'filamentos', label: '🧵 Filamentos', show: tipos.has('FDM') || filaments.length > 0 },
       { id: 'externos', label: '📦 Externos', always: true },
       { id: 'internos', label: '🧴 Internos', always: true },
-      { id: 'filamentos', label: '🧵 Filamentos', show: tipos.has('FDM') || filaments.length > 0 },
       { id: 'resinas',    label: '🫙 Resinas',    show: tipos.has('Resina') || resinas.length > 0 },
       { id: 'laser',      label: '🔥 Láser',      show: tipos.has('Laser') || laser.length > 0 },
       { id: 'cnc',        label: '🔩 CNC',        show: tipos.has('CNC') || cnc.length > 0 },
     ].filter(t => t.always || t.show);
 
+    if (window._invTargetTab) { activeTab = window._invTargetTab; delete window._invTargetTab; }
     if (!tabs.find(t => t.id === activeTab)) activeTab = tabs[0].id;
 
     document.getElementById('inv-tabs-wrap').innerHTML = `

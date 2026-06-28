@@ -55,6 +55,12 @@
       </div>`;
 
     await refreshJobs();
+
+    if (window._jobToOpen) {
+      const id = window._jobToOpen;
+      delete window._jobToOpen;
+      setTimeout(() => jobView(id), 150);
+    }
   };
 
   async function refreshJobs() {

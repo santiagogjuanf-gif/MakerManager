@@ -105,7 +105,7 @@ pageLoaders['dashboard'] = async function loadDashboard() {
 
     const recentRows = recentJobs.length
       ? recentJobs.map(j => `
-        <tr>
+        <tr onclick="dashOpenJob(${j.id})" style="cursor:pointer">
           <td>${j.nombre_proyecto || '-'}</td>
           <td>${j.cliente_nombre || '-'}</td>
           <td>${j.fecha ? j.fecha.substring(0, 10) : '-'}</td>
@@ -115,7 +115,7 @@ pageLoaders['dashboard'] = async function loadDashboard() {
 
     document.getElementById('dash-content').innerHTML = `
       <div class="stats-row" id="stat-counters">
-        <div class="stat-chip">
+        <div class="stat-chip" style="cursor:pointer" onclick="window.location.hash='jobs';navigate('jobs')">
           <div class="stat-chip-icon">📋</div>
           <div class="stat-chip-body">
             <div class="stat-chip-val" id="sc-jobs">0</div>
@@ -123,7 +123,7 @@ pageLoaders['dashboard'] = async function loadDashboard() {
           </div>
           <a class="stat-chip-add" href="#jobs" title="Nuevo trabajo">＋</a>
         </div>
-        <div class="stat-chip">
+        <div class="stat-chip" style="cursor:pointer" onclick="window._invTargetTab='filamentos';window.location.hash='inventory';navigate('inventory')">
           <div class="stat-chip-icon">🧵</div>
           <div class="stat-chip-body">
             <div class="stat-chip-val" id="sc-fil">0</div>
@@ -131,7 +131,7 @@ pageLoaders['dashboard'] = async function loadDashboard() {
           </div>
           <a class="stat-chip-add" href="#inventory" title="Agregar">＋</a>
         </div>
-        <div class="stat-chip">
+        <div class="stat-chip" style="cursor:pointer" onclick="window.location.hash='clients';navigate('clients')">
           <div class="stat-chip-icon">👥</div>
           <div class="stat-chip-body">
             <div class="stat-chip-val" id="sc-cli">0</div>
@@ -139,21 +139,21 @@ pageLoaders['dashboard'] = async function loadDashboard() {
           </div>
           <a class="stat-chip-add" href="#clients" title="Nuevo cliente">＋</a>
         </div>
-        <div class="stat-chip accent">
+        <div class="stat-chip accent" style="cursor:default">
           <div class="stat-chip-icon">💰</div>
           <div class="stat-chip-body">
             <div class="stat-chip-val" id="sc-rev">$0</div>
             <div class="stat-chip-lbl">Ingresos del mes</div>
           </div>
         </div>
-        <div class="stat-chip">
+        <div class="stat-chip" style="cursor:default">
           <div class="stat-chip-icon">📅</div>
           <div class="stat-chip-body">
             <div class="stat-chip-val" id="sc-mjobs">0</div>
             <div class="stat-chip-lbl">Trabajos del mes</div>
           </div>
         </div>
-        <div class="stat-chip">
+        <div class="stat-chip" style="cursor:default">
           <div class="stat-chip-icon">⚖️</div>
           <div class="stat-chip-body">
             <div class="stat-chip-val" id="sc-mg">0g</div>
@@ -190,10 +190,11 @@ pageLoaders['dashboard'] = async function loadDashboard() {
       if (mgEl) { const gv = parseFloat(monthStats.total_gramos || 0); animateCounter(mgEl, gv); mgEl.textContent = Math.round(gv) + 'g'; }
     }, 100);
 
-    // Make quick-add links navigate properly
+    // Make quick-add links navigate properly (stop propagation so chip onclick doesn't also fire)
     document.querySelectorAll('.stat-chip-add').forEach(a => {
       a.addEventListener('click', (e) => {
         e.preventDefault();
+        e.stopPropagation();
         const page = a.getAttribute('href').replace('#', '');
         window.location.hash = page;
         navigate(page);
@@ -203,4 +204,10 @@ pageLoaders['dashboard'] = async function loadDashboard() {
   } catch (e) {
     document.getElementById('dash-content').innerHTML = `<div class="alert alert-warning">Error cargando datos: ${e.message}</div>`;
   }
+};
+
+window.dashOpenJob = function(id) {
+  window._jobToOpen = id;
+  window.location.hash = 'jobs';
+  navigate('jobs');
 };
