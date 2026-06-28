@@ -105,15 +105,20 @@ pageLoaders['dashboard'] = async function loadDashboard() {
     </div>
   </div>`;
 
-    const recentRows = recentJobs.length
-      ? recentJobs.map(j => `
-        <tr onclick="dashOpenJob(${j.id})" style="cursor:pointer">
-          <td>${j.nombre_proyecto || '-'}</td>
-          <td>${j.cliente_nombre || '-'}</td>
-          <td>${j.fecha ? j.fecha.substring(0, 10) : '-'}</td>
-          <td>${fmtMoney(j.precio_final)}</td>
-        </tr>`).join('')
-      : '<tr><td colspan="4" class="empty-state" style="padding:20px">Sin trabajos recientes</td></tr>';
+    const recentSection = recentJobs.length === 0
+      ? `<div class="empty-state"><div class="empty-state-icon">📋</div>Sin trabajos recientes</div>`
+      : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
+          ${recentJobs.map(j => `
+            <div onclick="dashOpenJob(${j.id})" style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;gap:6px"
+              onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+              <div style="font-weight:700;font-size:13px;color:var(--text);line-height:1.3">${j.nombre_proyecto || 'Sin nombre'}</div>
+              <div style="font-size:12px;color:var(--text-muted)">👥 ${j.cliente_nombre || '—'}</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px">
+                <span style="font-size:11px;color:var(--text-muted)">📅 ${j.fecha ? j.fecha.substring(0,10) : '-'}</span>
+                <span style="font-size:14px;font-weight:800;color:var(--accent-light)">${fmtMoney(j.precio_final)}</span>
+              </div>
+            </div>`).join('')}
+        </div>`;
 
     document.getElementById('dash-content').innerHTML = `
       <div class="stats-row" id="stat-counters">
@@ -165,10 +170,9 @@ pageLoaders['dashboard'] = async function loadDashboard() {
       </div>
 
       ${lowSection}
-      <div class="table-container">
-        <div class="table-toolbar"><span class="card-title" style="margin:0">🕐 Trabajos recientes</span></div>
-        <table><thead><tr><th>Proyecto</th><th>Cliente</th><th>Fecha</th><th>Precio</th></tr></thead>
-        <tbody>${recentRows}</tbody></table>
+      <div style="margin-top:8px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:12px;color:var(--text-muted)">🕐 Trabajos recientes</div>
+        ${recentSection}
       </div>`;
 
     // Animate counters

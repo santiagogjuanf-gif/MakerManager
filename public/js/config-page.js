@@ -211,24 +211,24 @@
     if (!el) return;
     try {
       const users = await api('GET', '/api/auth/users');
-      el.innerHTML = `<table style="width:100%">
-        <thead><tr style="color:var(--text-muted);font-size:11px">
-          <th style="padding:6px 8px;text-align:left">Usuario</th>
-          <th style="padding:6px 8px;text-align:left">Nombre</th>
-          <th style="padding:6px 8px;text-align:left">Rol</th>
-          <th style="padding:6px 8px"></th>
-        </tr></thead>
-        <tbody>${users.map(u => `<tr style="border-top:1px solid var(--border)">
-          <td style="padding:6px 8px;font-size:13px">${u.username}</td>
-          <td style="padding:6px 8px;font-size:13px">${u.display_name||'-'}</td>
-          <td style="padding:6px 8px"><span class="badge ${u.role==='admin'?'badge-frecuente':'badge-regular'}">${u.role}</span></td>
-          <td style="padding:6px 8px;text-align:right;white-space:nowrap">
-            ${u.id !== currentUser?.id
-              ? `<button class="btn btn-sm btn-secondary" onclick="cfgEditUser(${u.id})" style="margin-right:4px">✏️</button><button class="btn btn-sm btn-danger" onclick="cfgDeleteUser(${u.id},'${u.username}')">🗑️</button>`
-              : '<span style="color:var(--text-muted);font-size:11px">Tú</span>'}
-          </td>
-        </tr>`).join('')}</tbody>
-      </table>`;
+      el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:8px">
+        ${users.map(u => {
+          const isMe = u.id === currentUser?.id;
+          const isAdmin = u.role === 'admin';
+          return `<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center">
+            <div style="font-size:40px">${isAdmin ? '👑' : '👷'}</div>
+            <div style="font-weight:700;font-size:14px;color:var(--text)">${u.display_name||u.username}</div>
+            <div style="font-size:12px;color:var(--text-muted)">@${u.username}</div>
+            <span class="badge ${isAdmin?'badge-frecuente':'badge-regular'}" style="font-size:11px">${isAdmin?'Administrador':'Trabajador'}</span>
+            ${isMe
+              ? `<span style="color:var(--text-muted);font-size:11px;margin-top:4px">← Tú</span>`
+              : `<div style="display:flex;gap:6px;margin-top:4px;width:100%">
+                  <button class="btn btn-secondary btn-sm" style="flex:1" onclick="cfgEditUser(${u.id})">✏️ Editar</button>
+                  <button class="btn btn-danger btn-sm" style="flex:1" onclick="cfgDeleteUser(${u.id},'${u.username}')">🗑️ Borrar</button>
+                </div>`}
+          </div>`;
+        }).join('')}
+      </div>`;
     } catch(e) { if (el) el.innerHTML = `<p style="color:var(--danger);font-size:13px">Error: ${e.message}</p>`; }
   };
 
@@ -247,7 +247,7 @@
           <div class="form-group form-full"><label>Contraseña ${id?'(vacío = sin cambio)':'*'}</label><input class="form-control" name="password" type="password" ${!id?'required':''} autocomplete="new-password"></div>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>`);
@@ -293,7 +293,7 @@
           <input class="form-control" name="new_password" type="password" required minlength="4" autocomplete="new-password">
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
           <button type="submit" class="btn btn-primary">Cambiar contraseña</button>
         </div>
       </form>`);

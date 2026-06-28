@@ -4,7 +4,7 @@
   let allExternos = [], allInternos = [];
   let filPage = 1, resinPage = 1, laserPage = 1, cncPage = 1, extPage = 1, intPage = 1;
   let filSearch = '', resinSearch = '', laserSearch = '', cncSearch = '', extSearch = '', intSearch = '';
-  let activeTab = 'externos';
+  let activeTab = 'filamentos';
 
   pageLoaders['inventory'] = async function loadInventory() {
     const el = document.getElementById('page-inventory');
@@ -882,8 +882,8 @@
         ${lowStock ? `<div style="text-align:center"><span class="badge badge-low">⚠️ Stock bajo</span></div>` : ''}
         <div style="font-size:11px;color:var(--text-muted);text-align:center">Mín: ${fmtNum(c.stock_minimo,0)} ${c.unidad}</div>
         <div style="display:flex;gap:6px;margin-top:4px">
-          <button class="btn btn-secondary btn-sm" style="flex:1" onclick="invEditExt(${c.id})">✏️</button>
-          <button class="btn btn-danger btn-sm" style="flex:1" onclick="invDeleteExt(${c.id})">🗑️</button>
+          <button class="btn btn-secondary btn-sm" style="flex:1" onclick="invEditExt(${c.id})">✏️ Editar</button>
+          <button class="btn btn-danger btn-sm" style="flex:1" onclick="invDeleteExt(${c.id})">🗑️ Borrar</button>
         </div>
       </div>`;
     }).join('')}
@@ -901,11 +901,24 @@
 
   window.invSearchExt = function(q) { extSearch = q; extPage = 1; renderExternos(); };
 
+  const CONS_EMOJIS = ['📦','🧴','🧪','🍶','🧲','🔩','🪛','🔧','🔨','✂️','📏','🖊️','🧹','🧽','💡','🔋','🪣','🫙','💊','🧯','🛢️','🪝','📎','🗂️','🧰','🪚','⚙️','🔑','🧤','👓','🩹','🪤','🎨','🖌️','🪣','🪜','🔌','💿','📀','🖨️','📡','🧲','🔬','🔭','🧫','🧬','💉','🩺','🩻','🪄','🃏'];
+
   function consumibleForm(tipo, id, data = {}) {
     openModal(id ? `Editar ${tipo}` : `Nuevo ${tipo}`, `
       <form onsubmit="invSaveConsumible(event,'${tipo}',${id||'null'})">
         <div class="form-grid">
-          <div class="form-group"><label>Nombre *</label><input class="form-control" name="nombre" value="${data.nombre||''}" required autocomplete="off"></div>
+          <div class="form-group form-full">
+            <label>Nombre *</label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="invToggleEmojiPicker()" style="font-size:18px;padding:6px 10px">😀</button>
+              <input class="form-control" name="nombre" id="cons-nombre-input" value="${data.nombre||''}" required autocomplete="off" style="flex:1">
+            </div>
+            <div id="cons-emoji-picker" style="display:none;margin-top:6px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px">
+              <div style="display:flex;flex-wrap:wrap;gap:4px">
+                ${CONS_EMOJIS.map(e=>`<button type="button" onclick="invPickEmoji('${e}')" style="background:none;border:none;font-size:22px;cursor:pointer;padding:4px;border-radius:6px;transition:background 0.15s" onmouseover="this.style.background='var(--accent-dim)'" onmouseout="this.style.background='none'">${e}</button>`).join('')}
+              </div>
+            </div>
+          </div>
           <div class="form-group"><label>Categoría</label><input class="form-control" name="categoria" value="${data.categoria||''}" autocomplete="off"></div>
           <div class="form-group"><label>Cantidad</label><input class="form-control" name="cantidad" type="number" step="0.01" value="${data.cantidad||0}" autocomplete="off"></div>
           <div class="form-group"><label>Unidad</label>
@@ -924,6 +937,20 @@
         </div>
       </form>`);
   }
+
+  window.invToggleEmojiPicker = function() {
+    const p = document.getElementById('cons-emoji-picker');
+    if (p) p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  };
+  window.invPickEmoji = function(emoji) {
+    const input = document.getElementById('cons-nombre-input');
+    if (!input) return;
+    // Replace leading emoji if already there, otherwise prepend
+    const clean = input.value.replace(/^(\p{Emoji_Presentation}|\p{Emoji}️)\s*/u, '').trim();
+    input.value = emoji + ' ' + clean;
+    document.getElementById('cons-emoji-picker').style.display = 'none';
+    input.focus();
+  };
 
   window.invOpenExtForm = function(id) { consumibleForm('externo', id, id ? allExternos.find(x=>x.id===id)||{} : {}); };
   window.invEditExt = function(id) { invOpenExtForm(id); };
@@ -964,8 +991,8 @@
         ${lowStock ? `<div style="text-align:center"><span class="badge badge-low">⚠️ Stock bajo</span></div>` : ''}
         <div style="font-size:11px;color:var(--text-muted);text-align:center">Mín: ${fmtNum(c.stock_minimo,0)} ${c.unidad}</div>
         <div style="display:flex;gap:6px;margin-top:4px">
-          <button class="btn btn-secondary btn-sm" style="flex:1" onclick="invEditInt(${c.id})">✏️</button>
-          <button class="btn btn-danger btn-sm" style="flex:1" onclick="invDeleteInt(${c.id})">🗑️</button>
+          <button class="btn btn-secondary btn-sm" style="flex:1" onclick="invEditInt(${c.id})">✏️ Editar</button>
+          <button class="btn btn-danger btn-sm" style="flex:1" onclick="invDeleteInt(${c.id})">🗑️ Borrar</button>
         </div>
       </div>`;
     }).join('')}
