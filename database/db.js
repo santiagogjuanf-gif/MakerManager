@@ -163,8 +163,12 @@ async function init() {
     try { await db.runAsync(`ALTER TABLE filaments ADD COLUMN ${colDef}`); } catch (e) { /* column already exists */ }
   }
 
-  // Migrate printers table with OctoPrint integration columns
-  const printerColumns = ['octoprint_url TEXT', 'octoprint_apikey TEXT', "monitor_type TEXT DEFAULT 'octoprint'"];
+  // Migrate printers table with live monitoring columns
+  const printerColumns = [
+    'octoprint_url TEXT', 'octoprint_apikey TEXT',
+    "monitor_type TEXT DEFAULT 'none'",
+    'bambu_ip TEXT', 'bambu_serial TEXT', 'bambu_access_code TEXT',
+  ];
   for (const colDef of printerColumns) {
     try { await db.runAsync(`ALTER TABLE printers ADD COLUMN ${colDef}`); } catch (e) { /* column already exists */ }
   }

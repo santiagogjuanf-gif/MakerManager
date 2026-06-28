@@ -91,7 +91,7 @@
         ? `<img src="${p.foto_path}" class="printer-card-img" style="object-fit:cover" onerror="this.outerHTML='<div class=\\'printer-card-img\\'>${icon}</div>'">`
         : `<div class="printer-card-img">${icon}</div>`;
       const estadoCls = (p.estado || 'activa').toLowerCase().replace('ó', 'o');
-      const hasLive = p.octoprint_url && p.octoprint_apikey;
+      const hasLive = p.monitor_type === 'bambu' ? (p.bambu_ip && p.bambu_serial) : p.monitor_type === 'octoprint' ? (p.octoprint_url && p.octoprint_apikey) : false;
       return `
         <div class="printer-card" onclick="prViewDetail(${p.id})">
           ${imgHtml}
@@ -167,6 +167,23 @@
         tempRow('📦 Cámara', pr.chamber),
       ].filter(Boolean).join('');
 
+      const layerHtml = pr.layer ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px">📐 Capa ${pr.layer.current} / ${pr.layer.total}</div>` : '';
+
+      const amsHtml = d.ams && d.ams.length ? `
+        <div style="margin-top:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px">🔄 AMS</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${d.ams.map(slot => `
+              <div style="display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:11px">
+                <div style="width:14px;height:14px;border-radius:50%;background:${slot.color || '#888'};border:1px solid rgba(255,255,255,0.2);flex-shrink:0"></div>
+                <div>
+                  <div style="font-weight:700">${slot.material}</div>
+                  ${slot.remain != null ? `<div style="color:var(--text-muted)">${slot.remain}%</div>` : ''}
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>` : '';
+
       const fmtTime = (s) => {
         if (!s && s !== 0) return '-';
         const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
@@ -188,8 +205,10 @@
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:4px">
             <span>${pct}% completado</span>
             <span>⏱️ Restante: ${fmtTime(job.printTimeLeft)}</span>
-          </div>` : ''}
+          </div>
+          ${layerHtml}` : ''}
           ${temps ? `<div class="live-temps">${temps}</div>` : ''}
+          ${amsHtml}
         </div>`;
 
       updateLiveBadges();
@@ -231,7 +250,13 @@
       ...extras,
     ].map(([k, v]) => `<div class="cost-row"><span>${k}</span><strong>${v || '-'}</strong></div>`).join('');
 
-    const livePanel = p.octoprint_url && p.octoprint_apikey
+    const hasMonitor = p.monitor_type === 'bambu'
+      ? (p.bambu_ip && p.bambu_serial && p.bambu_access_code)
+      : p.monitor_type === 'octoprint'
+        ? (p.octoprint_url && p.octoprint_apikey)
+        : false;
+
+    const livePanel = hasMonitor
       ? `<div id="pr-live-panel" style="margin-bottom:12px"><div style="color:var(--text-muted);font-size:12px;text-align:center;padding:12px">⏳ Cargando estado en vivo...</div></div>`
       : '';
 
@@ -245,7 +270,7 @@
         <button class="btn btn-danger" onclick="prDelete(${p.id})">🗑️ Eliminar</button>
       </div>`);
 
-    if (p.octoprint_url && p.octoprint_apikey) {
+    if (hasMonitor) {
       prLoadLivePanel(p.id);
     }
   };
@@ -287,18 +312,16 @@
 
         <!-- Monitoreo en vivo -->
         <div style="margin-top:16px;padding:14px;background:var(--surface);border-radius:10px;border:1px solid var(--border)">
-          <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--text)">📡 Monitoreo en vivo (OctoPrint)</div>
-          <div class="form-grid">
-            <div class="form-group form-full">
-              <label>URL de OctoPrint <span style="font-size:10px;color:var(--text-muted)">(ej: http://192.168.1.100)</span></label>
-              <input class="form-control" name="octoprint_url" value="${p.octoprint_url || ''}" placeholder="http://octopi.local" autocomplete="off">
-            </div>
-            <div class="form-group form-full">
-              <label>API Key de OctoPrint</label>
-              <input class="form-control" name="octoprint_apikey" value="${p.octoprint_apikey || ''}" placeholder="API key de OctoPrint → Settings → API" autocomplete="off">
-            </div>
+          <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--text)">📡 Monitoreo en vivo</div>
+          <div class="form-group" style="margin-bottom:10px">
+            <label>Tipo de monitoreo</label>
+            <select class="form-control" name="monitor_type" id="pr-monitor-type" onchange="prMonitorTypeChange(this.value)">
+              <option value="none" ${(p.monitor_type||'none')==='none'?'selected':''}>Sin monitoreo</option>
+              <option value="bambu" ${p.monitor_type==='bambu'?'selected':''}>🐼 Bambu Lab (WiFi local)</option>
+              <option value="octoprint" ${p.monitor_type==='octoprint'?'selected':''}>🐙 OctoPrint</option>
+            </select>
           </div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">💡 Con OctoPrint configurado verás temperatura, progreso y tiempo restante en tiempo real.</div>
+          <div id="pr-monitor-fields"></div>
         </div>
 
         <div class="form-actions">
@@ -308,6 +331,47 @@
       </form>`);
 
     prTypeChange(tipo, p);
+    prMonitorTypeChange(p.monitor_type || 'none', p);
+  };
+
+  window.prMonitorTypeChange = function(type, existing) {
+    const p = existing || {};
+    const container = document.getElementById('pr-monitor-fields');
+    if (!container) return;
+    if (type === 'bambu') {
+      container.innerHTML = `
+        <div class="form-grid">
+          <div class="form-group form-full">
+            <label>IP de la impresora <span style="font-size:10px;color:var(--text-muted)">(ej: 192.168.1.50)</span></label>
+            <input class="form-control" name="bambu_ip" value="${p.bambu_ip || ''}" placeholder="192.168.1.50" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Número de serie</label>
+            <input class="form-control" name="bambu_serial" value="${p.bambu_serial || ''}" placeholder="01P00A..." autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Access Code</label>
+            <input class="form-control" name="bambu_access_code" value="${p.bambu_access_code || ''}" placeholder="Código de 8 dígitos" autocomplete="off">
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px">
+          💡 <strong>Cómo obtener los datos:</strong> En tu Bambu → pantalla táctil → <em>Settings → Network</em> → activa <em>LAN Mode</em>. El serial y Access Code aparecen ahí mismo.
+        </div>`;
+    } else if (type === 'octoprint') {
+      container.innerHTML = `
+        <div class="form-grid">
+          <div class="form-group form-full">
+            <label>URL de OctoPrint</label>
+            <input class="form-control" name="octoprint_url" value="${p.octoprint_url || ''}" placeholder="http://192.168.1.100" autocomplete="off">
+          </div>
+          <div class="form-group form-full">
+            <label>API Key</label>
+            <input class="form-control" name="octoprint_apikey" value="${p.octoprint_apikey || ''}" placeholder="Settings → API en OctoPrint" autocomplete="off">
+          </div>
+        </div>`;
+    } else {
+      container.innerHTML = '';
+    }
   };
 
   window.prPreviewPhoto = function (input) {
