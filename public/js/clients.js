@@ -12,16 +12,11 @@
         </div>
         <button class="btn btn-primary" onclick="clOpenForm()">＋ Nuevo Cliente</button>
       </div>
-      <div class="table-container">
-        <div class="table-toolbar">
-          <input class="search-input form-control" style="width:260px" placeholder="Buscar cliente..." oninput="clSearch2(this.value)" autocomplete="off">
-        </div>
-        <table>
-          <thead><tr><th>Nombre</th><th>Teléfono</th><th>Email</th><th>Clasificación</th><th>Pedidos</th><th>Notas</th><th>Acciones</th></tr></thead>
-          <tbody id="cl-tbody"></tbody>
-        </table>
-        <div class="pagination" id="cl-pagination"></div>
-      </div>`;
+      <div style="margin-bottom:16px">
+        <input class="search-input form-control" style="width:300px;max-width:100%" placeholder="Buscar cliente..." oninput="clSearch2(this.value)" autocomplete="off">
+      </div>
+      <div id="cl-grid"></div>
+      <div class="pagination" id="cl-pagination"></div>`;
 
     await refreshClients();
   };
@@ -34,34 +29,11 @@
 
   function classBadge(cls) {
     const c = (cls || 'nuevo').toLowerCase();
-    return `<span class="badge badge-${c}">${cls || 'Nuevo'}</span>`;
-  }
-
-  function renderClients() {
-    const q = clSearch.toLowerCase();
-    const filtered = allClients.filter(c =>
-      `${c.nombre} ${c.telefono} ${c.email} ${c.clasificacion}`.toLowerCase().includes(q)
-    );
-    const { items, totalPages, page } = paginate(filtered, clPage);
-    clPage = page;
-
-    const tbody = document.getElementById('cl-tbody');
-    if (!tbody) return;
-
-    tbody.innerHTML = items.length ? items.map(c => `<tr>
-      <td><strong>${c.nombre || '-'}</strong></td>
-      <td>${c.telefono || '-'}</td>
-      <td>${c.email ? `<a href="mailto:${c.email}" style="color:var(--accent-light)">${c.email}</a>` : '-'}</td>
-      <td>${classBadge(c.clasificacion)}</td>
-      <td>${c.total_pedidos || 0}</td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.notas || '-'}</td>
-      <td class="actions">
-        <button class="btn btn-secondary btn-sm" onclick="clEdit(${c.id})">✏️</button>
-        <button class="btn btn-danger btn-sm" onclick="clDelete(${c.id})">🗑️</button>
-      </td>
-    </tr>`).join('') : '<tr><td colspan="7" class="empty-state"><div class="empty-state-icon">👥</div>Sin clientes</td></tr>';
-
-    renderPaginationInline('cl-pagination', clPage, totalPages, (p) => { clPage = p; renderClients(); });
+    const badgeClass = c === 'vip' ? 'badge-vip'
+      : c === 'frecuente' ? 'badge-frecuente'
+      : c === 'regular' ? 'badge-regular'
+      : 'badge-default';
+    return `<span class="badge ${badgeClass}">${cls || 'Nuevo'}</span>`;
   }
 
   function renderPaginationInline(containerId, current, total, onPageChange) {
@@ -87,7 +59,50 @@
     makeBtn('›', current + 1, current === total, false);
   }
 
+  function renderClients() {
+    const q = clSearch.toLowerCase();
+    const filtered = allClients.filter(c =>
+      `${c.nombre} ${c.telefono} ${c.email} ${c.clasificacion}`.toLowerCase().includes(q)
+    );
+    const { items, totalPages, page } = paginate(filtered, clPage);
+    clPage = page;
+
+    const grid = document.getElementById('cl-grid');
+    if (!grid) return;
+
+    if (!items.length) {
+      grid.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div>Sin clientes</div>';
+    } else {
+      grid.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
+        ${items.map(c => `
+          <div class="printer-card" onclick="clView(${c.id})" style="cursor:pointer">
+            <div class="printer-card-body">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+                ${classBadge(c.clasificacion)}
+              </div>
+              <div class="printer-card-name" style="font-size:17px;margin-bottom:6px">${c.nombre || '-'}</div>
+              <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px">
+                ${c.telefono ? `<div style="font-size:13px;color:var(--text-muted)">📞 ${c.telefono}</div>` : ''}
+                ${c.email ? `<div style="font-size:13px;color:var(--text-muted)">✉️ ${c.email}</div>` : ''}
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
+                <span style="font-size:12px;color:var(--text-muted)">${c.total_pedidos || 0} pedido${(c.total_pedidos || 0) !== 1 ? 's' : ''}</span>
+                <div style="display:flex;gap:6px" onclick="event.stopPropagation()">
+                  <button class="btn btn-secondary btn-sm" onclick="clEdit(${c.id})">✏️</button>
+                  <button class="btn btn-danger btn-sm" onclick="clDelete(${c.id})">🗑️</button>
+                </div>
+              </div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+    }
+
+    renderPaginationInline('cl-pagination', clPage, totalPages, (p) => { clPage = p; renderClients(); });
+  }
+
   window.clSearch2 = function (q) { clSearch = q; clPage = 1; renderClients(); };
+
+  window.clView = function (id) { clOpenForm(id); };
 
   window.clOpenForm = function (id) {
     const c = id ? (allClients.find(x => x.id === id) || {}) : {};
@@ -114,7 +129,7 @@
           </div>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>`);
