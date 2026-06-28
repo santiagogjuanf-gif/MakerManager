@@ -901,7 +901,24 @@
 
   window.invSearchExt = function(q) { extSearch = q; extPage = 1; renderExternos(); };
 
-  const CONS_EMOJIS = ['📦','🧴','🧪','🍶','🧲','🔩','🪛','🔧','🔨','✂️','📏','🖊️','🧹','🧽','💡','🔋','🪣','🫙','💊','🧯','🛢️','🪝','📎','🗂️','🧰','🪚','⚙️','🔑','🧤','👓','🩹','🪤','🎨','🖌️','🪣','🪜','🔌','💿','📀','🖨️','📡','🧲','🔬','🔭','🧫','🧬','💉','🩺','🩻','🪄','🃏'];
+  const CONS_EMOJIS = [
+    // Herramientas
+    '🔧','🪛','🔨','🪚','⚙️','🔩','🪤','🗜️','🔑','🪝','🧲','📐','📏','✂️','🪜','🧰',
+    // Materiales & consumibles
+    '🧴','🧪','🍶','🫙','🧯','🛢️','🪣','💧','🧽','🧹','🧻','🧸','🪡','🧵','🧶',
+    // Eléctrico / electrónica
+    '🔋','🔌','💡','🖨️','📡','💻','🖥️','⌨️','🖱️','📱','📀',
+    // Pinturas / acabados
+    '🎨','🖌️','🖍️','✒️','🖊️',
+    // Protección personal
+    '🧤','🦺','🥽','👓','🪖','😷',
+    // Embalaje / almacén
+    '📦','🗂️','📎','📌','🗃️','🗑️','🏷️',
+    // Primeros auxilios / limpieza
+    '🩹','💊','🩺','🧼',
+    // Misc útiles
+    '⚗️','🔬','🪴','🌡️','🔐','🗝️'
+  ];
 
   function consumibleForm(tipo, id, data = {}) {
     openModal(id ? `Editar ${tipo}` : `Nuevo ${tipo}`, `

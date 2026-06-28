@@ -52,23 +52,23 @@
         <!-- Negocio -->
         <div class="config-section">
           <div class="config-section-title">🏢 Negocio</div>
-          <div style="display:flex;gap:16px;align-items:flex-start">
+          <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
             <div style="flex-shrink:0">
               ${logoHtml}
               <div style="margin-top:6px">
                 <input type="file" accept="image/*" onchange="cfgUploadLogo(this)" style="font-size:11px;width:100px;color:var(--text-muted)">
               </div>
             </div>
-            <div style="flex:1;display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">
-              <div class="form-group"><label>Nombre del negocio</label><input class="form-control" name="nombre_negocio" value="${val('nombre_negocio')}" autocomplete="off"></div>
+            <div style="flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
+              <div class="form-group" style="grid-column:1/-1"><label>Nombre del negocio</label><input class="form-control" name="nombre_negocio" value="${val('nombre_negocio')}" autocomplete="off"></div>
               <div class="form-group"><label>Teléfono</label><input class="form-control" name="telefono" value="${val('telefono')}" autocomplete="off"></div>
               <div class="form-group"><label>Dirección</label><input class="form-control" name="direccion" value="${val('direccion')}" autocomplete="off"></div>
             </div>
           </div>
         </div>
 
-        <!-- Moneda+Tarifas | Márgenes+Mínimos (two columns) -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <!-- Moneda+Tarifas | Márgenes+Mínimos (two columns, stack on mobile) -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:12px">
           <div class="config-section" style="margin-bottom:0">
             <div class="config-section-title">💱 Moneda & Tarifas</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -98,7 +98,7 @@
         <!-- Clasificación clientes (1 row of 4) -->
         <div class="config-section">
           <div class="config-section-title">🏆 Clasificación de clientes (# de pedidos)</div>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px">
             <div class="form-group"><label>Nuevo (hasta)</label><input class="form-control" name="nivel_nuevo" type="number" value="${val('nivel_nuevo','1')}" autocomplete="off"></div>
             <div class="form-group"><label>Regular (hasta)</label><input class="form-control" name="nivel_regular" type="number" value="${val('nivel_regular','3')}" autocomplete="off"></div>
             <div class="form-group"><label>Frecuente (hasta)</label><input class="form-control" name="nivel_frecuente" type="number" value="${val('nivel_frecuente','7')}" autocomplete="off"></div>
