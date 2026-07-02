@@ -4,6 +4,7 @@
   let hwCount  = 0;      // how many hardware rows
   let _allFils = [];
   let _allPrinters = [];
+  let _editingCotizacionId = null;  // null = new, number = editing existing
 
   // Volume tier margins — read from appConfig at runtime
   function getTiers() {
@@ -434,9 +435,10 @@
   }
 
   // ── Open modal ────────────────────────────────────────────────────────────────
-  window.openCalculator = async function(prefill) {
+  window.openCalculator = async function(prefill, editingId) {
     filCount = 1;
     hwCount  = 0;
+    _editingCotizacionId = editingId || null;
 
     await loadData();
 
@@ -596,7 +598,7 @@
         <button type="button" class="btn btn-secondary" onclick="closeModal()">✗ Cancelar</button>
         <button type="button" class="btn btn-secondary" onclick="verCotizaciones()" style="margin-right:auto">📂 Ver guardadas</button>
         <button type="button" class="btn btn-secondary" onclick="calcAceptar()">✓ Aceptar</button>
-        <button type="button" class="btn btn-primary"   onclick="calcGuardar()">💾 Guardar cotización</button>
+        <button type="button" id="calc-save-btn" class="btn btn-primary" onclick="calcGuardar()">💾 ${_editingCotizacionId ? 'Actualizar cotización' : 'Guardar cotización'}</button>
       </div>
     `);
 
@@ -604,6 +606,81 @@
     document.getElementById('modal-box')?.classList.add('modal-wide');
     populatePrinters();
     buildFilRows();
+
+    // Pre-fill form if datos provided
+    if (prefill && prefill._datos) {
+      const d = prefill._datos;
+      // Basic fields
+      const setVal = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.value = v; };
+      setVal('calc-nombre',   d.nombre   || prefill.nombre || '');
+      setVal('calc-time-h',   d.tiempo_h || '');
+      setVal('calc-time-m',   d.tiempo_m || '');
+      setVal('calc-mo-h',     d.mo_h     || '');
+      setVal('calc-mo-m',     d.mo_m     || '');
+      setVal('calc-embalaje', d.embalaje || '');
+      // Tier dropdown
+      const tierSel = document.getElementById('calc-tier');
+      if (tierSel && d.tier) tierSel.value = d.tier;
+      // Printer — match by text
+      if (d.printer) {
+        const psel = document.getElementById('calc-printer-sel');
+        if (psel) {
+          for (let i = 0; i < psel.options.length; i++) {
+            if (psel.options[i].text.trim().startsWith(d.printer.trim().split('(')[0].trim())) {
+              psel.selectedIndex = i;
+              psel.dispatchEvent(new Event('change'));
+              break;
+            }
+          }
+        }
+      }
+      // Filaments — rebuild rows from saved data
+      const filData = d.filamentos || [];
+      if (filData.length > 0) {
+        filCount = 1;
+        buildFilRows(); // already built row 0
+        // Add extra rows
+        for (let i = 1; i < filData.length; i++) window.calcAddFil && calcAddFil();
+        filData.forEach((f, i) => {
+          const sel = document.getElementById(`calc-fil-sel-${i}`);
+          const gEl = document.getElementById(`calc-fil-g-${i}`);
+          if (sel && f.nombre) {
+            for (let j = 0; j < sel.options.length; j++) {
+              if (sel.options[j].text.trim() === f.nombre.trim()) {
+                sel.selectedIndex = j;
+                calcFilChange(i);
+                break;
+              }
+            }
+          }
+          if (gEl && f.gramos) { gEl.value = f.gramos; calcFilChange(i); }
+        });
+      }
+      // Hardware rows
+      const hwData = d.hardware || [];
+      hwData.forEach(h => {
+        if (!h.desc) return;
+        window.calcAddHw && calcAddHw();
+        const idx = hwCount - 1;
+        // Try to match inventory item by desc
+        const hwSel = document.getElementById(`calc-hw-sel-${idx}`);
+        if (hwSel) {
+          for (let j = 0; j < hwSel.options.length; j++) {
+            if (hwSel.options[j].text.startsWith(h.desc)) {
+              hwSel.selectedIndex = j;
+              calcHwChange(idx);
+              break;
+            }
+          }
+        }
+        const qEl = document.getElementById(`calc-hw-qty-${idx}`);
+        if (qEl && h.qty) { qEl.value = h.qty; calcHwChange(idx); }
+      });
+    } else if (prefill) {
+      const el = document.getElementById('calc-nombre');
+      if (el && prefill.nombre) el.value = prefill.nombre;
+    }
+
     recalc();
   };
 
@@ -666,8 +743,14 @@
     const datos = collectFormData();
     const r = window._calcResult || {};
     try {
-      await api('POST', '/api/cotizaciones', { nombre: datos.nombre, datos, precio_unitario: r.precio_final || 0 });
-      showToast(`Cotización "${datos.nombre}" guardada`);
+      if (_editingCotizacionId) {
+        await api('PUT', `/api/cotizaciones/${_editingCotizacionId}`, { nombre: datos.nombre, datos, precio_unitario: r.precio_final || 0 });
+        showToast(`Cotización "${datos.nombre}" actualizada`);
+      } else {
+        await api('POST', '/api/cotizaciones', { nombre: datos.nombre, datos, precio_unitario: r.precio_final || 0 });
+        showToast(`Cotización "${datos.nombre}" guardada`);
+      }
+      _editingCotizacionId = null;
       closeModal();
     } catch (e) {
       showToast('Error al guardar: ' + e.message, 'error');
@@ -862,9 +945,17 @@
       <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
         <button class="btn btn-danger btn-sm" onclick="eliminarCotizacion(${id})">🗑️ Eliminar</button>
         <button class="btn btn-secondary" onclick="verCotizaciones()">← Volver</button>
+        <button class="btn btn-primary" onclick="editarCotizacion(${id})">✏️ Editar</button>
       </div>
     `);
     document.getElementById('modal-box')?.classList.add('modal-wide');
+  };
+
+  window.editarCotizacion = async function(id) {
+    let row;
+    try { row = await api('GET', `/api/cotizaciones/${id}`); } catch { showToast('Error cargando cotización','error'); return; }
+    closeModal();
+    await openCalculator({ nombre: row.nombre, _datos: row.datos }, id);
   };
 
   window.eliminarCotizacion = async function(id) {
