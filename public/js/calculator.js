@@ -791,20 +791,22 @@
         <span style="font-weight:600">${val}</span>
       </div>`;
 
-    const onlineTax   = onlinePrice - costBase * margin;
-    const onlineCard  = priceCardDetail(
+    // Margin rows show the subtotal (cost × margin), matching the live calculator display
+    const onlineTax  = onlinePrice - costBase * margin;
+    const onlineCard = priceCardDetail(
       '🌐 Online', 'Etsy · Shopify · eBay', 'var(--accent-light)',
       pRow('Costo base', fmtMoney(costBase))
-      + pRow(`Margen ×${margin}`, fmtMoney(costBase * margin - costBase))
+      + pRow(`Margen ×${margin}`, fmtMoney(costBase * margin))
       + (taxPct > 0 ? pRow(`IVA ${taxPct}%`, fmtMoney(onlineTax)) : ''),
       onlinePrice, 'Precio / pieza', ''
     );
 
+    const localMat   = costBase - costMO;
     const localMOLine = costMO > 0 ? pRow('👷 MO (sin margen)', fmtMoney(costMO)) : '';
-    const localCard   = priceCardDetail(
+    const localCard  = priceCardDetail(
       '📍 Local / Facebook', 'Venta directa · Mercado local', '#22c55e',
-      pRow('Materiales + extras', fmtMoney(costBase - costMO))
-      + pRow(`Margen ×${margin}`, fmtMoney((costBase - costMO) * margin - (costBase - costMO)))
+      pRow('Materiales + extras', fmtMoney(localMat))
+      + pRow(`Margen ×${margin}`, fmtMoney(localMat * margin))
       + localMOLine
       + (taxPct > 0 ? pRow(`IVA ${taxPct}%`, fmtMoney(localSubtotal * taxRate)) : ''),
       localSubtotal, 'Precio sin IVA',
@@ -844,12 +846,12 @@
 
         <!-- RIGHT: filaments + prices -->
         <div style="display:flex;flex-direction:column;gap:12px">
-          <div>
-            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:10px;letter-spacing:.05em">🧵 FILAMENTOS</div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:12px;letter-spacing:.05em">🧵 FILAMENTOS</div>
             <div style="display:flex;flex-wrap:wrap;gap:10px">${filCardsHtml || '<span style="font-size:12px;color:var(--text-muted)">—</span>'}</div>
           </div>
-          <div>
-            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:10px;letter-spacing:.05em">💰 PRECIOS SUGERIDOS</div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:12px;letter-spacing:.05em">💰 PRECIOS SUGERIDOS</div>
             <div style="display:flex;flex-direction:column;gap:10px">
               ${onlineCard}
               ${localCard}
