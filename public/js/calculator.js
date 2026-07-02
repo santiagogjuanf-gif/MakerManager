@@ -221,7 +221,7 @@
       const cg = parseFloat(f.costo_por_gramo || 0);
       const acabado = f.acabado && f.acabado !== 'Estándar' ? ` ${f.acabado}` : '';
       const label = `${f.marca||'-'} ${f.material}${acabado} ${f.color}`.trim();
-      return `<option value="${cg}" data-nombre="${label}">${label}</option>`;
+      return `<option value="${cg}" data-id="${f.id}" data-nombre="${label}">${label}</option>`;
     }).join('');
     return `<div class="calc-fil-row" id="calc-fil-row-${i}" style="margin-bottom:10px">
       <div style="display:grid;grid-template-columns:1fr 100px;gap:8px;align-items:flex-end">
@@ -409,7 +409,10 @@
       const sel = document.getElementById(`calc-fil-sel-${i}`);
       const g   = document.getElementById(`calc-fil-g-${i}`)?.value;
       const cg  = document.getElementById(`calc-fil-cg-${i}`)?.value;
-      if (sel) fils.push({ nombre: sel.options[sel.selectedIndex]?.text || '', gramos: g, costo_g: cg });
+      if (sel && sel.value) {
+        const opt = sel.options[sel.selectedIndex];
+        fils.push({ nombre: opt?.text || '', fil_id: opt?.dataset?.id || '', gramos: g, costo_g: cg });
+      }
     }
     const hws = [];
     for (let i = 0; i < hwCount; i++) {
@@ -646,14 +649,19 @@
         filData.forEach((f, i) => {
           const sel = document.getElementById(`calc-fil-sel-${i}`);
           const gEl = document.getElementById(`calc-fil-g-${i}`);
-          if (sel && f.nombre) {
-            for (let j = 0; j < sel.options.length; j++) {
-              if (sel.options[j].text.trim() === f.nombre.trim()) {
-                sel.selectedIndex = j;
-                calcFilChange(i);
-                break;
+          if (sel) {
+            let matched = -1;
+            if (f.fil_id) {
+              for (let j = 0; j < sel.options.length; j++) {
+                if (sel.options[j].dataset.id == f.fil_id) { matched = j; break; }
               }
             }
+            if (matched === -1 && f.nombre) {
+              for (let j = 0; j < sel.options.length; j++) {
+                if (sel.options[j].text.trim() === f.nombre.trim()) { matched = j; break; }
+              }
+            }
+            if (matched !== -1) { sel.selectedIndex = matched; calcFilChange(i); }
           }
           if (gEl && f.gramos) { gEl.value = f.gramos; calcFilChange(i); }
         });
@@ -796,6 +804,7 @@
   window.verCotizacionDetalle = async function(id) {
     let row;
     try { row = await api('GET', `/api/cotizaciones/${id}`); } catch { showToast('Error cargando cotización','error'); return; }
+    if (_allFils.length === 0) await loadData();
     const d = row.datos || {};
     const taxRate = parseFloat(appConfig.tax_rate || 0);
     const taxPct  = Math.round(taxRate * 100);
@@ -827,7 +836,11 @@
 
     // Filament cards — styled boxes with spool visual
     const filCardsHtml = (d.filamentos || []).filter(f => f.nombre && parseFloat(f.gramos) > 0).map(f => {
-      const matched = _allFils.find(af => `${af.marca||''} ${af.material} ${af.color}`.trim() === f.nombre.trim());
+      const matched = (f.fil_id ? _allFils.find(af => af.id == f.fil_id) : null)
+        || _allFils.find(af => {
+          const acabado = af.acabado && af.acabado !== 'Estándar' ? ` ${af.acabado}` : '';
+          return `${af.marca||''} ${af.material}${acabado} ${af.color}`.trim() === f.nombre.trim();
+        });
       const spoolHtml = matched && typeof makeSpool === 'function'
         ? makeSpool(matched, 80)
         : `<div style="width:80px;height:80px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;color:white;font-weight:800">${(f.nombre||'').substring(0,4)}</div>`;
