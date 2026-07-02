@@ -176,6 +176,12 @@
         ? `<div class="cpc-row"><span>👷 MO (sin margen)</span><span>${fmtMoney(p.costMO)}</span></div>`
         : '';
       const matLabel = channel === 'local' ? 'Materiales + extras' : 'Costo base';
+      // Local: big price = subtotal (sin IVA), with IVA shown below in small text
+      // Online: big price = total (con IVA incluido)
+      const bigPrice   = channel === 'local' ? p.subtotal : p.total;
+      const ivaSuffix  = channel === 'local' && taxPct > 0
+        ? `<div style="font-size:11px;color:var(--text-muted);margin-top:3px">Con IVA ${taxPct}%: <strong style="color:var(--text)">${fmtMoney(p.total)}</strong></div>`
+        : '';
       card.innerHTML = `
         <div class="cpc-header">${channel === 'online' ? '🌐 Online' : '📍 Local / Facebook'}</div>
         <div class="cpc-subheader">${channel === 'online' ? 'Etsy · Shopify · eBay' : 'Venta directa · Mercado local'}</div>
@@ -183,12 +189,13 @@
           <div class="cpc-row muted"><span>${matLabel}</span><span>${fmtMoney(channel==='local'?p.costMaterials:p.costBase)}</span></div>
           <div class="cpc-row muted"><span>Margen ×${margin}</span><span>${fmtMoney(p.subtotal - (channel==='local'?p.costMO:0))}</span></div>
           ${moLine}
-          ${taxPct > 0 ? `<div class="cpc-row muted"><span>IVA ${taxPct}%</span><span>${fmtMoney(p.tax)}</span></div>` : ''}
+          ${channel === 'online' && taxPct > 0 ? `<div class="cpc-row muted"><span>IVA ${taxPct}%</span><span>${fmtMoney(p.tax)}</span></div>` : ''}
         </div>
         <div class="cpc-total-row">
-          <span>Precio / pieza</span>
-          <span class="cpc-price">${fmtMoney(p.total)}</span>
-        </div>`;
+          <span>${channel === 'local' ? 'Precio sin IVA' : 'Precio / pieza'}</span>
+          <span class="cpc-price">${fmtMoney(bigPrice)}</span>
+        </div>
+        ${ivaSuffix}`;
     }
 
     fillCard('calc-card-online', pOnline, 'online');
