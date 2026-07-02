@@ -175,27 +175,44 @@
   function filRowHtml(i) {
     const opts = _allFils.map(f => {
       const cg = f.precio_compra && f.peso_inicial_g ? (f.precio_compra / f.peso_inicial_g) : 0;
-      return `<option value="${cg.toFixed(4)}" data-material="${f.material}">${f.marca || '-'} ${f.material} ${f.color} — ${fmtMoney(cg)}/g</option>`;
+      return `<option value="${cg.toFixed(4)}">${f.marca || '-'} ${f.material} ${f.color}</option>`;
     }).join('');
-    return `<div class="calc-fil-row" id="calc-fil-row-${i}" style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:flex-end;margin-bottom:8px">
-      <div class="form-group" style="margin:0">
-        <select id="calc-fil-sel-${i}" class="form-control" onchange="calcFilChange(${i})">
-          <option value="">-- Seleccionar filamento --</option>
-          ${opts}
-        </select>
-        <input type="hidden" id="calc-fil-cg-${i}" value="0">
+    return `<div class="calc-fil-row" id="calc-fil-row-${i}" style="margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:1fr 100px;gap:8px;align-items:flex-end">
+        <div class="form-group" style="margin:0">
+          <select id="calc-fil-sel-${i}" class="form-control" onchange="calcFilChange(${i})">
+            <option value="">-- Seleccionar filamento --</option>
+            ${opts}
+          </select>
+          <input type="hidden" id="calc-fil-cg-${i}" value="0">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label style="font-size:10px;color:var(--text-muted)">Gramos usados</label>
+          <input id="calc-fil-g-${i}" class="form-control" type="number" step="0.1" min="0" value="0" oninput="calcFilChange(${i})" placeholder="0">
+        </div>
       </div>
-      <div class="form-group" style="margin:0;width:90px">
-        <label style="font-size:10px;color:var(--text-muted)">Gramos</label>
-        <input id="calc-fil-g-${i}" class="form-control" type="number" step="0.1" min="0" value="0" oninput="calcRecalc()" placeholder="g">
-      </div>
+      <div id="calc-fil-info-${i}" style="font-size:11px;color:var(--text-muted);margin-top:4px;padding:0 2px;min-height:16px"></div>
     </div>`;
   }
 
   window.calcFilChange = function(i) {
-    const sel = document.getElementById(`calc-fil-sel-${i}`);
+    const sel  = document.getElementById(`calc-fil-sel-${i}`);
     const cgEl = document.getElementById(`calc-fil-cg-${i}`);
-    if (sel && cgEl) cgEl.value = sel.value || 0;
+    const gEl  = document.getElementById(`calc-fil-g-${i}`);
+    const info = document.getElementById(`calc-fil-info-${i}`);
+    if (!sel) return;
+    const cg = parseFloat(sel.value || 0);
+    if (cgEl) cgEl.value = cg;
+    if (info) {
+      if (cg > 0) {
+        const g       = parseFloat(gEl?.value || 0);
+        const subtotal = g * cg;
+        info.innerHTML = `<span style="color:var(--accent)">💲${fmtMoney(cg)}/g</span>`
+          + (g > 0 ? ` &nbsp;·&nbsp; ${g}g × ${fmtMoney(cg)}/g = <strong style="color:var(--text)">${fmtMoney(subtotal)}</strong>` : '');
+      } else {
+        info.textContent = sel.value ? '⚠️ Este filamento no tiene precio de compra registrado' : '';
+      }
+    }
     recalc();
   };
 
@@ -480,6 +497,8 @@
       </div>
     `);
 
+    // Make this modal wider than the default
+    document.getElementById('modal-box')?.classList.add('modal-wide');
     populatePrinters();
     buildFilRows();
     recalc();

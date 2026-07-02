@@ -907,3 +907,11 @@ select.form-control option { background: var(--card); }
   .calc-footer { justify-content: stretch; }
   .calc-footer .btn { flex: 1; }
 }
+
+/* Remove number input spinners globally */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+/* Wide modal variant for calculator */
+.modal.modal-wide { max-width: 960px; width: 95%; }

@@ -75,6 +75,7 @@ function openModal(title, bodyHtml) {
 
 function closeModal() {
   document.getElementById('modal-overlay').classList.add('hidden');
+  document.getElementById('modal-box')?.classList.remove('modal-wide');
 }
 
 function cancelModal() {
