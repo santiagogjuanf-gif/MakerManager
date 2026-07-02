@@ -1,346 +1,510 @@
 (function () {
-  // ── G-code parser ────────────────────────────────────────────────────────────
-  function parseGcode(text) {
-    const result = { time_seconds: null, filament_g: null, filament_m: null, slicer: 'Desconocido', layers: null };
+  // ── State ────────────────────────────────────────────────────────────────────
+  let filCount = 1;      // how many filament rows
+  let hwCount  = 0;      // how many hardware rows
+  let _allFils = [];
+  let _allPrinters = [];
 
-    // BambuStudio / OrcaSlicer
-    let m = text.match(/;\s*total filament used\s*\[g\]\s*=\s*([\d.]+)/i);
-    if (m) { result.filament_g = parseFloat(m[1]); result.slicer = 'BambuStudio/OrcaSlicer'; }
-    m = text.match(/;\s*filament used\s*\[g\]\s*=\s*([\d.]+)/i);
-    if (m && !result.filament_g) { result.filament_g = parseFloat(m[1]); result.slicer = 'PrusaSlicer'; }
-    m = text.match(/;\s*filament used\s*\[mm\]\s*=\s*([\d.]+)/i);
-    if (m) result.filament_m = parseFloat(m[1]) / 1000;
+  // Qty cards — default 1 / 5 / 10, user can change
+  const qtyDefaults = [1, 5, 10];
 
-    // BambuStudio estimated time: "; estimated printing time = 2h 15m 30s"
-    m = text.match(/;\s*estimated printing time(?:\s*\(normal mode\))?\s*=\s*(.*)/i);
-    if (m) result.time_seconds = parseTimeStr(m[1]);
+  // Colors per cost segment (for donut)
+  const SEG_COLORS = {
+    filamento:    'var(--accent)',
+    electricidad: '#f59e0b',
+    maquinado:    '#3b82f6',
+    manoObra:     '#ec4899',
+    hardware:     '#8b5cf6',
+    embalaje:     '#06b6d4',
+  };
 
-    // PrusaSlicer: "; estimated printing time (normal mode) = 2h 15m 30s"
-    if (!result.time_seconds) {
-      m = text.match(/;\s*estimated printing time \(normal mode\)\s*=\s*(.*)/i);
-      if (m) result.time_seconds = parseTimeStr(m[1]);
+  // ── Donut chart (pure SVG, no library) ───────────────────────────────────────
+  function renderDonut(segments) {
+    const R = 54, SW = 22, CX = 70, CY = 70;
+    const circ = 2 * Math.PI * R;
+    const total = segments.reduce((s, x) => s + x.value, 0);
+
+    if (total <= 0) {
+      return `<svg width="140" height="140" viewBox="0 0 140 140">
+        <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="var(--border)" stroke-width="${SW}"/>
+        <text x="${CX}" y="${CY}" text-anchor="middle" dominant-baseline="middle" fill="var(--text-muted)" font-size="11">$0</text>
+      </svg>`;
     }
 
-    // Cura: ";TIME:8100"
-    if (!result.time_seconds) {
-      m = text.match(/^;TIME:(\d+)/m);
-      if (m) { result.time_seconds = parseInt(m[1]); result.slicer = 'Cura'; }
-    }
-    // Cura filament: ";Filament used: 4.56789m"
-    if (!result.filament_m) {
-      m = text.match(/^;Filament used:\s*([\d.]+)m/mi);
-      if (m) result.filament_m = parseFloat(m[1]);
-    }
+    let offset = 0;
+    let arcs = '';
+    segments.forEach(seg => {
+      if (seg.value <= 0) return;
+      const len = (seg.value / total) * circ;
+      const gap = circ - len;
+      arcs += `<circle cx="${CX}" cy="${CY}" r="${R}" fill="none"
+        stroke="${seg.color}" stroke-width="${SW}"
+        stroke-dasharray="${len.toFixed(2)} ${gap.toFixed(2)}"
+        stroke-dashoffset="${(-offset).toFixed(2)}"
+        transform="rotate(-90 ${CX} ${CY})"
+        style="transition:stroke-dasharray 0.4s"/>`;
+      offset += len;
+    });
 
-    // Layers
-    m = text.match(/;\s*total layer(?:s)?\s*(?:count|number)?\s*[=:]\s*(\d+)/i)
-      || text.match(/^;LAYER_COUNT:(\d+)/m);
-    if (m) result.layers = parseInt(m[1]);
-
-    return result;
+    const centerLabel = fmtMoney(total);
+    return `<svg width="140" height="140" viewBox="0 0 140 140">
+      <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="var(--border)" stroke-width="${SW}" opacity="0.3"/>
+      ${arcs}
+      <text x="${CX}" y="${CY - 7}" text-anchor="middle" dominant-baseline="middle" fill="var(--text)" font-size="11" font-weight="700">${centerLabel}</text>
+      <text x="${CX}" y="${CY + 10}" text-anchor="middle" dominant-baseline="middle" fill="var(--text-muted)" font-size="9">costo base</text>
+    </svg>`;
   }
 
-  function parseTimeStr(str) {
-    let total = 0;
-    const h = str.match(/(\d+)\s*h/i), min = str.match(/(\d+)\s*m(?!s)/i), s = str.match(/(\d+)\s*s/i);
-    if (h) total += parseInt(h[1]) * 3600;
-    if (min) total += parseInt(min[1]) * 60;
-    if (s) total += parseInt(s[1]);
-    return total > 0 ? total : null;
-  }
+  // ── Calculation engine ────────────────────────────────────────────────────────
+  function getValues() {
+    const timeH = parseFloat(document.getElementById('calc-time-h')?.value || 0)
+                + parseFloat(document.getElementById('calc-time-m')?.value || 0) / 60;
+    const watts  = parseFloat(document.getElementById('calc-watts')?.value || 0);
+    const kwh    = parseFloat(appConfig.costo_kwh || 0.18);
+    const tarifaH = parseFloat(appConfig.tarifa_hora || 25);
+    const moHours = parseFloat(document.getElementById('calc-mo-h')?.value || 0)
+                  + parseFloat(document.getElementById('calc-mo-m')?.value || 0) / 60;
+    const embalaje = parseFloat(document.getElementById('calc-embalaje')?.value || 0);
 
-  function fmtSeconds(s) {
-    if (!s) return '-';
-    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
-    return h > 0 ? `${h}h ${m}m` : `${m}m`;
-  }
-
-  // ── Core calculation ─────────────────────────────────────────────────────────
-  function calculate() {
-    const timeH      = parseFloat(document.getElementById('calc-time-h')?.value || 0)
-                     + parseFloat(document.getElementById('calc-time-m')?.value || 0) / 60;
-    const filG       = parseFloat(document.getElementById('calc-fil-g')?.value || 0);
-    const costPerG   = parseFloat(document.getElementById('calc-cost-g')?.value || 0);
-    const watts      = parseFloat(document.getElementById('calc-watts')?.value || 0);
-    const kwh        = parseFloat(appConfig.costo_kwh || 0.18);
-    const tarifaH    = parseFloat(document.getElementById('calc-tarifa-h')?.value || parseFloat(appConfig.tarifa_hora || 25));
-    const qty        = Math.max(1, parseInt(document.getElementById('calc-qty')?.value || 1));
-    const saleType   = document.getElementById('calc-sale-type')?.value || 'unitario';
-    const taxRate    = parseFloat(appConfig.tax_rate || 0);
-    const marginKey  = 'margen_' + saleType;
-    const margin     = parseFloat(document.getElementById('calc-margin')?.value || appConfig[marginKey] || 1);
-
-    const costFil    = filG * costPerG;
-    const costElec   = (watts / 1000) * timeH * kwh;
-    const costMach   = timeH * tarifaH;
-    const costUnit   = costFil + costElec + costMach;
-    const costTotal  = costUnit * qty;
-    const priceNoTax = costTotal * margin;
-    const taxAmt     = priceNoTax * taxRate;
-    const priceTotal = priceNoTax + taxAmt;
-    const pricePerPc = qty > 1 ? priceNoTax / qty : null;
-
-    const fmt = (v) => fmtMoney(v);
-
-    const rows = [
-      ['🧵 Filamento', fmt(costFil), `${filG}g × ${fmt(costPerG)}/g`],
-      ['⚡ Electricidad', fmt(costElec), `${watts}W × ${fmtSeconds(timeH*3600)} × $${kwh}/kWh`],
-      ['🖨️ Maquinado', fmt(costMach), `${fmtSeconds(timeH*3600)} × ${fmt(tarifaH)}/h`],
-      ['📦 Subtotal (×' + qty + ' pzas)', fmt(costTotal), ''],
-      ['📈 Margen ×' + margin, fmt(priceNoTax), saleType],
-    ];
-    if (taxRate > 0) rows.push([`🧾 IVA (${Math.round(taxRate*100)}%)`, fmt(taxAmt), '']);
-    rows.push(['💰 PRECIO FINAL', fmt(priceTotal), 'total']);
-    if (pricePerPc) rows.push(['💰 Precio por pieza', fmt(pricePerPc), '']);
-
-    const tbody = document.getElementById('calc-result-rows');
-    if (tbody) {
-      tbody.innerHTML = rows.map(([label, val, note], i) => {
-        const isTotal = label.startsWith('💰 PRECIO FINAL');
-        const isSub = label.startsWith('📦');
-        return `<tr class="${isTotal ? 'calc-row-total' : isSub ? 'calc-row-sub' : ''}">
-          <td>${label}</td>
-          <td style="text-align:right;font-weight:${isTotal?'800':'600'}">${val}</td>
-          <td style="font-size:11px;color:var(--text-muted)">${note}</td>
-        </tr>`;
-      }).join('');
+    // Filaments
+    let costFil = 0;
+    for (let i = 0; i < filCount; i++) {
+      const g    = parseFloat(document.getElementById(`calc-fil-g-${i}`)?.value || 0);
+      const cg   = parseFloat(document.getElementById(`calc-fil-cg-${i}`)?.value || 0);
+      costFil += g * cg;
     }
 
-    // Store final price for "usar en trabajo"
-    window._calcResult = { precio_final: priceTotal.toFixed(2), gramos: filG, tiempo_h: timeH.toFixed(2) };
+    // Hardware
+    let costHW = 0;
+    for (let i = 0; i < hwCount; i++) {
+      const unit = parseFloat(document.getElementById(`calc-hw-cost-${i}`)?.value || 0);
+      const qty  = parseFloat(document.getElementById(`calc-hw-qty-${i}`)?.value  || 1);
+      costHW += unit * qty;
+    }
 
-    return priceTotal;
+    const costElec = (watts / 1000) * timeH * kwh;
+    const costMach = timeH * tarifaH;
+    const costMO   = moHours * tarifaH;
+    const costBase = costFil + costElec + costMach + costMO + costHW + embalaje;
+
+    return { costFil, costElec, costMach, costMO, costHW, embalaje, costBase, timeH, tarifaH };
   }
 
-  // ── Filament selector → cost per gram ────────────────────────────────────────
-  async function loadFilamentsForCalc() {
-    try {
-      const fils = await api('GET', '/api/filaments');
-      const sel = document.getElementById('calc-fil-sel');
-      if (!sel) return;
-      sel.innerHTML = `<option value="">-- Seleccionar filamento --</option>` +
-        fils.map(f => {
-          const costG = f.precio_compra && f.peso_inicial_g ? (f.precio_compra / f.peso_inicial_g) : 0;
-          return `<option value="${costG.toFixed(4)}" data-name="${f.marca} ${f.material} ${f.color}">${f.marca || '-'} ${f.material} ${f.color} (${fmtMoney(costG)}/g)</option>`;
-        }).join('');
-      sel.onchange = () => {
-        if (sel.value) document.getElementById('calc-cost-g').value = parseFloat(sel.value).toFixed(4);
-        recalc();
-      };
-    } catch { /* ignore */ }
+  function calcQtyPrice(costBase, qty, margin, taxRate) {
+    const total      = costBase * qty;
+    const priceNoTax = total * margin;
+    const tax        = priceNoTax * taxRate;
+    const priceTotal = priceNoTax + tax;
+    const perPiece   = priceTotal / qty;
+    return { total, priceNoTax, tax, priceTotal, perPiece };
   }
 
-  async function loadPrintersForCalc() {
-    try {
-      const prs = await api('GET', '/api/printers');
-      const sel = document.getElementById('calc-printer-sel');
-      if (!sel) return;
-      sel.innerHTML = `<option value="">-- Seleccionar impresora --</option>` +
-        prs.filter(p => p.tipo === 'FDM').map(p =>
-          `<option value="${p.consumo_promedio_watts || 120}">${p.nombre} (${p.consumo_promedio_watts || 120}W)</option>`
-        ).join('');
-      sel.onchange = () => {
-        if (sel.value) document.getElementById('calc-watts').value = sel.value;
-        recalc();
-      };
-    } catch { /* ignore */ }
+  function recalc() {
+    const v = getValues();
+    const margin  = parseFloat(document.getElementById('calc-margin')?.value || appConfig.margen_unitario || 3);
+    const taxRate = parseFloat(appConfig.tax_rate || 0);
+    const taxPct  = Math.round(taxRate * 100);
+
+    // Donut
+    const donutEl = document.getElementById('calc-donut');
+    if (donutEl) {
+      donutEl.innerHTML = renderDonut([
+        { value: v.costFil,   color: SEG_COLORS.filamento,    label: 'Filamento'     },
+        { value: v.costElec,  color: SEG_COLORS.electricidad, label: 'Electricidad'  },
+        { value: v.costMach,  color: SEG_COLORS.maquinado,    label: 'Maquinado'     },
+        { value: v.costMO,    color: SEG_COLORS.manoObra,     label: 'Mano de obra'  },
+        { value: v.costHW,    color: SEG_COLORS.hardware,     label: 'Hardware'      },
+        { value: v.embalaje,  color: SEG_COLORS.embalaje,     label: 'Embalaje'      },
+      ]);
+    }
+
+    // Legend
+    const legendEl = document.getElementById('calc-legend');
+    if (legendEl && v.costBase > 0) {
+      const items = [
+        ['🧵 Filamento',    v.costFil,  SEG_COLORS.filamento],
+        ['⚡ Electricidad', v.costElec, SEG_COLORS.electricidad],
+        ['🖨️ Maquinado',    v.costMach, SEG_COLORS.maquinado],
+        ['👷 Mano de obra', v.costMO,   SEG_COLORS.manoObra],
+        ['🔩 Hardware',     v.costHW,   SEG_COLORS.hardware],
+        ['📦 Embalaje',     v.embalaje, SEG_COLORS.embalaje],
+      ].filter(([,val]) => val > 0);
+      legendEl.innerHTML = items.map(([label, val, color]) =>
+        `<div style="display:flex;align-items:center;gap:6px;font-size:11px">
+          <div style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></div>
+          <span style="color:var(--text-muted);flex:1">${label}</span>
+          <span style="font-weight:600">${fmtMoney(val)}</span>
+        </div>`
+      ).join('');
+    }
+
+    // Price cards
+    const qtys = [0, 1, 2].map(i => Math.max(1, parseInt(document.getElementById(`calc-qty-${i}`)?.value || qtyDefaults[i])));
+    const margins = qtys.map((_, i) => {
+      const keys = ['margen_unitario', 'margen_menudeo', 'margen_mayoreo'];
+      return parseFloat(appConfig[keys[i]] || margin);
+    });
+    // Use user-edited margin for card 0
+    margins[0] = margin;
+
+    qtys.forEach((qty, i) => {
+      const p = calcQtyPrice(v.costBase, qty, margins[i], taxRate);
+      const card = document.getElementById(`calc-price-card-${i}`);
+      if (!card) return;
+      card.querySelector('.cpc-total').textContent   = fmtMoney(p.priceTotal);
+      card.querySelector('.cpc-cost').textContent    = `Costo: ${fmtMoney(p.total)}`;
+      card.querySelector('.cpc-margin').textContent  = `Margen ×${margins[i]}`;
+      card.querySelector('.cpc-tax').textContent     = taxPct > 0 ? `IVA ${taxPct}%: ${fmtMoney(p.tax)}` : '';
+      if (qty > 1) card.querySelector('.cpc-each').textContent = `${fmtMoney(p.perPiece)} / pieza`;
+      else card.querySelector('.cpc-each').textContent = '';
+    });
+
+    // Store result
+    window._calcResult = {
+      precio_unitario: calcQtyPrice(v.costBase, 1, margin, taxRate).priceTotal,
+      costBase: v.costBase,
+    };
   }
 
-  function recalc() { calculate(); }
   window.calcRecalc = recalc;
 
-  // ── Margin auto-update when sale type changes ─────────────────────────────────
-  window.calcSaleTypeChange = function(val) {
-    const marginKey = 'margen_' + val;
-    const m = document.getElementById('calc-margin');
-    if (m) m.value = appConfig[marginKey] || 1;
+  // ── Filament rows ─────────────────────────────────────────────────────────────
+  function filRowHtml(i) {
+    const opts = _allFils.map(f => {
+      const cg = f.precio_compra && f.peso_inicial_g ? (f.precio_compra / f.peso_inicial_g) : 0;
+      return `<option value="${cg.toFixed(4)}" data-material="${f.material}">${f.marca || '-'} ${f.material} ${f.color} — ${fmtMoney(cg)}/g</option>`;
+    }).join('');
+    return `<div class="calc-fil-row" id="calc-fil-row-${i}" style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:flex-end;margin-bottom:8px">
+      <div class="form-group" style="margin:0">
+        <select id="calc-fil-sel-${i}" class="form-control" onchange="calcFilChange(${i})">
+          <option value="">-- Seleccionar filamento --</option>
+          ${opts}
+        </select>
+        <input type="hidden" id="calc-fil-cg-${i}" value="0">
+      </div>
+      <div class="form-group" style="margin:0;width:90px">
+        <label style="font-size:10px;color:var(--text-muted)">Gramos</label>
+        <input id="calc-fil-g-${i}" class="form-control" type="number" step="0.1" min="0" value="0" oninput="calcRecalc()" placeholder="g">
+      </div>
+    </div>`;
+  }
+
+  window.calcFilChange = function(i) {
+    const sel = document.getElementById(`calc-fil-sel-${i}`);
+    const cgEl = document.getElementById(`calc-fil-cg-${i}`);
+    if (sel && cgEl) cgEl.value = sel.value || 0;
     recalc();
   };
 
-  // ── G-code file handler ───────────────────────────────────────────────────────
-  window.calcHandleFile = function(input) {
-    const file = input.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target.result;
-      const parsed = parseGcode(text);
-      const badge = document.getElementById('calc-gcode-badge');
-      if (badge) badge.innerHTML = `<span style="color:var(--accent);font-size:11px">✓ ${file.name} — ${parsed.slicer}</span>`;
+  window.calcAddFil = function() {
+    const container = document.getElementById('calc-fil-rows');
+    if (!container) return;
+    container.insertAdjacentHTML('beforeend', filRowHtml(filCount));
+    filCount++;
+    recalc();
+  };
 
-      if (parsed.time_seconds) {
-        const h = Math.floor(parsed.time_seconds / 3600);
-        const m = Math.round((parsed.time_seconds % 3600) / 60);
-        const hEl = document.getElementById('calc-time-h');
-        const mEl = document.getElementById('calc-time-m');
-        if (hEl) hEl.value = h;
-        if (mEl) mEl.value = m;
-      }
-      if (parsed.filament_g) {
-        const gEl = document.getElementById('calc-fil-g');
-        if (gEl) gEl.value = parsed.filament_g.toFixed(1);
-      }
-      if (parsed.layers) {
-        const lEl = document.getElementById('calc-layers');
-        if (lEl) lEl.textContent = parsed.layers + ' capas';
-      }
+  window.calcRemFil = function() {
+    if (filCount <= 1) return;
+    filCount--;
+    const row = document.getElementById(`calc-fil-row-${filCount}`);
+    if (row) row.remove();
+    recalc();
+  };
+
+  // ── Hardware rows ─────────────────────────────────────────────────────────────
+  function hwRowHtml(i) {
+    return `<div class="calc-hw-row" id="calc-hw-row-${i}" style="display:grid;grid-template-columns:1fr 80px 60px auto;gap:6px;align-items:center;margin-bottom:6px">
+      <input class="form-control" placeholder="Descripción (ej: aro metálico)" oninput="calcRecalc()" style="font-size:12px">
+      <input id="calc-hw-cost-${i}" class="form-control" type="number" step="0.01" min="0" value="0" placeholder="$/u" oninput="calcRecalc()" style="font-size:12px">
+      <input id="calc-hw-qty-${i}"  class="form-control" type="number" min="1" value="1" oninput="calcRecalc()" style="font-size:12px">
+      <button type="button" onclick="calcRemHw(${i})" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px;padding:0 4px" title="Eliminar">✕</button>
+    </div>`;
+  }
+
+  window.calcAddHw = function() {
+    const container = document.getElementById('calc-hw-rows');
+    if (!container) return;
+    container.insertAdjacentHTML('beforeend', hwRowHtml(hwCount));
+    hwCount++;
+    recalc();
+  };
+
+  window.calcRemHw = function(i) {
+    const row = document.getElementById(`calc-hw-row-${i}`);
+    if (row) row.remove();
+    recalc();
+  };
+
+  // ── Load data from API ────────────────────────────────────────────────────────
+  async function loadData() {
+    try { _allFils     = await api('GET', '/api/filaments'); } catch { _allFils = []; }
+    try { _allPrinters = await api('GET', '/api/printers');  } catch { _allPrinters = []; }
+  }
+
+  function populatePrinters() {
+    const sel = document.getElementById('calc-printer-sel');
+    if (!sel) return;
+    sel.innerHTML = `<option value="">-- Seleccionar impresora --</option>` +
+      _allPrinters.map(p => `<option value="${p.consumo_promedio_watts || 120}">${p.nombre} (${p.consumo_promedio_watts || 120}W)</option>`).join('');
+    sel.onchange = () => {
+      const wEl = document.getElementById('calc-watts');
+      if (wEl && sel.value) wEl.value = sel.value;
       recalc();
     };
-    reader.readAsText(file);
-  };
+  }
 
-  // ── Drop zone ─────────────────────────────────────────────────────────────────
-  window.calcDrop = function(e) {
-    e.preventDefault();
-    const dz = document.getElementById('calc-dropzone');
-    if (dz) dz.classList.remove('drag-over');
-    const file = e.dataTransfer?.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const parsed = parseGcode(ev.target.result);
-        const badge = document.getElementById('calc-gcode-badge');
-        if (badge) badge.innerHTML = `<span style="color:var(--accent);font-size:11px">✓ ${file.name} — ${parsed.slicer}</span>`;
-        if (parsed.time_seconds) {
-          document.getElementById('calc-time-h').value = Math.floor(parsed.time_seconds / 3600);
-          document.getElementById('calc-time-m').value = Math.round((parsed.time_seconds % 3600) / 60);
-        }
-        if (parsed.filament_g) document.getElementById('calc-fil-g').value = parsed.filament_g.toFixed(1);
-        recalc();
-      };
-      reader.readAsText(file);
+  function buildFilRows() {
+    const container = document.getElementById('calc-fil-rows');
+    if (!container) return;
+    container.innerHTML = filRowHtml(0);
+  }
+
+  // ── Price card HTML ───────────────────────────────────────────────────────────
+  function priceCardHtml(i, defaultQty, label, accentStyle) {
+    return `<div id="calc-price-card-${i}" class="calc-price-card ${accentStyle}">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <label style="font-size:11px;color:var(--text-muted);margin:0">Piezas:</label>
+        <input id="calc-qty-${i}" class="form-control" type="number" min="1" value="${defaultQty}"
+          oninput="calcRecalc()" style="width:60px;font-size:12px;padding:3px 6px">
+      </div>
+      <div class="cpc-label">${label}</div>
+      <div class="cpc-total">$0.00</div>
+      <div class="cpc-cost" style="font-size:11px;color:var(--text-muted)">Costo: $0</div>
+      <div class="cpc-margin" style="font-size:10px;color:var(--text-muted)"></div>
+      <div class="cpc-tax"   style="font-size:10px;color:var(--text-muted)"></div>
+      <div class="cpc-each"  style="font-size:11px;color:var(--accent-light);margin-top:4px;font-weight:700"></div>
+    </div>`;
+  }
+
+  // ── Collect form data for saving ──────────────────────────────────────────────
+  function collectFormData() {
+    const fils = [];
+    for (let i = 0; i < filCount; i++) {
+      const sel = document.getElementById(`calc-fil-sel-${i}`);
+      const g   = document.getElementById(`calc-fil-g-${i}`)?.value;
+      const cg  = document.getElementById(`calc-fil-cg-${i}`)?.value;
+      if (sel) fils.push({ nombre: sel.options[sel.selectedIndex]?.text || '', gramos: g, costo_g: cg });
     }
-  };
+    const hws = [];
+    for (let i = 0; i < hwCount; i++) {
+      const row = document.getElementById(`calc-hw-row-${i}`);
+      if (!row) continue;
+      const desc = row.querySelector('input[placeholder]')?.value;
+      const cost = document.getElementById(`calc-hw-cost-${i}`)?.value;
+      const qty  = document.getElementById(`calc-hw-qty-${i}`)?.value;
+      hws.push({ desc, cost, qty });
+    }
+    return {
+      nombre:     document.getElementById('calc-nombre')?.value || '',
+      printer:    document.getElementById('calc-printer-sel')?.options[document.getElementById('calc-printer-sel')?.selectedIndex]?.text || '',
+      tiempo_h:   document.getElementById('calc-time-h')?.value || 0,
+      tiempo_m:   document.getElementById('calc-time-m')?.value || 0,
+      watts:      document.getElementById('calc-watts')?.value || 0,
+      mo_h:       document.getElementById('calc-mo-h')?.value || 0,
+      mo_m:       document.getElementById('calc-mo-m')?.value || 0,
+      embalaje:   document.getElementById('calc-embalaje')?.value || 0,
+      margin:     document.getElementById('calc-margin')?.value || 3,
+      filamentos: fils,
+      hardware:   hws,
+    };
+  }
 
-  // ── Open calculator ───────────────────────────────────────────────────────────
-  window.openCalculator = function(prefill) {
-    const defaultMargin = appConfig.margen_unitario || 3;
-    const defaultTarifa = appConfig.tarifa_hora || 25;
+  // ── Open modal ────────────────────────────────────────────────────────────────
+  window.openCalculator = async function(prefill) {
+    filCount = 1;
+    hwCount  = 0;
+
+    await loadData();
+
     const taxPct = Math.round(parseFloat(appConfig.tax_rate || 0) * 100);
+    const defaultMargin = appConfig.margen_unitario || 3;
 
     openModal('🧮 Calculadora de Costos', `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" class="calc-layout">
+      <div class="calc-wrap">
 
-        <!-- LEFT: inputs -->
-        <div>
-          <!-- G-code drop zone -->
-          <div id="calc-dropzone" class="calc-dropzone"
-            ondragover="event.preventDefault();this.classList.add('drag-over')"
-            ondragleave="this.classList.remove('drag-over')"
-            ondrop="calcDrop(event)">
-            <div style="font-size:28px">📄</div>
-            <div style="font-size:13px;font-weight:600;margin:4px 0">Arrastra tu G-code aquí</div>
-            <div style="font-size:11px;color:var(--text-muted)">BambuStudio, OrcaSlicer, PrusaSlicer, Cura</div>
-            <label style="margin-top:8px;cursor:pointer;font-size:11px;padding:5px 12px;background:var(--accent);color:#fff;border-radius:6px;display:inline-block">
-              Seleccionar archivo
-              <input type="file" accept=".gcode,.gco,.g,.3mf" onchange="calcHandleFile(this)" style="display:none">
-            </label>
-            <div id="calc-gcode-badge" style="margin-top:6px;min-height:16px"></div>
-            <div id="calc-layers" style="font-size:10px;color:var(--text-muted)"></div>
+        <!-- ── LEFT ── -->
+        <div class="calc-left">
+
+          <!-- Proyecto -->
+          <div class="calc-section">
+            <div class="calc-section-title">📋 Proyecto</div>
+            <div class="form-group" style="margin:0">
+              <label>Nombre del proyecto</label>
+              <input id="calc-nombre" class="form-control" placeholder="Ej: Llavero logo cliente" value="${prefill?.nombre || ''}" autocomplete="off">
+            </div>
           </div>
 
-          <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <!-- Tiempo -->
-            <div class="form-group" style="grid-column:1/-1">
-              <label>⏱️ Tiempo de impresión</label>
-              <div style="display:flex;gap:6px;align-items:center">
-                <input id="calc-time-h" class="form-control" type="number" min="0" value="${prefill?.horas||0}" oninput="calcRecalc()" style="width:70px"> <span style="color:var(--text-muted);font-size:12px">h</span>
-                <input id="calc-time-m" class="form-control" type="number" min="0" max="59" value="${prefill?.minutos||0}" oninput="calcRecalc()" style="width:70px"> <span style="color:var(--text-muted);font-size:12px">min</span>
-              </div>
-            </div>
-
-            <!-- Filamento -->
-            <div class="form-group" style="grid-column:1/-1">
-              <label>🧵 Filamento usado (g)</label>
-              <input id="calc-fil-g" class="form-control" type="number" step="0.1" min="0" value="${prefill?.gramos||0}" oninput="calcRecalc()">
-            </div>
-
-            <!-- Filamento selector -->
-            <div class="form-group" style="grid-column:1/-1">
-              <label>Filamento del inventario</label>
-              <select id="calc-fil-sel" class="form-control"></select>
-            </div>
-
-            <!-- Costo/g manual -->
-            <div class="form-group" style="grid-column:1/-1">
-              <label>Costo por gramo <span style="font-size:10px;color:var(--text-muted)">(se llena al seleccionar arriba)</span></label>
-              <input id="calc-cost-g" class="form-control" type="number" step="0.0001" min="0" value="0" oninput="calcRecalc()">
-            </div>
-
-            <!-- Impresora -->
-            <div class="form-group" style="grid-column:1/-1">
-              <label>🖨️ Impresora</label>
+          <!-- Impresión -->
+          <div class="calc-section">
+            <div class="calc-section-title">🖨️ Impresión</div>
+            <div class="form-group">
+              <label>Impresora</label>
               <select id="calc-printer-sel" class="form-control"></select>
             </div>
-
-            <!-- Watts -->
             <div class="form-group">
-              <label>Consumo (W)</label>
+              <label>Tiempo de impresión</label>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input id="calc-time-h" class="form-control" type="number" min="0" value="0" oninput="calcRecalc()" style="width:70px">
+                <span style="color:var(--text-muted);font-size:12px">h</span>
+                <input id="calc-time-m" class="form-control" type="number" min="0" max="59" value="0" oninput="calcRecalc()" style="width:70px">
+                <span style="color:var(--text-muted);font-size:12px">min</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Consumo de la impresora (W)</label>
               <input id="calc-watts" class="form-control" type="number" min="0" value="120" oninput="calcRecalc()">
             </div>
+          </div>
 
-            <!-- Tarifa hora -->
-            <div class="form-group">
-              <label>Tarifa/hora</label>
-              <input id="calc-tarifa-h" class="form-control" type="number" step="0.01" value="${defaultTarifa}" oninput="calcRecalc()">
+          <!-- Filamentos -->
+          <div class="calc-section">
+            <div class="calc-section-title" style="display:flex;align-items:center;justify-content:space-between">
+              <span>🧵 Filamento(s)</span>
+              <div style="display:flex;gap:4px">
+                <button type="button" onclick="calcRemFil()" class="calc-pm-btn" title="Quitar filamento">−</button>
+                <button type="button" onclick="calcAddFil()" class="calc-pm-btn" title="Agregar filamento">＋</button>
+              </div>
             </div>
-
-            <!-- Cantidad -->
-            <div class="form-group">
-              <label>📦 Cantidad (pzas)</label>
-              <input id="calc-qty" class="form-control" type="number" min="1" value="1" oninput="calcRecalc()">
+            <div style="display:grid;grid-template-columns:1fr auto;gap:4px;font-size:10px;color:var(--text-muted);margin-bottom:4px;padding:0 2px">
+              <span>Filamento del inventario</span><span>Gramos</span>
             </div>
+            <div id="calc-fil-rows"></div>
+          </div>
 
-            <!-- Tipo de venta -->
-            <div class="form-group">
-              <label>Tipo de venta</label>
-              <select id="calc-sale-type" class="form-control" onchange="calcSaleTypeChange(this.value)">
-                <option value="unitario">Unitario</option>
-                <option value="menudeo">Menudeo</option>
-                <option value="mayoreo">Mayoreo</option>
-              </select>
+          <!-- Mano de obra -->
+          <div class="calc-section">
+            <div class="calc-section-title" style="display:flex;align-items:center;gap:6px">
+              <span>👷 Mano de obra</span>
+              <div class="calc-tooltip-wrap">
+                <span class="calc-tooltip-icon">?</span>
+                <div class="calc-tooltip-box">Incluye: configuración de la impresora, remoción de soportes, acabado y lijado de la pieza.</div>
+              </div>
             </div>
+            <div class="form-group" style="margin:0">
+              <label>Tiempo total de mano de obra</label>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input id="calc-mo-h" class="form-control" type="number" min="0" value="0" oninput="calcRecalc()" style="width:70px">
+                <span style="color:var(--text-muted);font-size:12px">h</span>
+                <input id="calc-mo-m" class="form-control" type="number" min="0" max="59" value="10" oninput="calcRecalc()" style="width:70px">
+                <span style="color:var(--text-muted);font-size:12px">min</span>
+              </div>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:4px">Tarifa: ${fmtMoney(appConfig.tarifa_hora || 25)}/h (config)</div>
+            </div>
+          </div>
 
-            <!-- Margen -->
-            <div class="form-group" style="grid-column:1/-1">
-              <label>Margen (multiplicador)</label>
+          <!-- Hardware -->
+          <div class="calc-section">
+            <div class="calc-section-title" style="display:flex;align-items:center;justify-content:space-between">
+              <span>🔩 Hardware / Extras</span>
+              <button type="button" onclick="calcAddHw()" class="calc-pm-btn" title="Agregar componente">＋ Agregar</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 80px 60px 24px;gap:6px;font-size:10px;color:var(--text-muted);margin-bottom:4px;padding:0 2px">
+              <span>Descripción</span><span>$/unidad</span><span>Cant.</span><span></span>
+            </div>
+            <div id="calc-hw-rows">
+              <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:8px">Sin componentes extra</div>
+            </div>
+          </div>
+
+          <!-- Embalaje -->
+          <div class="calc-section">
+            <div class="calc-section-title">📦 Embalaje</div>
+            <div class="form-group" style="margin:0">
+              <label>Costo de empaque por pieza (caja, bolsa, etc.)</label>
+              <input id="calc-embalaje" class="form-control" type="number" step="0.01" min="0" value="0" oninput="calcRecalc()">
+            </div>
+          </div>
+
+          <!-- Margen -->
+          <div class="calc-section">
+            <div class="calc-section-title">📈 Margen</div>
+            <div class="form-group" style="margin:0">
+              <label>Multiplicador de ganancia</label>
               <input id="calc-margin" class="form-control" type="number" step="0.1" min="1" value="${defaultMargin}" oninput="calcRecalc()">
+              <div style="font-size:10px;color:var(--text-muted);margin-top:3px">
+                Menudeo ×${appConfig.margen_menudeo || 2.5} &nbsp;|&nbsp; Mayoreo ×${appConfig.margen_mayoreo || 1.8} &nbsp;|&nbsp; IVA ${taxPct}%
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- RIGHT: results -->
-        <div>
-          <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--text-muted)">Desglose de costos</div>
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">
-            <table style="width:100%;border-collapse:collapse">
-              <tbody id="calc-result-rows"></tbody>
-            </table>
+        <!-- ── RIGHT ── -->
+        <div class="calc-right">
+          <!-- Donut -->
+          <div class="calc-section" style="text-align:center">
+            <div class="calc-section-title">Desglose de costos</div>
+            <div id="calc-donut" style="display:inline-block"></div>
+            <div id="calc-legend" style="text-align:left;margin-top:10px;display:flex;flex-direction:column;gap:5px"></div>
           </div>
-          <div style="margin-top:12px;font-size:11px;color:var(--text-muted)">
-            kWh: ${appConfig.costo_kwh || 0.18} | IVA: ${taxPct}%
-          </div>
-          <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
-            <button class="btn btn-primary" onclick="calcUseInJob()">📋 Usar en nuevo trabajo</button>
-            <button class="btn btn-secondary" onclick="closeModal()">Cerrar</button>
+
+          <!-- Price cards -->
+          <div class="calc-section">
+            <div class="calc-section-title">💰 Precios sugeridos</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              ${priceCardHtml(0, 1,  '1 pieza',   'calc-card-primary')}
+              ${priceCardHtml(1, 5,  'Menudeo',   'calc-card-menudeo')}
+              ${priceCardHtml(2, 10, 'Mayoreo',   'calc-card-mayoreo')}
+            </div>
           </div>
         </div>
       </div>
+
+      <!-- ── BUTTONS ── -->
+      <div class="calc-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">✗ Cancelar</button>
+        <button type="button" class="btn btn-secondary" onclick="calcAceptar()">✓ Aceptar</button>
+        <button type="button" class="btn btn-primary"   onclick="calcGuardar()">💾 Guardar cotización</button>
+      </div>
     `);
 
-    loadFilamentsForCalc();
-    loadPrintersForCalc();
+    populatePrinters();
+    buildFilRows();
     recalc();
   };
 
-  // ── Use result in a new job ───────────────────────────────────────────────────
-  window.calcUseInJob = function() {
+  // ── Actions ───────────────────────────────────────────────────────────────────
+  window.calcAceptar = function() {
+    const v = getValues();
+    const margin  = parseFloat(document.getElementById('calc-margin')?.value || 3);
+    const taxRate = parseFloat(appConfig.tax_rate || 0);
+    const precio  = calcQtyPrice(v.costBase, 1, margin, taxRate).priceTotal;
+    window._calcResult = { precio_final: precio.toFixed(2), gramos: 0 };
     closeModal();
-    window._calcPrefill = window._calcResult;
-    window.location.hash = 'jobs';
-    navigate('jobs');
+    showToast(`Precio calculado: ${fmtMoney(precio)}`);
+  };
+
+  window.calcGuardar = async function() {
+    const datos = collectFormData();
+    if (!datos.nombre.trim()) {
+      showToast('Escribe el nombre del proyecto antes de guardar', 'error');
+      return;
+    }
+    const v = getValues();
+    const margin  = parseFloat(document.getElementById('calc-margin')?.value || 3);
+    const taxRate = parseFloat(appConfig.tax_rate || 0);
+    const precio  = calcQtyPrice(v.costBase, 1, margin, taxRate).priceTotal;
+    try {
+      await api('POST', '/api/cotizaciones', { nombre: datos.nombre, datos, precio_unitario: precio });
+      showToast(`Cotización "${datos.nombre}" guardada`);
+      closeModal();
+    } catch (e) {
+      showToast('Error al guardar: ' + e.message, 'error');
+    }
+  };
+
+  // ── Expose a tiny helper used by calculator-button in jobOpenFormWithPrice ────
+  window.calcUseInJob = function() {
+    calcAceptar();
     setTimeout(() => {
-      if (window.jobOpenFormWithPrice) window.jobOpenFormWithPrice(window._calcPrefill);
-    }, 300);
+      if (window._calcResult) {
+        window._jobToOpen = null;
+        window.location.hash = 'jobs';
+        navigate('jobs');
+        setTimeout(() => {
+          if (window.jobOpenFormWithPrice) jobOpenFormWithPrice(window._calcResult);
+        }, 300);
+      }
+    }, 100);
   };
 })();

@@ -163,6 +163,14 @@ async function init() {
     try { await db.runAsync(`ALTER TABLE filaments ADD COLUMN ${colDef}`); } catch (e) { /* column already exists */ }
   }
 
+  // Cotizaciones (saved calculator quotes)
+  await db.runAsync(`CREATE TABLE IF NOT EXISTS cotizaciones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT,
+    datos TEXT,
+    precio_unitario REAL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
+
   // Migrate printers table with live monitoring columns
   const printerColumns = [
     'octoprint_url TEXT', 'octoprint_apikey TEXT',

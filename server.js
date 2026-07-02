@@ -27,6 +27,7 @@ app.use('/api/config', require('./routes/config'));
 app.use('/api/pdf', require('./routes/pdf'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/consumibles', require('./routes/consumibles'));
+app.use('/api/cotizaciones', require('./routes/cotizaciones'));
 
 app.post('/api/seed', async (req, res) => {
   try {

@@ -1,0 +1,39 @@
+const express = require('express');
+const router = express.Router();
+const db = require('../database/db');
+
+router.get('/', async (req, res) => {
+  try {
+    const rows = await db.allAsync('SELECT id, nombre, precio_unitario, created_at FROM cotizaciones ORDER BY created_at DESC');
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/:id', async (req, res) => {
+  try {
+    const row = await db.getAsync('SELECT * FROM cotizaciones WHERE id=?', [req.params.id]);
+    if (!row) return res.status(404).json({ error: 'Not found' });
+    row.datos = JSON.parse(row.datos || '{}');
+    res.json(row);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/', async (req, res) => {
+  try {
+    const { nombre, datos, precio_unitario } = req.body;
+    const r = await db.runAsync(
+      'INSERT INTO cotizaciones (nombre, datos, precio_unitario) VALUES (?,?,?)',
+      [nombre || 'Sin nombre', JSON.stringify(datos || {}), precio_unitario || 0]
+    );
+    res.json({ id: r.lastID });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    await db.runAsync('DELETE FROM cotizaciones WHERE id=?', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+module.exports = router;
