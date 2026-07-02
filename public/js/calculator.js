@@ -432,7 +432,7 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
               <div class="form-group" style="margin:0">
                 <label>Consumo (W)</label>
-                <input id="calc-watts" class="form-control" type="number" min="0" value="120" oninput="calcRecalc()">
+                <input id="calc-watts" class="form-control" type="number" min="0" value="" oninput="calcRecalc()" placeholder="0">
               </div>
               <div class="form-group" style="margin:0">
                 <label style="display:flex;align-items:center;gap:4px">
@@ -477,7 +477,7 @@
               <div style="display:flex;gap:8px;align-items:center">
                 <input id="calc-mo-h" class="form-control" type="number" min="0" value="" oninput="calcRecalc()" style="width:70px">
                 <span style="color:var(--text-muted);font-size:12px">h</span>
-                <input id="calc-mo-m" class="form-control" type="number" min="0" max="59" value="10" oninput="calcRecalc()" style="width:70px">
+                <input id="calc-mo-m" class="form-control" type="number" min="0" max="59" value="" oninput="calcRecalc()" style="width:70px" placeholder="0">
                 <span style="color:var(--text-muted);font-size:12px">min</span>
               </div>
               <div style="font-size:10px;color:var(--text-muted);margin-top:4px">Tarifa mano de obra: ${fmtMoney(appConfig.tarifa_hora || 25)}/h (Configuración → Tarifas)</div>

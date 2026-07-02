@@ -538,11 +538,10 @@
     const pi  = parseFloat(document.getElementById('fil-peso-inicial')?.value || 0);
     const pb  = parseFloat(document.getElementById('fil-peso-bobina')?.value || 0);
     const ct  = parseFloat(document.getElementById('fil-costo-total')?.value || 0);
-    const net = pi - pb;
     const cpg      = document.getElementById('fil-cpg');
     const cpgLabel = document.getElementById('fil-cpg-label');
-    if (net > 0 && ct > 0) {
-      const val = (ct / net).toFixed(6);
+    if (pi > 0 && ct > 0) {
+      const val = (ct / pi).toFixed(6);
       if (cpg) cpg.value = val;
       const cpgNum = parseFloat(val);
       const cpgStr = cpgNum < 0.01 ? `$${cpgNum.toFixed(5)}` : `$${cpgNum.toFixed(4)}`;
