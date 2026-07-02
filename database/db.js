@@ -158,10 +158,20 @@ async function init() {
   }
 
   // Migrate filaments table with new columns
-  const filColumns = ["tipo_bobina TEXT DEFAULT 'Bobina completa'", 'color_hex TEXT'];
+  const filColumns = [
+    "tipo_bobina TEXT DEFAULT 'Bobina completa'",
+    'color_hex TEXT',
+    "estado TEXT DEFAULT 'En uso'",
+  ];
   for (const colDef of filColumns) {
     try { await db.runAsync(`ALTER TABLE filaments ADD COLUMN ${colDef}`); } catch (e) { /* column already exists */ }
   }
+
+  // Fix costo_por_gramo: recalculate using peso_inicial_g directly (not minus spool weight)
+  await db.runAsync(`
+    UPDATE filaments SET costo_por_gramo = costo_total / peso_inicial_g
+    WHERE costo_total > 0 AND peso_inicial_g > 0
+  `);
 
   // Cotizaciones (saved calculator quotes)
   await db.runAsync(`CREATE TABLE IF NOT EXISTS cotizaciones (

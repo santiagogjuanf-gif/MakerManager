@@ -30,19 +30,25 @@ router.get('/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+function calcCpg(d) {
+  const pi = parseFloat(d.peso_inicial_g) || 0;
+  const ct = parseFloat(d.costo_total) || 0;
+  return pi > 0 && ct > 0 ? ct / pi : 0;
+}
+
 router.post('/', async (req, res) => {
   try {
     const d = req.body;
-    const net = (parseFloat(d.peso_inicial_g)||1000) - (parseFloat(d.peso_bobina_vacia_g)||200);
-    const cpg = net > 0 ? (parseFloat(d.costo_total)||0) / net : 0;
+    const cpg = parseFloat(d.costo_por_gramo) || calcCpg(d);
     const r = await db.runAsync(
-      `INSERT INTO filaments (marca,nombre_comercial,material,color,color_hex,acabado,tipo_bobina,diametro_mm,peso_inicial_g,peso_actual_g,peso_bobina_vacia_g,costo_total,costo_por_gramo,proveedor,tiene_nfc,uid_nfc,notas)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO filaments (marca,nombre_comercial,material,color,color_hex,acabado,tipo_bobina,diametro_mm,peso_inicial_g,peso_actual_g,peso_bobina_vacia_g,costo_total,costo_por_gramo,proveedor,tiene_nfc,uid_nfc,notas,estado)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [d.marca, d.nombre_comercial, d.material||'PLA', d.color, d.color_hex||null,
        d.acabado||'Estándar', d.tipo_bobina||'Bobina completa', d.diametro_mm||1.75,
        d.peso_inicial_g, d.peso_actual_g||d.peso_inicial_g,
        d.peso_bobina_vacia_g||200, d.costo_total, cpg,
-       d.proveedor, d.tiene_nfc?1:0, d.uid_nfc||null, d.notas]
+       d.proveedor, d.tiene_nfc?1:0, d.uid_nfc||null, d.notas,
+       d.estado || 'En uso']
     );
     res.json({ id: r.lastID });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -54,19 +60,18 @@ router.put('/:id', async (req, res) => {
     const old = await db.getAsync('SELECT * FROM filaments WHERE id=?', [req.params.id]);
     if (!old) return res.status(404).json({ error: 'Not found' });
     const merged = { ...old, ...d };
-    const net = (parseFloat(merged.peso_inicial_g)||1000) - (parseFloat(merged.peso_bobina_vacia_g)||200);
-    const cpg = net > 0 ? (parseFloat(merged.costo_total)||0) / net : (merged.costo_por_gramo||0);
+    const cpg = calcCpg(merged) || (merged.costo_por_gramo || 0);
     await db.runAsync(
       `UPDATE filaments SET marca=?,nombre_comercial=?,material=?,color=?,color_hex=?,acabado=?,tipo_bobina=?,
        diametro_mm=?,peso_inicial_g=?,peso_actual_g=?,peso_bobina_vacia_g=?,costo_total=?,costo_por_gramo=?,
-       proveedor=?,tiene_nfc=?,uid_nfc=?,notas=? WHERE id=?`,
+       proveedor=?,tiene_nfc=?,uid_nfc=?,notas=?,estado=? WHERE id=?`,
       [merged.marca, merged.nombre_comercial, merged.material, merged.color, merged.color_hex||null,
        merged.acabado, merged.tipo_bobina||'Bobina completa', merged.diametro_mm||1.75,
        merged.peso_inicial_g, merged.peso_actual_g, merged.peso_bobina_vacia_g||200,
        merged.costo_total, cpg, merged.proveedor,
-       merged.tiene_nfc?1:0, merged.uid_nfc||null, merged.notas, req.params.id]
+       merged.tiene_nfc?1:0, merged.uid_nfc||null, merged.notas,
+       merged.estado || 'En uso', req.params.id]
     );
-    // Log weight change if peso_actual_g changed
     const newPeso = parseFloat(merged.peso_actual_g);
     const oldPeso = parseFloat(old.peso_actual_g);
     if (d.peso_actual_g !== undefined && Math.abs(newPeso - oldPeso) > 0.001) {
@@ -78,6 +83,37 @@ router.put('/:id', async (req, res) => {
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
+
+// Quick status patch — PATCH /:id/estado
+router.patch('/:id/estado', async (req, res) => {
+  try {
+    const { estado } = req.body;
+    if (!['En uso', 'En stock', 'Agotado'].includes(estado)) return res.status(400).json({ error: 'Estado inválido' });
+    await db.runAsync('UPDATE filaments SET estado=? WHERE id=?', [estado, req.params.id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Marcar agotado: deletes spool and promotes next En stock of same material+color to En uso
+router.post('/:id/agotar', async (req, res) => {
+  try {
+    const f = await db.getAsync('SELECT * FROM filaments WHERE id=?', [req.params.id]);
+    if (!f) return res.status(404).json({ error: 'Not found' });
+    await db.runAsync('DELETE FROM filaments WHERE id=?', [req.params.id]);
+    // Promote next En stock spool of same material + color to En uso
+    const next = await db.getAsync(
+      `SELECT id FROM filaments WHERE material=? AND color=? AND estado='En stock' ORDER BY created_at ASC LIMIT 1`,
+      [f.material, f.color]
+    );
+    let promoted = null;
+    if (next) {
+      await db.runAsync(`UPDATE filaments SET estado='En uso' WHERE id=?`, [next.id]);
+      promoted = next.id;
+    }
+    res.json({ success: true, promoted });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 router.delete('/:id', async (req, res) => {
   try { await db.runAsync('DELETE FROM filaments WHERE id=?',[req.params.id]); res.json({ success: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }

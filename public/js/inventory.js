@@ -84,7 +84,7 @@
   };
 
   // ===================== FILAMENTOS =====================
-  let filFilterMat = '', filFilterAcabado = '', filFilterMarca = '';
+  let filFilterMat = '', filFilterAcabado = '', filFilterMarca = '', filFilterEstado = 'activos';
 
   const FIL_MATERIALES = ['PLA','PETG','ABS','TPU','ASA','PA','PC','PLA+','FLEX','PPS','HIPS'];
   const FIL_MARCAS_CONOCIDAS = [
@@ -158,7 +158,13 @@
     const marcas = [...new Set(allFilaments.map(f => f.marca).filter(Boolean))].sort();
     const filtered = allFilaments.filter(f => {
       const text = `${f.marca} ${f.nombre_comercial} ${f.material} ${f.color} ${f.acabado}`.toLowerCase();
-      return (!q || text.includes(q))
+      const estadoOk = filFilterEstado === 'todos'
+        ? true
+        : filFilterEstado === 'stock'
+          ? (f.estado || 'En uso') === 'En stock'
+          : (f.estado || 'En uso') === 'En uso';
+      return estadoOk
+        && (!q || text.includes(q))
         && (!filFilterMat     || f.material === filFilterMat)
         && (!filFilterAcabado || f.acabado  === filFilterAcabado)
         && (!filFilterMarca   || f.marca    === filFilterMarca);
@@ -178,9 +184,13 @@
           const gLbl  = isLow
             ? `<span style="color:var(--danger)">${fmtNum(f.peso_actual_g,0)}g</span>`
             : `${fmtNum(f.peso_actual_g,0)}g`;
+          const estadoBadge = (f.estado||'En uso') === 'En stock'
+            ? '<span class="fil-estado-badge stock">📦 En stock</span>'
+            : '';
           return `<div class="fil-card${isLow?' fil-card-low':''}" onclick="invViewFilament(${f.id})">
             ${isLow ? '<span class="fil-alert-badge">⚠️ BAJO</span>' : ''}
             ${f.tiene_nfc ? '<span class="fil-nfc-badge" title="NFC vinculado">📡</span>' : ''}
+            ${estadoBadge}
             ${makeSpool(f, 110)}
             <div class="fil-card-name">${f.marca||'-'} — ${f.material} ${f.acabado||''}</div>
             <div class="fil-card-sub">${f.color||'-'}</div>
@@ -193,11 +203,19 @@
         }).join('')}</div>`
       : `<div class="empty-state"><div class="empty-state-icon">🧵</div>Sin filamentos que coincidan</div>`;
 
+    const cActivos = allFilaments.filter(f => (f.estado||'En uso')==='En uso').length;
+    const cStock   = allFilaments.filter(f => (f.estado||'En uso')==='En stock').length;
     tab.innerHTML = `
       <div class="fil-toolbar-top">
-        <button class="btn btn-secondary btn-sm" onclick="invToggleFilFilter()" id="fil-filter-btn">🔍 Filtrar</button>
-        <span style="color:var(--text-muted);font-size:12px;flex:1">${filtered.length} filamento${filtered.length!==1?'s':''}</span>
-        <button class="btn btn-primary btn-sm" onclick="invOpenFilamentForm()">＋ Agregar</button>
+        <div class="fil-estado-tabs">
+          <button class="fil-estado-tab${filFilterEstado==='activos'?' active':''}" onclick="invSetFilFilter('estado','activos')">🟢 En uso <span class="fil-estado-cnt">${cActivos}</span></button>
+          <button class="fil-estado-tab${filFilterEstado==='stock'?' active':''}" onclick="invSetFilFilter('estado','stock')">📦 En stock <span class="fil-estado-cnt">${cStock}</span></button>
+          <button class="fil-estado-tab${filFilterEstado==='todos'?' active':''}" onclick="invSetFilFilter('estado','todos')">Todos</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
+          <button class="btn btn-secondary btn-sm" onclick="invToggleFilFilter()" id="fil-filter-btn">🔍 Filtrar</button>
+          <button class="btn btn-primary btn-sm" onclick="invOpenFilamentForm()">＋ Agregar</button>
+        </div>
       </div>
       <div class="fil-filter-panel${window.innerWidth <= 640 ? ' fil-filter-hidden' : ''}" id="fil-filter-panel">
         <input class="search-input form-control" style="flex:1;min-width:160px;max-width:240px"
@@ -228,6 +246,7 @@
     if (field === 'mat') filFilterMat = val;
     else if (field === 'acabado') filFilterAcabado = val;
     else if (field === 'marca') filFilterMarca = val;
+    else if (field === 'estado') filFilterEstado = val;
     filPage = 1; renderFilaments();
   };
 
@@ -264,6 +283,7 @@
           <button class="btn btn-success" id="fil-det-nfc">📡 NFC</button>
           <button class="btn btn-secondary" id="fil-det-hist">📋 Historial</button>
           <button class="btn btn-warning" id="fil-det-weight">⚖️ Actualizar peso</button>
+          <div id="fil-det-estado-row" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px"></div>
           <div class="fil-det-close-row">
             <button class="btn btn-danger" id="fil-det-del">🗑️ Eliminar</button>
             <button class="btn btn-secondary" onclick="invCloseFilDetail()">✕ Cerrar</button>
@@ -293,14 +313,18 @@
       ? `<span style="color:#22c55e;font-size:12px">● Vinculado · UID: ${f.uid_nfc||'—'}</span>`
       : `<span style="color:var(--text-muted);font-size:12px">○ Sin tag vinculado</span>`;
 
+    const estadoActual = f.estado || 'En uso';
+    const cpgNum = parseFloat(f.costo_por_gramo || 0);
+    const cpgStr = cpgNum > 0 ? (cpgNum < 0.01 ? `$${cpgNum.toFixed(5)}` : `$${cpgNum.toFixed(4)}`) + '/g' : '—';
     const rows = [
+      ['Estado',          `<span class="fil-estado-inline ${estadoActual==='En uso'?'uso':estadoActual==='En stock'?'stock':''}">${estadoActual}</span>`],
       ['Marca',           f.marca||'—'],
       ['Material',        f.material||'—'],
       ['Acabado',         f.acabado||'—'],
       ['Color', `<span class="color-dot" style="background:${f.color_hex||colorHex(f.color)}"></span>${f.color||'—'}`],
       ['Tipo de bobina',  f.tipo_bobina||'Bobina completa'],
       ['Diámetro',        `${f.diametro_mm||1.75} mm`],
-      ['Costo/g',         fmtMoney(f.costo_por_gramo)],
+      ['Costo/g',         cpgStr],
       ['Proveedor',       f.proveedor||'—'],
       ['NFC',             nfcLine],
       ...(f.notas ? [['Notas', f.notas]] : []),
@@ -308,6 +332,17 @@
     document.getElementById('fil-det-data').innerHTML = rows.map(([lbl,val]) =>
       `<div class="fil-data-row"><div class="fil-data-label">${lbl}</div><div class="fil-data-value">${val}</div></div>`
     ).join('');
+
+    // Estado action buttons
+    const estadoRow = document.getElementById('fil-det-estado-row');
+    if (estadoRow) {
+      estadoRow.innerHTML = estadoActual === 'En uso'
+        ? `<button class="btn btn-secondary btn-sm" onclick="invCambiarEstado(${id},'En stock')">📦 Pasar a En stock</button>
+           <button class="btn btn-danger btn-sm" onclick="invMarcarAgotado(${id})">⚫ Marcar agotado</button>`
+        : estadoActual === 'En stock'
+          ? `<button class="btn btn-success btn-sm" onclick="invCambiarEstado(${id},'En uso')">🟢 Pasar a En uso</button>`
+          : '';
+    }
 
     document.getElementById('fil-det-edit').onclick = () => { invCloseFilDetail(); invOpenFilamentForm(id); };
     document.getElementById('fil-det-del').onclick = () => { invCloseFilDetail(); invDeleteFilament(id); };
@@ -319,6 +354,30 @@
 
   window.invCloseFilDetail = function () {
     document.getElementById('fil-detail-overlay')?.classList.remove('open');
+  };
+
+  window.invCambiarEstado = async function (id, nuevoEstado) {
+    try {
+      await api('PATCH', `/api/filaments/${id}/estado`, { estado: nuevoEstado });
+      showToast(`Estado cambiado a ${nuevoEstado}`);
+      await refreshFilaments();
+      invViewFilament(id);
+    } catch (e) { showToast('Error: ' + e.message, 'error'); }
+  };
+
+  window.invMarcarAgotado = function (id) {
+    const f = allFilaments.find(x => x.id === id);
+    confirmModal(
+      `¿Marcar "${f?.marca||''} ${f?.material||''} ${f?.color||''}" como agotado y eliminarlo?\nSi hay otro carrete del mismo tipo en stock, pasará automáticamente a "En uso".`,
+      async () => {
+        try {
+          const res = await api('POST', `/api/filaments/${id}/agotar`, {});
+          invCloseFilDetail();
+          showToast(res.promoted ? '✅ Carrete eliminado. El siguiente En stock ahora está En uso.' : '✅ Carrete eliminado.');
+          await refreshFilaments();
+        } catch (e) { showToast('Error: ' + e.message, 'error'); }
+      }, '⚫'
+    );
   };
 
   // ---------- QUICK WEIGHT UPDATE (NFC tap) ----------
@@ -524,6 +583,11 @@
             <input type="hidden" name="costo_por_gramo" id="fil-cpg" value="${f.costo_por_gramo||''}"></div>
           <div class="form-group"><label>Proveedor</label>
             <input class="form-control" name="proveedor" value="${f.proveedor||''}" autocomplete="off"></div>
+          <div class="form-group"><label>Estado</label>
+            <select class="form-control" name="estado">
+              <option value="En uso" ${(f.estado||'En uso')==='En uso'?'selected':''}>🟢 En uso</option>
+              <option value="En stock" ${f.estado==='En stock'?'selected':''}>📦 En stock (sellado)</option>
+            </select></div>
           <div class="form-group form-full"><label>Notas</label>
             <textarea class="form-control" name="notas" rows="2" autocomplete="off">${f.notas||''}</textarea></div>
         </div>

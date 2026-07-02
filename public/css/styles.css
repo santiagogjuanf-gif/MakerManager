@@ -774,6 +774,16 @@ select.form-control option { background: var(--card); }
 .fil-card-sub  { font-size: 11px; color: var(--text-muted); text-align: center; }
 .fil-nfc-badge { position: absolute; top: 10px; right: 10px; font-size: 13px; opacity: 0.5; }
 .fil-alert-badge { position: absolute; top: 10px; left: 10px; background: rgba(239,68,68,0.14); color: var(--danger); font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(239,68,68,0.28); }
+.fil-estado-badge { position: absolute; bottom: 8px; right: 8px; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; }
+.fil-estado-badge.stock { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+.fil-estado-tabs { display: flex; gap: 4px; }
+.fil-estado-tab { background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 5px 12px; font-size: 12px; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+.fil-estado-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.fil-estado-tab:hover:not(.active) { border-color: var(--accent); color: var(--text); }
+.fil-estado-cnt { display: inline-block; background: rgba(255,255,255,0.15); border-radius: 99px; padding: 0 5px; font-size: 10px; margin-left: 3px; }
+.fil-estado-inline { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+.fil-estado-inline.uso { background: rgba(34,197,94,0.15); color: #22c55e; }
+.fil-estado-inline.stock { background: rgba(59,130,246,0.15); color: #60a5fa; }
 
 /* ========== FILAMENT DETAIL MODAL ========== */
 @keyframes popIn { from { transform: scale(0.93); opacity: 0; } to { transform: scale(1); opacity: 1; } }
