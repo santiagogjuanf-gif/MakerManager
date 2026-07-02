@@ -57,20 +57,23 @@
 
   // ── Calculation engine ────────────────────────────────────────────────────────
   function getValues() {
-    const timeH = parseFloat(document.getElementById('calc-time-h')?.value || 0)
-                + parseFloat(document.getElementById('calc-time-m')?.value || 0) / 60;
-    const watts  = parseFloat(document.getElementById('calc-watts')?.value || 0);
-    const kwh    = parseFloat(appConfig.costo_kwh || 0.18);
-    const tarifaH = parseFloat(appConfig.tarifa_hora || 25);
-    const moHours = parseFloat(document.getElementById('calc-mo-h')?.value || 0)
-                  + parseFloat(document.getElementById('calc-mo-m')?.value || 0) / 60;
+    const timeH    = parseFloat(document.getElementById('calc-time-h')?.value || 0)
+                   + parseFloat(document.getElementById('calc-time-m')?.value || 0) / 60;
+    const watts    = parseFloat(document.getElementById('calc-watts')?.value || 0);
+    const kwh      = parseFloat(appConfig.costo_kwh || 0.18);
+    // costMach uses printer depreciation rate (costo_por_hora), NOT tarifa_hora
+    const machRate = parseFloat(document.getElementById('calc-mach-rate')?.value || 0);
+    // mano de obra uses the operator hourly rate from config
+    const tarifaH  = parseFloat(appConfig.tarifa_hora || 25);
+    const moHours  = parseFloat(document.getElementById('calc-mo-h')?.value || 0)
+                   + parseFloat(document.getElementById('calc-mo-m')?.value || 0) / 60;
     const embalaje = parseFloat(document.getElementById('calc-embalaje')?.value || 0);
 
     // Filaments
     let costFil = 0;
     for (let i = 0; i < filCount; i++) {
-      const g    = parseFloat(document.getElementById(`calc-fil-g-${i}`)?.value || 0);
-      const cg   = parseFloat(document.getElementById(`calc-fil-cg-${i}`)?.value || 0);
+      const g  = parseFloat(document.getElementById(`calc-fil-g-${i}`)?.value || 0);
+      const cg = parseFloat(document.getElementById(`calc-fil-cg-${i}`)?.value || 0);
       costFil += g * cg;
     }
 
@@ -83,11 +86,11 @@
     }
 
     const costElec = (watts / 1000) * timeH * kwh;
-    const costMach = timeH * tarifaH;
-    const costMO   = moHours * tarifaH;
+    const costMach = timeH * machRate;   // printer depreciation/maintenance per hour
+    const costMO   = moHours * tarifaH; // human labor rate
     const costBase = costFil + costElec + costMach + costMO + costHW + embalaje;
 
-    return { costFil, costElec, costMach, costMO, costHW, embalaje, costBase, timeH, tarifaH };
+    return { costFil, costElec, costMach, costMO, costHW, embalaje, costBase, timeH, tarifaH, machRate };
   }
 
   function calcQtyPrice(costBase, qty, margin, taxRate) {
@@ -124,7 +127,7 @@
       const items = [
         ['🧵 Filamento',    v.costFil,  SEG_COLORS.filamento],
         ['⚡ Electricidad', v.costElec, SEG_COLORS.electricidad],
-        ['🖨️ Maquinado',    v.costMach, SEG_COLORS.maquinado],
+        [`🖨️ Maquinado (${fmtMoney(v.machRate)}/h)`, v.costMach, SEG_COLORS.maquinado],
         ['👷 Mano de obra', v.costMO,   SEG_COLORS.manoObra],
         ['🔩 Hardware',     v.costHW,   SEG_COLORS.hardware],
         ['📦 Embalaje',     v.embalaje, SEG_COLORS.embalaje],
@@ -246,10 +249,17 @@
     const sel = document.getElementById('calc-printer-sel');
     if (!sel) return;
     sel.innerHTML = `<option value="">-- Seleccionar impresora --</option>` +
-      _allPrinters.map(p => `<option value="${p.consumo_promedio_watts || 120}">${p.nombre} (${p.consumo_promedio_watts || 120}W)</option>`).join('');
+      _allPrinters.map(p =>
+        `<option value="${p.consumo_promedio_watts || 120}" data-cph="${p.costo_por_hora || 0}">
+          ${p.nombre} (${p.consumo_promedio_watts || 120}W)
+        </option>`
+      ).join('');
     sel.onchange = () => {
+      const opt = sel.options[sel.selectedIndex];
       const wEl = document.getElementById('calc-watts');
+      const rEl = document.getElementById('calc-mach-rate');
       if (wEl && sel.value) wEl.value = sel.value;
+      if (rEl) rEl.value = parseFloat(opt.dataset.cph || 0).toFixed(4);
       recalc();
     };
   }
@@ -351,9 +361,21 @@
                 <span style="color:var(--text-muted);font-size:12px">min</span>
               </div>
             </div>
-            <div class="form-group">
-              <label>Consumo de la impresora (W)</label>
-              <input id="calc-watts" class="form-control" type="number" min="0" value="120" oninput="calcRecalc()">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div class="form-group" style="margin:0">
+                <label>Consumo (W)</label>
+                <input id="calc-watts" class="form-control" type="number" min="0" value="120" oninput="calcRecalc()">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label style="display:flex;align-items:center;gap:4px">
+                  Costo máquina/h
+                  <div class="calc-tooltip-wrap">
+                    <span class="calc-tooltip-icon">?</span>
+                    <div class="calc-tooltip-box">Depreciación y mantenimiento de la impresora por hora. Se calcula automáticamente del costo de compra. Es diferente a la tarifa de mano de obra.</div>
+                  </div>
+                </label>
+                <input id="calc-mach-rate" class="form-control" type="number" step="0.0001" min="0" value="0" oninput="calcRecalc()">
+              </div>
             </div>
           </div>
 
@@ -389,7 +411,7 @@
                 <input id="calc-mo-m" class="form-control" type="number" min="0" max="59" value="10" oninput="calcRecalc()" style="width:70px">
                 <span style="color:var(--text-muted);font-size:12px">min</span>
               </div>
-              <div style="font-size:10px;color:var(--text-muted);margin-top:4px">Tarifa: ${fmtMoney(appConfig.tarifa_hora || 25)}/h (config)</div>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:4px">Tarifa mano de obra: ${fmtMoney(appConfig.tarifa_hora || 25)}/h (Configuración → Tarifas)</div>
             </div>
           </div>
 
