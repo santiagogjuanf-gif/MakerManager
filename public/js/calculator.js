@@ -77,9 +77,11 @@
       costFil += g * cg;
     }
 
-    // Hardware
+    // Hardware (uses hidden cost field set by calcHwChange)
     let costHW = 0;
     for (let i = 0; i < hwCount; i++) {
+      const row = document.getElementById(`calc-hw-row-${i}`);
+      if (!row) continue;
       const unit = parseFloat(document.getElementById(`calc-hw-cost-${i}`)?.value || 0);
       const qty  = parseFloat(document.getElementById(`calc-hw-qty-${i}`)?.value  || 1);
       costHW += unit * qty;
@@ -173,9 +175,10 @@
 
   // ── Filament rows ─────────────────────────────────────────────────────────────
   function filRowHtml(i) {
+    // Use costo_por_gramo directly (already calculated and stored in DB)
     const opts = _allFils.map(f => {
-      const cg = f.precio_compra && f.peso_inicial_g ? (f.precio_compra / f.peso_inicial_g) : 0;
-      return `<option value="${cg.toFixed(4)}">${f.marca || '-'} ${f.material} ${f.color}</option>`;
+      const cg = parseFloat(f.costo_por_gramo || 0);
+      return `<option value="${cg}" data-nombre="${f.marca||'-'} ${f.material} ${f.color}">${f.marca || '-'} ${f.material} ${f.color}</option>`;
     }).join('');
     return `<div class="calc-fil-row" id="calc-fil-row-${i}" style="margin-bottom:10px">
       <div style="display:grid;grid-template-columns:1fr 100px;gap:8px;align-items:flex-end">
@@ -204,13 +207,15 @@
     const cg = parseFloat(sel.value || 0);
     if (cgEl) cgEl.value = cg;
     if (info) {
-      if (cg > 0) {
-        const g       = parseFloat(gEl?.value || 0);
+      if (sel.value && cg > 0) {
+        const g = parseFloat(gEl?.value || 0);
         const subtotal = g * cg;
-        info.innerHTML = `<span style="color:var(--accent)">💲${fmtMoney(cg)}/g</span>`
-          + (g > 0 ? ` &nbsp;·&nbsp; ${g}g × ${fmtMoney(cg)}/g = <strong style="color:var(--text)">${fmtMoney(subtotal)}</strong>` : '');
+        info.innerHTML = `<span style="color:var(--accent);font-weight:600">${fmtMoney(cg)}/g</span>`
+          + (g > 0 ? ` &nbsp;·&nbsp; ${g}g = <strong style="color:var(--text)">${fmtMoney(subtotal)}</strong>` : '');
+      } else if (sel.value && cg === 0) {
+        info.innerHTML = `<span style="color:#f59e0b">⚠️ Sin costo registrado — ve a Inventario → Filamentos y agrega el costo de compra</span>`;
       } else {
-        info.textContent = sel.value ? '⚠️ Este filamento no tiene precio de compra registrado' : '';
+        info.textContent = '';
       }
     }
     recalc();
@@ -232,19 +237,56 @@
     recalc();
   };
 
-  // ── Hardware rows ─────────────────────────────────────────────────────────────
+  // ── Hardware rows (from internal consumables inventory) ───────────────────────
+  let _allInternos = [];
+
   function hwRowHtml(i) {
-    return `<div class="calc-hw-row" id="calc-hw-row-${i}" style="display:grid;grid-template-columns:1fr 80px 60px auto;gap:6px;align-items:center;margin-bottom:6px">
-      <input class="form-control" placeholder="Descripción (ej: aro metálico)" oninput="calcRecalc()" style="font-size:12px">
-      <input id="calc-hw-cost-${i}" class="form-control" type="number" step="0.01" min="0" value="0" placeholder="$/u" oninput="calcRecalc()" style="font-size:12px">
-      <input id="calc-hw-qty-${i}"  class="form-control" type="number" min="1" value="1" oninput="calcRecalc()" style="font-size:12px">
-      <button type="button" onclick="calcRemHw(${i})" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px;padding:0 4px" title="Eliminar">✕</button>
+    const opts = _allInternos.map(c =>
+      `<option value="${parseFloat(c.costo_unitario||0)}" data-unidad="${c.unidad||'pcs'}">${c.nombre} (${fmtMoney(c.costo_unitario||0)}/${c.unidad||'pcs'})</option>`
+    ).join('');
+    return `<div class="calc-hw-row" id="calc-hw-row-${i}" style="margin-bottom:8px">
+      <div style="display:grid;grid-template-columns:1fr 80px auto;gap:6px;align-items:flex-end">
+        <div class="form-group" style="margin:0">
+          <select id="calc-hw-sel-${i}" class="form-control" style="font-size:12px" onchange="calcHwChange(${i})">
+            <option value="">-- Seleccionar del inventario --</option>
+            ${opts}
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label style="font-size:10px;color:var(--text-muted)">Cantidad</label>
+          <input id="calc-hw-qty-${i}" class="form-control" type="number" min="1" value="1" oninput="calcHwChange(${i})" style="font-size:12px">
+        </div>
+        <button type="button" onclick="calcRemHw(${i})" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;padding:0 4px;margin-bottom:2px" title="Eliminar">✕</button>
+      </div>
+      <div id="calc-hw-info-${i}" style="font-size:11px;color:var(--text-muted);margin-top:3px;min-height:14px"></div>
+      <input type="hidden" id="calc-hw-cost-${i}" value="0">
     </div>`;
   }
+
+  window.calcHwChange = function(i) {
+    const sel  = document.getElementById(`calc-hw-sel-${i}`);
+    const qty  = parseFloat(document.getElementById(`calc-hw-qty-${i}`)?.value || 1);
+    const cost = document.getElementById(`calc-hw-cost-${i}`);
+    const info = document.getElementById(`calc-hw-info-${i}`);
+    if (!sel) return;
+    const unitCost = parseFloat(sel.value || 0);
+    if (cost) cost.value = unitCost;
+    if (info && sel.value) {
+      const subtotal = unitCost * qty;
+      const unidad = sel.options[sel.selectedIndex]?.dataset.unidad || 'pcs';
+      info.innerHTML = `${fmtMoney(unitCost)}/${unidad} × ${qty} = <strong style="color:var(--text)">${fmtMoney(subtotal)}</strong>`;
+    } else if (info) {
+      info.textContent = '';
+    }
+    recalc();
+  };
 
   window.calcAddHw = function() {
     const container = document.getElementById('calc-hw-rows');
     if (!container) return;
+    // Clear placeholder text on first add
+    const placeholder = container.querySelector('.calc-hw-placeholder');
+    if (placeholder) placeholder.remove();
     container.insertAdjacentHTML('beforeend', hwRowHtml(hwCount));
     hwCount++;
     recalc();
@@ -258,8 +300,11 @@
 
   // ── Load data from API ────────────────────────────────────────────────────────
   async function loadData() {
-    try { _allFils     = await api('GET', '/api/filaments'); } catch { _allFils = []; }
-    try { _allPrinters = await api('GET', '/api/printers');  } catch { _allPrinters = []; }
+    [_allFils, _allPrinters, _allInternos] = await Promise.all([
+      api('GET', '/api/filaments').catch(() => []),
+      api('GET', '/api/printers').catch(() => []),
+      api('GET', '/api/consumibles/internos').catch(() => []),
+    ]);
   }
 
   function populatePrinters() {
@@ -273,10 +318,13 @@
       ).join('');
     sel.onchange = () => {
       const opt = sel.options[sel.selectedIndex];
-      const wEl = document.getElementById('calc-watts');
-      const rEl = document.getElementById('calc-mach-rate');
+      const wEl    = document.getElementById('calc-watts');
+      const rEl    = document.getElementById('calc-mach-rate');
+      const rLabel = document.getElementById('calc-mach-rate-label');
       if (wEl && sel.value) wEl.value = sel.value;
-      if (rEl) rEl.value = parseFloat(opt.dataset.cph || 0).toFixed(4);
+      const cph = parseFloat(opt?.dataset.cph || 0);
+      if (rEl) rEl.value = cph;
+      if (rLabel) rLabel.textContent = cph > 0 ? `${fmtMoney(cph)}/h` : '—';
       recalc();
     };
   }
@@ -385,13 +433,14 @@
               </div>
               <div class="form-group" style="margin:0">
                 <label style="display:flex;align-items:center;gap:4px">
-                  Costo máquina/h
+                  Depreciación/h
                   <div class="calc-tooltip-wrap">
                     <span class="calc-tooltip-icon">?</span>
-                    <div class="calc-tooltip-box">Depreciación y mantenimiento de la impresora por hora. Se calcula automáticamente del costo de compra. Es diferente a la tarifa de mano de obra.</div>
+                    <div class="calc-tooltip-box">Costo de depreciación de la impresora por hora (precio compra ÷ vida útil). Se calcula automáticamente al seleccionar la impresora.</div>
                   </div>
                 </label>
-                <input id="calc-mach-rate" class="form-control" type="number" step="0.0001" min="0" value="0" oninput="calcRecalc()">
+                <div id="calc-mach-rate-label" style="padding:7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;color:var(--text-muted)">—</div>
+                <input type="hidden" id="calc-mach-rate" value="0">
               </div>
             </div>
           </div>
@@ -442,7 +491,7 @@
               <span>Descripción</span><span>$/unidad</span><span>Cant.</span><span></span>
             </div>
             <div id="calc-hw-rows">
-              <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:8px">Sin componentes extra</div>
+              <div class="calc-hw-placeholder" style="font-size:11px;color:var(--text-muted);text-align:center;padding:8px">Presiona ＋ Agregar para seleccionar del inventario</div>
             </div>
           </div>
 
