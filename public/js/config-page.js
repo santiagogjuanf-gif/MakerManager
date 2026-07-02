@@ -85,13 +85,30 @@
             </div>
           </div>
           <div class="config-section" style="margin-bottom:0">
-            <div class="config-section-title">📈 Márgenes & Precios mínimos</div>
+            <div class="config-section-title">📈 Márgenes de ganancia</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">Los márgenes se aplican en la calculadora de costos. El tier se selecciona por cantidad de piezas.</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <div class="form-group"><label>Margen unitario</label><input class="form-control" name="margen_unitario" type="number" step="0.1" value="${val('margen_unitario','3')}" autocomplete="off"></div>
-              <div class="form-group"><label>Margen menudeo</label><input class="form-control" name="margen_menudeo" type="number" step="0.1" value="${val('margen_menudeo','2.5')}" autocomplete="off"></div>
-              <div class="form-group"><label>Margen mayoreo</label><input class="form-control" name="margen_mayoreo" type="number" step="0.1" value="${val('margen_mayoreo','1.8')}" autocomplete="off"></div>
-              <div class="form-group"><label>Mín. menudeo (pzas)</label><input class="form-control" name="minimo_menudeo" type="number" value="${val('minimo_menudeo','2')}" autocomplete="off"></div>
-              <div class="form-group" style="grid-column:1/-1"><label>Mín. mayoreo (pzas)</label><input class="form-control" name="minimo_mayoreo" type="number" value="${val('minimo_mayoreo','10')}" autocomplete="off"></div>
+              <div class="form-group">
+                <label>Unitario — multiplicador</label>
+                <input class="form-control" name="margen_unitario" type="number" step="0.01" value="${val('margen_unitario','2.2')}" autocomplete="off">
+                <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Aplica a: 1 pieza hasta menudeo</div>
+              </div>
+              <div class="form-group">
+                <label>Menudeo — desde (pzas)</label>
+                <input class="form-control" name="minimo_menudeo" type="number" value="${val('minimo_menudeo','5')}" autocomplete="off">
+              </div>
+              <div class="form-group">
+                <label>Menudeo — multiplicador</label>
+                <input class="form-control" name="margen_menudeo" type="number" step="0.01" value="${val('margen_menudeo','1.9')}" autocomplete="off">
+              </div>
+              <div class="form-group">
+                <label>Mayoreo — desde (pzas)</label>
+                <input class="form-control" name="minimo_mayoreo" type="number" value="${val('minimo_mayoreo','10')}" autocomplete="off">
+              </div>
+              <div class="form-group" style="grid-column:1/-1">
+                <label>Mayoreo — multiplicador</label>
+                <input class="form-control" name="margen_mayoreo" type="number" step="0.01" value="${val('margen_mayoreo','1.5')}" autocomplete="off">
+              </div>
             </div>
           </div>
         </div>

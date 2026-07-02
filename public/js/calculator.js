@@ -5,12 +5,19 @@
   let _allFils = [];
   let _allPrinters = [];
 
-  // Volume tier margins
-  const TIERS = {
-    unitario: { label: 'Unitario (1–4 pzas)',  margin: 2.2 },
-    menudeo:  { label: 'Menudeo (5–10 pzas)',  margin: 1.9 },
-    mayoreo:  { label: 'Mayoreo (10+ pzas)',   margin: 1.5 },
-  };
+  // Volume tier margins — read from appConfig at runtime
+  function getTiers() {
+    const mU  = parseFloat(appConfig.margen_unitario  || 2.2);
+    const mMe = parseFloat(appConfig.margen_menudeo   || 1.9);
+    const mMa = parseFloat(appConfig.margen_mayoreo   || 1.5);
+    const pMe = parseInt(appConfig.minimo_menudeo     || 5);
+    const pMa = parseInt(appConfig.minimo_mayoreo     || 10);
+    return {
+      unitario: { label: `Unitario (1–${pMe - 1} pzas)`,      margin: mU  },
+      menudeo:  { label: `Menudeo (${pMe}–${pMa - 1} pzas)`,  margin: mMe },
+      mayoreo:  { label: `Mayoreo (${pMa}+ pzas)`,            margin: mMa },
+    };
+  }
 
   // Colors per cost segment (for donut)
   const SEG_COLORS = {
@@ -118,8 +125,9 @@
 
   function recalc() {
     const v       = getValues();
+    const tiers   = getTiers();
     const tierKey = document.getElementById('calc-tier')?.value || 'unitario';
-    const tier    = TIERS[tierKey] || TIERS.unitario;
+    const tier    = tiers[tierKey] || tiers.unitario;
     const margin  = tier.margin;
     const taxRate = parseFloat(appConfig.tax_rate || 0);
     const taxPct  = Math.round(taxRate * 100);
@@ -537,9 +545,12 @@
             <div class="form-group" style="margin:0">
               <label>Cantidad estimada</label>
               <select id="calc-tier" class="form-control" onchange="calcRecalc()">
-                <option value="unitario">Unitario (1–4 pzas) — ×2.2</option>
-                <option value="menudeo">Menudeo (5–10 pzas) — ×1.9</option>
-                <option value="mayoreo">Mayoreo (10+ pzas) — ×1.5</option>
+                ${(function(){
+                  const t = getTiers();
+                  return Object.entries(t).map(([k,v]) =>
+                    `<option value="${k}">${v.label} — ×${v.margin}</option>`
+                  ).join('');
+                })()}
               </select>
               <div style="font-size:10px;color:var(--text-muted);margin-top:4px">IVA ${taxPct}% incluido en precios sugeridos</div>
             </div>
