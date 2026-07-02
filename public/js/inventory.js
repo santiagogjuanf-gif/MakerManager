@@ -198,7 +198,7 @@
               <div class="weight-label"><span>${gLbl} restantes</span><span>${fmtNum(f.peso_inicial_g,0)}g</span></div>
               <div class="weight-bar-bg"><div class="weight-bar-fill" style="width:${Math.round(pct*100)}%;background:${barClr}"></div></div>
             </div>
-            <span class="${f.tipo_bobina==='Refil'?'badge badge-default':'badge badge-regular'}">${f.tipo_bobina||'Bobina completa'}</span>
+            <span class="fil-estado-inline ${(f.estado||'En uso')==='En uso'?'uso':'stock'}" style="font-size:10px;padding:2px 7px">${(f.estado||'En uso')==='En uso'?'🟢 En uso':'📦 En stock'}</span>
           </div>`;
         }).join('')}</div>`
       : `<div class="empty-state"><div class="empty-state-icon">🧵</div>Sin filamentos que coincidan</div>`;

@@ -362,9 +362,13 @@
     sel.onchange = () => {
       const opt = sel.options[sel.selectedIndex];
       const wEl    = document.getElementById('calc-watts');
+      const wLabel = document.getElementById('calc-watts-label');
       const rEl    = document.getElementById('calc-mach-rate');
       const rLabel = document.getElementById('calc-mach-rate-label');
-      if (wEl && sel.value) wEl.value = sel.value;
+      const watts  = sel.value ? (parseFloat(sel.value) || 0) : 0;
+      if (wEl) wEl.value = watts;
+      if (wLabel) wLabel.textContent = sel.value ? `${watts} W` : '— (selecciona impresora)';
+      if (wLabel) wLabel.style.color = sel.value ? 'var(--text)' : 'var(--text-muted)';
       const cph = parseFloat(opt?.dataset.cph || 0);
       if (rEl) rEl.value = cph;
       if (rLabel) rLabel.textContent = cph > 0 ? `${fmtMoney(cph)}/h` : '—';
@@ -423,6 +427,7 @@
       mo_m:       document.getElementById('calc-mo-m')?.value || 0,
       embalaje:   document.getElementById('calc-embalaje')?.value || 0,
       tier:       document.getElementById('calc-tier')?.value || 'unitario',
+      mach_rate:  document.getElementById('calc-mach-rate')?.value || 0,
       filamentos: fils,
       hardware:   hws,
     };
@@ -445,7 +450,7 @@
 
           <!-- Proyecto -->
           <div class="calc-section">
-            <div class="calc-section-title">📋 Proyecto</div>
+            <div class="calc-section-title" id="calc-section-proyecto">📋 Proyecto</div>
             <div class="form-group" style="margin:0">
               <label>Nombre del proyecto</label>
               <input id="calc-nombre" class="form-control" placeholder="Ej: Llavero logo cliente" value="${prefill?.nombre || ''}" autocomplete="off">
@@ -454,7 +459,7 @@
 
           <!-- Impresión -->
           <div class="calc-section">
-            <div class="calc-section-title">🖨️ Impresión</div>
+            <div class="calc-section-title" id="calc-section-impresion">🖨️ Impresión</div>
             <div class="form-group">
               <label>Impresora</label>
               <select id="calc-printer-sel" class="form-control"></select>
@@ -471,7 +476,8 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
               <div class="form-group" style="margin:0">
                 <label>Consumo (W)</label>
-                <input id="calc-watts" class="form-control" type="number" min="0" value="" oninput="calcRecalc()" placeholder="0">
+                <div id="calc-watts-label" style="padding:7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;color:var(--text-muted)">— (selecciona impresora)</div>
+                <input type="hidden" id="calc-watts" value="0">
               </div>
               <div class="form-group" style="margin:0">
                 <label style="display:flex;align-items:center;gap:4px">
@@ -489,7 +495,7 @@
 
           <!-- Filamentos -->
           <div class="calc-section">
-            <div class="calc-section-title" style="display:flex;align-items:center;justify-content:space-between">
+            <div class="calc-section-title" id="calc-section-filamento" style="display:flex;align-items:center;justify-content:space-between">
               <span>🧵 Filamento(s)</span>
               <div style="display:flex;gap:4px">
                 <button type="button" onclick="calcRemFil()" class="calc-pm-btn" title="Quitar filamento">−</button>
@@ -504,7 +510,7 @@
 
           <!-- Mano de obra -->
           <div class="calc-section">
-            <div class="calc-section-title" style="display:flex;align-items:center;gap:6px">
+            <div class="calc-section-title" id="calc-section-mo" style="display:flex;align-items:center;gap:6px">
               <span>👷 Mano de obra</span>
               <div class="calc-tooltip-wrap">
                 <span class="calc-tooltip-icon">?</span>
@@ -585,6 +591,7 @@
       </div>
 
       <!-- ── BUTTONS ── -->
+      <div id="calc-save-errors" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:8px 12px;font-size:12px;color:#ef4444;margin-bottom:8px"></div>
       <div class="calc-footer">
         <button type="button" class="btn btn-secondary" onclick="closeModal()">✗ Cancelar</button>
         <button type="button" class="btn btn-secondary" onclick="verCotizaciones()" style="margin-right:auto">📂 Ver guardadas</button>
@@ -607,12 +614,56 @@
     showToast(`Precio online: ${fmtMoney(r.precio_final)} · Local: ${fmtMoney(r.precio_local)}`);
   };
 
+  function calcValidate() {
+    const errors = [];
+    const mark = (id, msg) => {
+      const el = document.getElementById(id);
+      if (el) { el.style.color = 'var(--danger,#ef4444)'; }
+      errors.push(msg);
+    };
+    const unmark = (id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.color = '';
+    };
+
+    // Reset
+    ['calc-section-proyecto','calc-section-impresion','calc-section-filamento','calc-section-mo'].forEach(unmark);
+
+    const nombre = document.getElementById('calc-nombre')?.value?.trim();
+    if (!nombre) mark('calc-section-proyecto', 'Falta el nombre del proyecto');
+
+    const printer = document.getElementById('calc-printer-sel')?.value;
+    const timeH = parseFloat(document.getElementById('calc-time-h')?.value || 0)
+                + parseFloat(document.getElementById('calc-time-m')?.value || 0) / 60;
+    if (!printer || timeH <= 0) mark('calc-section-impresion', 'Selecciona impresora y agrega tiempo de impresión');
+
+    let hasFilament = false;
+    for (let i = 0; i < filCount; i++) {
+      const sel = document.getElementById(`calc-fil-sel-${i}`);
+      const g   = parseFloat(document.getElementById(`calc-fil-g-${i}`)?.value || 0);
+      if (sel?.value && g > 0) { hasFilament = true; break; }
+    }
+    if (!hasFilament) mark('calc-section-filamento', 'Selecciona al menos un filamento y sus gramos');
+
+    const moH = parseFloat(document.getElementById('calc-mo-h')?.value || 0)
+              + parseFloat(document.getElementById('calc-mo-m')?.value || 0) / 60;
+    if (moH <= 0) mark('calc-section-mo', 'Agrega el tiempo de mano de obra');
+
+    return errors;
+  }
+
   window.calcGuardar = async function() {
-    const datos = collectFormData();
-    if (!datos.nombre.trim()) {
-      showToast('Escribe el nombre del proyecto antes de guardar', 'error');
+    const errors = calcValidate();
+    const errEl = document.getElementById('calc-save-errors');
+    if (errors.length > 0) {
+      if (errEl) {
+        errEl.innerHTML = errors.map(e => `<div>⚠️ ${e}</div>`).join('');
+        errEl.style.display = 'block';
+      }
       return;
     }
+    if (errEl) errEl.style.display = 'none';
+    const datos = collectFormData();
     const r = window._calcResult || {};
     try {
       await api('POST', '/api/cotizaciones', { nombre: datos.nombre, datos, precio_unitario: r.precio_final || 0 });
@@ -634,24 +685,126 @@
       : `<div style="display:flex;flex-direction:column;gap:8px">
           ${rows.map(r => {
             const fecha = r.created_at ? r.created_at.substring(0,10) : '—';
-            return `<div style="display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+            return `<div style="display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;cursor:pointer;transition:border-color 0.15s"
+              onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"
+              onclick="verCotizacionDetalle(${r.id})">
               <div style="flex:1">
                 <div style="font-weight:700;font-size:13px">${r.nombre}</div>
-                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">📅 ${fecha} &nbsp;·&nbsp; 💰 ${fmtMoney(r.precio_unitario)}/pieza</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">📅 ${fecha} &nbsp;·&nbsp; 💰 ${fmtMoney(r.precio_unitario)}/pieza online</div>
               </div>
-              <button class="btn btn-secondary btn-sm" onclick="eliminarCotizacion(${r.id})">🗑️</button>
+              <span style="font-size:11px;color:var(--accent)">Ver →</span>
+              <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();eliminarCotizacion(${r.id})">🗑️</button>
             </div>`;
           }).join('')}
         </div>`;
 
     openModal('📂 Cotizaciones guardadas', `
-      <div style="margin-bottom:12px;font-size:12px;color:var(--text-muted)">${rows.length} cotización(es) guardada(s)</div>
+      <div style="margin-bottom:12px;font-size:12px;color:var(--text-muted)">${rows.length} cotización(es) · Haz clic para ver el detalle</div>
       ${listHtml}
       <div style="margin-top:16px;display:flex;justify-content:space-between">
         <button class="btn btn-secondary" onclick="closeModal()">Cerrar</button>
         <button class="btn btn-primary" onclick="closeModal();openCalculator()">＋ Nueva cotización</button>
       </div>
     `);
+  };
+
+  window.verCotizacionDetalle = async function(id) {
+    let row;
+    try { row = await api('GET', `/api/cotizaciones/${id}`); } catch { showToast('Error cargando cotización','error'); return; }
+    const d = row.datos || {};
+    const taxRate = parseFloat(appConfig.tax_rate || 0);
+    const taxPct  = Math.round(taxRate * 100);
+    const tiers   = getTiers();
+    const tier    = tiers[d.tier || 'unitario'] || tiers.unitario;
+    const margin  = tier.margin;
+
+    // Reconstruct cost from datos
+    const timeH   = parseFloat(d.tiempo_h || 0) + parseFloat(d.tiempo_m || 0) / 60;
+    const moH     = parseFloat(d.mo_h || 0)     + parseFloat(d.mo_m || 0) / 60;
+    const costMO  = moH * parseFloat(appConfig.tarifa_hora || 25);
+    let costFil   = 0;
+    (d.filamentos || []).forEach(f => { costFil += parseFloat(f.gramos || 0) * parseFloat(f.costo_g || 0); });
+    let costHW = 0;
+    (d.hardware || []).forEach(h => { costHW += parseFloat(h.cost || 0) * parseFloat(h.qty || 1); });
+    const kwh       = parseFloat(appConfig.costo_kwh || 0.18);
+    const costElec  = (parseFloat(d.watts || 0) / 1000) * timeH * kwh;
+    const costMach  = timeH * parseFloat(d.mach_rate || 0);
+    const embalaje  = parseFloat(d.embalaje || 0);
+    const costBase  = costFil + costElec + costMach + costMO + costHW + embalaje;
+
+    const onlinePrice = costBase * margin * (1 + taxRate);
+    const localSubtotal = (costBase - costMO) * margin + costMO;
+    const localPrice  = localSubtotal * (1 + taxRate);
+
+    // Filament visuals
+    const filHtml = (d.filamentos || []).filter(f => f.nombre && parseFloat(f.gramos) > 0).map(f => {
+      const matched = _allFils.find(af => `${af.marca||''} ${af.material} ${af.color}`.trim() === f.nombre.trim());
+      const spoolHtml = matched && typeof makeSpool === 'function'
+        ? makeSpool(matched, 70)
+        : `<div style="width:70px;height:70px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10px;color:white;font-weight:700">${(f.nombre||'').substring(0,3)}</div>`;
+      const subtotal = parseFloat(f.gramos || 0) * parseFloat(f.costo_g || 0);
+      return `<div style="text-align:center;min-width:90px">
+        ${spoolHtml}
+        <div style="font-size:10px;font-weight:700;margin-top:4px;color:var(--text);line-height:1.3">${f.nombre}</div>
+        <div style="font-size:10px;color:var(--text-muted)">${f.gramos}g</div>
+        <div style="font-size:11px;font-weight:700;color:var(--accent)">${fmtMoney(subtotal)}</div>
+      </div>`;
+    }).join('');
+
+    const hwHtml = (d.hardware || []).filter(h => h.desc).map(h =>
+      `<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">
+        <span>${h.desc} × ${h.qty}</span>
+        <span style="font-weight:600">${fmtMoney(parseFloat(h.cost||0)*parseFloat(h.qty||1))}</span>
+      </div>`
+    ).join('');
+
+    const fecha = row.created_at ? row.created_at.substring(0,10) : '—';
+    const hStr  = n => n >= 1 ? `${Math.floor(n)}h ${Math.round((n%1)*60)}min` : `${Math.round(n*60)}min`;
+
+    closeModal();
+    openModal(`📋 ${row.nombre}`, `
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:16px">Guardada el ${fecha} &nbsp;·&nbsp; Tier: ${tier.label} (×${margin})</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px">🖨️ IMPRESIÓN</div>
+          <div style="font-size:12px;line-height:1.8">
+            <div><b>Impresora:</b> ${d.printer || '—'}</div>
+            <div><b>Tiempo:</b> ${hStr(timeH)}</div>
+            <div><b>Consumo:</b> ${d.watts || 0} W → ${fmtMoney(costElec)}</div>
+            <div><b>Depreciación:</b> ${fmtMoney(costMach)}</div>
+          </div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin:12px 0 8px">👷 MANO DE OBRA</div>
+          <div style="font-size:12px;line-height:1.8">
+            <div><b>Tiempo:</b> ${hStr(moH)}</div>
+            <div><b>Costo:</b> ${fmtMoney(costMO)}</div>
+          </div>
+          ${embalaje > 0 ? `<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin:12px 0 8px">📦 EMBALAJE</div><div style="font-size:12px">${fmtMoney(embalaje)}</div>` : ''}
+          ${hwHtml ? `<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin:12px 0 8px">🔩 HARDWARE</div>${hwHtml}` : ''}
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px">🧵 FILAMENTOS</div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px">${filHtml || '<span style="font-size:12px;color:var(--text-muted)">—</span>'}</div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:10px">💰 PRECIOS SUGERIDOS</div>
+          <div style="background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:12px;margin-bottom:8px">
+            <div style="font-size:12px;font-weight:800;color:var(--accent-light)">🌐 Online</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px">Etsy · Shopify · eBay</div>
+            <div style="font-size:22px;font-weight:800;color:var(--accent-light)">${fmtMoney(onlinePrice)}</div>
+            <div style="font-size:10px;color:var(--text-muted)">Con IVA ${taxPct}% incluido</div>
+          </div>
+          <div style="background:var(--surface);border:1px solid #22c55e;border-radius:10px;padding:12px">
+            <div style="font-size:12px;font-weight:800;color:#22c55e">📍 Local / Facebook</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px">Venta directa</div>
+            <div style="font-size:22px;font-weight:800;color:#22c55e">${fmtMoney(localSubtotal)}</div>
+            <div style="font-size:10px;color:var(--text-muted)">Sin IVA &nbsp;·&nbsp; Con IVA ${taxPct}%: ${fmtMoney(localPrice)}</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-danger btn-sm" onclick="eliminarCotizacion(${id})">🗑️ Eliminar</button>
+        <button class="btn btn-secondary" onclick="verCotizaciones()">← Volver</button>
+      </div>
+    `);
+    document.getElementById('modal-box')?.classList.add('modal-wide');
   };
 
   window.eliminarCotizacion = async function(id) {
@@ -663,9 +816,6 @@
       } catch (e) { showToast('Error: ' + e.message, 'error'); }
     }, '🗑️');
   };
-
-  // Expose verCotizaciones globally so dashboard can also call it
-  window.verCotizaciones = window.verCotizaciones;
 
   // ── Expose a tiny helper used by calculator-button in jobOpenFormWithPrice ────
   window.calcUseInJob = function() {
