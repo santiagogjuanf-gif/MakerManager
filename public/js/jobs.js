@@ -41,7 +41,10 @@
           <div class="page-title">Trabajos</div>
           <div class="page-subtitle">Historial de impresiones</div>
         </div>
-        <button class="btn btn-primary" onclick="jobOpenForm()">＋ Nuevo Trabajo</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" onclick="openCalculator()" title="Calcular costo de impresión">🧮 Calculadora</button>
+          <button class="btn btn-primary" onclick="jobOpenForm()">＋ Nuevo Trabajo</button>
+        </div>
       </div>
       <div class="fil-toolbar-top" style="margin-bottom:12px">
         <input class="search-input form-control" style="flex:1;max-width:300px" placeholder="Buscar trabajo..." oninput="jobSearch2(this.value)" autocomplete="off">
@@ -316,10 +319,13 @@
       <div class="form-group"><label><input type="checkbox" name="requiere_factura" value="1" ${j.requiere_factura ? 'checked' : ''} autocomplete="off"> Requiere factura</label></div>`;
   }
 
-  window.jobOpenForm = async function (id) {
+  window.jobOpenForm = async function (id, calcPrefill) {
     let j = {};
     if (id) {
       try { j = await api('GET', `/api/jobs/${id}`); } catch (e) {}
+    }
+    if (calcPrefill && !id) {
+      j.precio_final = calcPrefill.precio_final;
     }
 
     const idx = id ? stageIndex(j.estado) : 0;
@@ -453,5 +459,10 @@
         await refreshJobs();
       } catch (err) { showToast('Error: ' + err.message, 'error'); }
     }, '🗑️');
+  };
+
+  // Called from calculator to pre-fill a new job with calculated price
+  window.jobOpenFormWithPrice = function(calcResult) {
+    jobOpenForm(null, calcResult);
   };
 })();

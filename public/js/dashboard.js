@@ -75,6 +75,7 @@ pageLoaders['dashboard'] = async function loadDashboard() {
         <div class="dash-greeting">${getGreeting()}</div>
         <div class="dash-biz">${appConfig.nombre_negocio || 'MakerManager'}</div>
         <div class="dash-date">${dateStr}</div>
+        <button onclick="openCalculator()" class="btn btn-secondary btn-sm" style="margin-top:10px;width:fit-content">🧮 Calculadora de costos</button>
       </div>
       <div id="weather-container"></div>
     </div>

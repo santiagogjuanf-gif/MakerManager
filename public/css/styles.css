@@ -859,3 +859,17 @@ select.form-control option { background: var(--card); }
 .live-temp span { color: var(--text-muted); font-size: 10px; }
 .live-temp strong { color: var(--text); }
 .live-temp strong small { color: var(--text-muted); font-size: 10px; }
+
+/* Calculator */
+.calc-dropzone { border: 2px dashed var(--border); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--surface); }
+.calc-dropzone.drag-over { border-color: var(--accent); background: var(--accent-dim); }
+.calc-dropzone:hover { border-color: var(--accent); }
+
+.calc-row-total td { border-top: 2px solid var(--accent); padding-top: 10px; color: var(--accent-light); font-size: 15px; }
+.calc-row-sub td { border-top: 1px solid var(--border); color: var(--text-muted); font-size: 12px; }
+#calc-result-rows tr td { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+#calc-result-rows tr:last-child td { border-bottom: none; }
+
+@media (max-width: 600px) {
+  .calc-layout { grid-template-columns: 1fr !important; }
+}
