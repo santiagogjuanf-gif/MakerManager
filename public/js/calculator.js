@@ -219,7 +219,9 @@
     // Use costo_por_gramo directly (already calculated and stored in DB)
     const opts = _allFils.map(f => {
       const cg = parseFloat(f.costo_por_gramo || 0);
-      return `<option value="${cg}" data-nombre="${f.marca||'-'} ${f.material} ${f.color}">${f.marca || '-'} ${f.material} ${f.color}</option>`;
+      const acabado = f.acabado && f.acabado !== 'Estándar' ? ` ${f.acabado}` : '';
+      const label = `${f.marca||'-'} ${f.material}${acabado} ${f.color}`.trim();
+      return `<option value="${cg}" data-nombre="${label}">${label}</option>`;
     }).join('');
     return `<div class="calc-fil-row" id="calc-fil-row-${i}" style="margin-bottom:10px">
       <div style="display:grid;grid-template-columns:1fr 100px;gap:8px;align-items:flex-end">
