@@ -41,12 +41,10 @@
           <div class="page-title">Trabajos</div>
           <div class="page-subtitle">Historial de impresiones</div>
         </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-secondary" onclick="openCalculator()" title="Calcular costo de impresión">🧮 Calculadora</button>
-          <button class="btn btn-primary" onclick="jobOpenForm()">＋ Nuevo Trabajo</button>
-        </div>
       </div>
       <div class="fil-toolbar-top" style="margin-bottom:12px">
+        <button class="btn btn-secondary" onclick="openCalculator()" title="Calcular costo de impresión">🧮 Calculadora</button>
+        <button class="btn btn-primary" onclick="jobOpenForm()">＋ Nuevo Trabajo</button>
         <input class="search-input form-control" style="flex:1;max-width:300px" placeholder="Buscar trabajo..." oninput="jobSearch2(this.value)" autocomplete="off">
       </div>
       <div id="job-cards"></div>

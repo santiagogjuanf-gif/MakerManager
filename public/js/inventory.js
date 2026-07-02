@@ -507,7 +507,8 @@
           <div class="form-group"><label>Costo total</label>
             <input class="form-control" name="costo_total" type="number" step="0.01" value="${f.costo_total||''}" id="fil-costo-total" oninput="invCalcCostG()" autocomplete="off"></div>
           <div class="form-group"><label>Costo/g (auto)</label>
-            <input class="form-control" name="costo_por_gramo" type="number" step="0.0001" id="fil-cpg" value="${f.costo_por_gramo||''}" placeholder="Se calcula solo" autocomplete="off"></div>
+            <div id="fil-cpg-label" style="padding:7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;color:var(--accent)">${f.costo_por_gramo ? fmtMoney(f.costo_por_gramo)+'/g' : '—'}</div>
+            <input type="hidden" name="costo_por_gramo" id="fil-cpg" value="${f.costo_por_gramo||''}"></div>
           <div class="form-group"><label>Proveedor</label>
             <input class="form-control" name="proveedor" value="${f.proveedor||''}" autocomplete="off"></div>
           <div class="form-group form-full"><label>Notas</label>
@@ -521,12 +522,19 @@
   };
 
   window.invCalcCostG = function () {
-    const pi = parseFloat(document.getElementById('fil-peso-inicial')?.value || 0);
-    const pb = parseFloat(document.getElementById('fil-peso-bobina')?.value || 0);
-    const ct = parseFloat(document.getElementById('fil-costo-total')?.value || 0);
+    const pi  = parseFloat(document.getElementById('fil-peso-inicial')?.value || 0);
+    const pb  = parseFloat(document.getElementById('fil-peso-bobina')?.value || 0);
+    const ct  = parseFloat(document.getElementById('fil-costo-total')?.value || 0);
     const net = pi - pb;
-    const cpg = document.getElementById('fil-cpg');
-    if (cpg && net > 0 && ct > 0) cpg.value = (ct / net).toFixed(4);
+    const cpg      = document.getElementById('fil-cpg');
+    const cpgLabel = document.getElementById('fil-cpg-label');
+    if (net > 0 && ct > 0) {
+      const val = (ct / net).toFixed(6);
+      if (cpg)      cpg.value      = val;
+      if (cpgLabel) cpgLabel.textContent = fmtMoney(val) + '/g';
+    } else {
+      if (cpgLabel) cpgLabel.textContent = '—';
+    }
   };
 
   window.invSaveFilament = async function (e, id) {

@@ -191,7 +191,7 @@
         </div>
         <div class="form-group" style="margin:0">
           <label style="font-size:10px;color:var(--text-muted)">Gramos usados</label>
-          <input id="calc-fil-g-${i}" class="form-control" type="number" step="0.1" min="0" value="0" oninput="calcFilChange(${i})" placeholder="0">
+          <input id="calc-fil-g-${i}" class="form-control" type="number" step="0.1" min="0" value="" oninput="calcFilChange(${i})" placeholder="0">
         </div>
       </div>
       <div id="calc-fil-info-${i}" style="font-size:11px;color:var(--text-muted);margin-top:4px;padding:0 2px;min-height:16px"></div>
@@ -420,9 +420,9 @@
             <div class="form-group">
               <label>Tiempo de impresión</label>
               <div style="display:flex;gap:8px;align-items:center">
-                <input id="calc-time-h" class="form-control" type="number" min="0" value="0" oninput="calcRecalc()" style="width:70px">
+                <input id="calc-time-h" class="form-control" type="number" min="0" value="" oninput="calcRecalc()" style="width:70px">
                 <span style="color:var(--text-muted);font-size:12px">h</span>
-                <input id="calc-time-m" class="form-control" type="number" min="0" max="59" value="0" oninput="calcRecalc()" style="width:70px">
+                <input id="calc-time-m" class="form-control" type="number" min="0" max="59" value="" oninput="calcRecalc()" style="width:70px">
                 <span style="color:var(--text-muted);font-size:12px">min</span>
               </div>
             </div>
@@ -472,7 +472,7 @@
             <div class="form-group" style="margin:0">
               <label>Tiempo total de mano de obra</label>
               <div style="display:flex;gap:8px;align-items:center">
-                <input id="calc-mo-h" class="form-control" type="number" min="0" value="0" oninput="calcRecalc()" style="width:70px">
+                <input id="calc-mo-h" class="form-control" type="number" min="0" value="" oninput="calcRecalc()" style="width:70px">
                 <span style="color:var(--text-muted);font-size:12px">h</span>
                 <input id="calc-mo-m" class="form-control" type="number" min="0" max="59" value="10" oninput="calcRecalc()" style="width:70px">
                 <span style="color:var(--text-muted);font-size:12px">min</span>
@@ -500,7 +500,7 @@
             <div class="calc-section-title">📦 Embalaje</div>
             <div class="form-group" style="margin:0">
               <label>Costo de empaque por pieza (caja, bolsa, etc.)</label>
-              <input id="calc-embalaje" class="form-control" type="number" step="0.01" min="0" value="0" oninput="calcRecalc()">
+              <input id="calc-embalaje" class="form-control" type="number" step="0.01" min="0" value="" oninput="calcRecalc()">
             </div>
           </div>
 

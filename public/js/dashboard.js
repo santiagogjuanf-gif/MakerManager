@@ -75,7 +75,6 @@ pageLoaders['dashboard'] = async function loadDashboard() {
         <div class="dash-greeting">${getGreeting()}</div>
         <div class="dash-biz">${appConfig.nombre_negocio || 'MakerManager'}</div>
         <div class="dash-date">${dateStr}</div>
-        <button onclick="openCalculator()" class="btn btn-secondary btn-sm" style="margin-top:10px;width:fit-content">🧮 Calculadora de costos</button>
       </div>
       <div id="weather-container"></div>
     </div>
@@ -166,6 +165,13 @@ pageLoaders['dashboard'] = async function loadDashboard() {
           <div class="stat-chip-body">
             <div class="stat-chip-val" id="sc-mg">0g</div>
             <div class="stat-chip-lbl">Gramos usados</div>
+          </div>
+        </div>
+        <div class="stat-chip" style="cursor:pointer" onclick="openCalculator()">
+          <div class="stat-chip-icon">🧮</div>
+          <div class="stat-chip-body">
+            <div class="stat-chip-val" style="font-size:14px">Calcular</div>
+            <div class="stat-chip-lbl">Calculadora de costos</div>
           </div>
         </div>
       </div>
