@@ -27,8 +27,11 @@ router.get('/:id', async (req, res) => {
 });
 
 function buildPrinterParams(d) {
-  const cph = d.costo_compra && d.horas_acumuladas > 0
-    ? (parseFloat(d.costo_compra) / Math.max(1, parseFloat(d.horas_acumuladas) * 10))
+  // costo_por_hora = costo_compra / vida_util_horas (depreciación lineal)
+  // vida_util_horas default 3000h si no se especifica
+  const vidaUtil = parseFloat(d.vida_util_horas) || 3000;
+  const cph = d.costo_compra
+    ? (parseFloat(d.costo_compra) / Math.max(1, vidaUtil))
     : 0;
   return [
     d.nombre, d.marca, d.modelo, d.tipo || 'FDM',
@@ -42,6 +45,7 @@ function buildPrinterParams(d) {
     d.octoprint_url || null, d.octoprint_apikey || null,
     d.monitor_type || 'none',
     d.bambu_ip || null, d.bambu_serial || null, d.bambu_access_code || null,
+    d.vida_util_horas || 3000,
   ];
 }
 
@@ -204,8 +208,8 @@ router.post('/', upload.single('foto'), async (req, res) => {
     if (req.file) d.foto_path = `/uploads/${req.file.filename}`;
     const params = buildPrinterParams(d);
     const r = await db.runAsync(
-      `INSERT INTO printers (nombre,marca,modelo,tipo,costo_compra,fecha_compra,consumo_promedio_watts,costo_por_hora,tiene_ams,ubicacion,estado,horas_acumuladas,foto_path,area_trabajo,potencia_laser_w,tipo_laser,tipo_resina,fuente_luz,velocidad_max_mm,husillo_w,materiales_compatibles,notas,octoprint_url,octoprint_apikey,monitor_type,bambu_ip,bambu_serial,bambu_access_code)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, params
+      `INSERT INTO printers (nombre,marca,modelo,tipo,costo_compra,fecha_compra,consumo_promedio_watts,costo_por_hora,tiene_ams,ubicacion,estado,horas_acumuladas,foto_path,area_trabajo,potencia_laser_w,tipo_laser,tipo_resina,fuente_luz,velocidad_max_mm,husillo_w,materiales_compatibles,notas,octoprint_url,octoprint_apikey,monitor_type,bambu_ip,bambu_serial,bambu_access_code,vida_util_horas)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, params
     );
     res.json({ id: r.lastID });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -221,7 +225,7 @@ router.put('/:id', upload.single('foto'), async (req, res) => {
     }
     const params = [...buildPrinterParams(d), req.params.id];
     await db.runAsync(
-      `UPDATE printers SET nombre=?,marca=?,modelo=?,tipo=?,costo_compra=?,fecha_compra=?,consumo_promedio_watts=?,costo_por_hora=?,tiene_ams=?,ubicacion=?,estado=?,horas_acumuladas=?,foto_path=?,area_trabajo=?,potencia_laser_w=?,tipo_laser=?,tipo_resina=?,fuente_luz=?,velocidad_max_mm=?,husillo_w=?,materiales_compatibles=?,notas=?,octoprint_url=?,octoprint_apikey=?,monitor_type=?,bambu_ip=?,bambu_serial=?,bambu_access_code=? WHERE id=?`, params
+      `UPDATE printers SET nombre=?,marca=?,modelo=?,tipo=?,costo_compra=?,fecha_compra=?,consumo_promedio_watts=?,costo_por_hora=?,tiene_ams=?,ubicacion=?,estado=?,horas_acumuladas=?,foto_path=?,area_trabajo=?,potencia_laser_w=?,tipo_laser=?,tipo_resina=?,fuente_luz=?,velocidad_max_mm=?,husillo_w=?,materiales_compatibles=?,notas=?,octoprint_url=?,octoprint_apikey=?,monitor_type=?,bambu_ip=?,bambu_serial=?,bambu_access_code=?,vida_util_horas=? WHERE id=?`, params
     );
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }

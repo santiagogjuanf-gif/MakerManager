@@ -176,6 +176,7 @@ async function init() {
     'octoprint_url TEXT', 'octoprint_apikey TEXT',
     "monitor_type TEXT DEFAULT 'none'",
     'bambu_ip TEXT', 'bambu_serial TEXT', 'bambu_access_code TEXT',
+    'vida_util_horas INTEGER DEFAULT 3000',
   ];
   for (const colDef of printerColumns) {
     try { await db.runAsync(`ALTER TABLE printers ADD COLUMN ${colDef}`); } catch (e) { /* column already exists */ }

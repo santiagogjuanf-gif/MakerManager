@@ -245,8 +245,9 @@
       ['Costo de compra', fmtMoney(p.costo_compra)],
       ['Fecha de compra', p.fecha_compra ? p.fecha_compra.substring(0,10) : '-'],
       ['Consumo', `${p.consumo_promedio_watts || 0}W`],
-      ['Costo/hora', fmtMoney(p.costo_por_hora)],
+      ['Costo/hora (depreciación)', fmtMoney(p.costo_por_hora)],
       ['Horas acumuladas', fmtNum(p.horas_acumuladas, 0)],
+      ['Vida útil estimada', `${p.vida_util_horas || 3000}h`],
       ...extras,
     ].map(([k, v]) => `<div class="cost-row"><span>${k}</span><strong>${v || '-'}</strong></div>`).join('');
 
@@ -305,6 +306,8 @@
           <div class="form-group"><label>Ubicación</label><input class="form-control" name="ubicacion" value="${p.ubicacion || ''}" autocomplete="off"></div>
           <div class="form-group"><label>Costo de compra</label><input class="form-control" name="costo_compra" type="number" step="0.01" value="${p.costo_compra || ''}" autocomplete="off"></div>
           <div class="form-group"><label>Fecha de compra</label><input class="form-control" name="fecha_compra" type="date" value="${p.fecha_compra ? p.fecha_compra.substring(0,10) : ''}" autocomplete="off"></div>
+          <div class="form-group"><label>Horas acumuladas</label><input class="form-control" name="horas_acumuladas" type="number" step="0.1" min="0" value="${p.horas_acumuladas || 0}" autocomplete="off"></div>
+          <div class="form-group"><label>Vida útil estimada (h) <span style="font-size:10px;color:var(--text-muted)">para depreciación</span></label><input class="form-control" name="vida_util_horas" type="number" min="100" value="${p.vida_util_horas || 3000}" autocomplete="off"></div>
           <div class="form-group"><label>Consumo (W)</label><input class="form-control" name="consumo_promedio_watts" type="number" value="${p.consumo_promedio_watts || 120}" autocomplete="off"></div>
           <div class="form-group form-full"><label>Notas</label><textarea class="form-control" name="notas" rows="2" autocomplete="off">${p.notas || ''}</textarea></div>
         </div>
