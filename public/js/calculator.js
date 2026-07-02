@@ -541,6 +541,7 @@
       <!-- ── BUTTONS ── -->
       <div class="calc-footer">
         <button type="button" class="btn btn-secondary" onclick="closeModal()">✗ Cancelar</button>
+        <button type="button" class="btn btn-secondary" onclick="verCotizaciones()" style="margin-right:auto">📂 Ver guardadas</button>
         <button type="button" class="btn btn-secondary" onclick="calcAceptar()">✓ Aceptar</button>
         <button type="button" class="btn btn-primary"   onclick="calcGuardar()">💾 Guardar cotización</button>
       </div>
@@ -582,6 +583,50 @@
       showToast('Error al guardar: ' + e.message, 'error');
     }
   };
+
+  // ── Ver cotizaciones guardadas ────────────────────────────────────────────────
+  window.verCotizaciones = async function() {
+    closeModal();
+    let rows = [];
+    try { rows = await api('GET', '/api/cotizaciones'); } catch { rows = []; }
+
+    const listHtml = rows.length === 0
+      ? `<div class="empty-state"><div class="empty-state-icon">📂</div>No hay cotizaciones guardadas</div>`
+      : `<div style="display:flex;flex-direction:column;gap:8px">
+          ${rows.map(r => {
+            const fecha = r.created_at ? r.created_at.substring(0,10) : '—';
+            return `<div style="display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+              <div style="flex:1">
+                <div style="font-weight:700;font-size:13px">${r.nombre}</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">📅 ${fecha} &nbsp;·&nbsp; 💰 ${fmtMoney(r.precio_unitario)}/pieza</div>
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="eliminarCotizacion(${r.id})">🗑️</button>
+            </div>`;
+          }).join('')}
+        </div>`;
+
+    openModal('📂 Cotizaciones guardadas', `
+      <div style="margin-bottom:12px;font-size:12px;color:var(--text-muted)">${rows.length} cotización(es) guardada(s)</div>
+      ${listHtml}
+      <div style="margin-top:16px;display:flex;justify-content:space-between">
+        <button class="btn btn-secondary" onclick="closeModal()">Cerrar</button>
+        <button class="btn btn-primary" onclick="closeModal();openCalculator()">＋ Nueva cotización</button>
+      </div>
+    `);
+  };
+
+  window.eliminarCotizacion = async function(id) {
+    confirmModal('¿Eliminar esta cotización?', async () => {
+      try {
+        await api('DELETE', `/api/cotizaciones/${id}`);
+        showToast('Cotización eliminada');
+        verCotizaciones();
+      } catch (e) { showToast('Error: ' + e.message, 'error'); }
+    }, '🗑️');
+  };
+
+  // Expose verCotizaciones globally so dashboard can also call it
+  window.verCotizaciones = window.verCotizaciones;
 
   // ── Expose a tiny helper used by calculator-button in jobOpenFormWithPrice ────
   window.calcUseInJob = function() {

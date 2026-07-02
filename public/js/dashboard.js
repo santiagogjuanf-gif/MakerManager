@@ -146,6 +146,13 @@ pageLoaders['dashboard'] = async function loadDashboard() {
           </div>
           <a class="stat-chip-add" href="#clients" title="Nuevo cliente">＋</a>
         </div>
+        <div class="stat-chip" style="cursor:pointer" onclick="openCalculator()">
+          <div class="stat-chip-icon">🧮</div>
+          <div class="stat-chip-body">
+            <div class="stat-chip-val" style="font-size:14px">Calcular</div>
+            <div class="stat-chip-lbl">Calculadora de costos</div>
+          </div>
+        </div>
         <div class="stat-chip accent" style="cursor:default">
           <div class="stat-chip-icon">💰</div>
           <div class="stat-chip-body">
@@ -165,13 +172,6 @@ pageLoaders['dashboard'] = async function loadDashboard() {
           <div class="stat-chip-body">
             <div class="stat-chip-val" id="sc-mg">0g</div>
             <div class="stat-chip-lbl">Gramos usados</div>
-          </div>
-        </div>
-        <div class="stat-chip" style="cursor:pointer" onclick="openCalculator()">
-          <div class="stat-chip-icon">🧮</div>
-          <div class="stat-chip-body">
-            <div class="stat-chip-val" style="font-size:14px">Calcular</div>
-            <div class="stat-chip-lbl">Calculadora de costos</div>
           </div>
         </div>
       </div>
