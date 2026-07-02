@@ -737,65 +737,123 @@
     const localPrice  = localSubtotal * (1 + taxRate);
 
     // Filament visuals
-    const filHtml = (d.filamentos || []).filter(f => f.nombre && parseFloat(f.gramos) > 0).map(f => {
+    const hStr = n => n >= 1 ? `${Math.floor(n)}h ${Math.round((n%1)*60)}min` : `${Math.round(n*60)}min`;
+    const fecha = row.created_at ? row.created_at.substring(0,10) : '—';
+
+    // Filament cards — styled boxes with spool visual
+    const filCardsHtml = (d.filamentos || []).filter(f => f.nombre && parseFloat(f.gramos) > 0).map(f => {
       const matched = _allFils.find(af => `${af.marca||''} ${af.material} ${af.color}`.trim() === f.nombre.trim());
       const spoolHtml = matched && typeof makeSpool === 'function'
-        ? makeSpool(matched, 70)
-        : `<div style="width:70px;height:70px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10px;color:white;font-weight:700">${(f.nombre||'').substring(0,3)}</div>`;
+        ? makeSpool(matched, 80)
+        : `<div style="width:80px;height:80px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;color:white;font-weight:800">${(f.nombre||'').substring(0,4)}</div>`;
       const subtotal = parseFloat(f.gramos || 0) * parseFloat(f.costo_g || 0);
-      return `<div style="text-align:center;min-width:90px">
+      const cpgNum = parseFloat(f.costo_g || 0);
+      const cpgStr = cpgNum < 0.01 ? `$${cpgNum.toFixed(5)}` : `$${cpgNum.toFixed(4)}`;
+      return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 10px;text-align:center;min-width:110px;box-shadow:0 2px 8px rgba(0,0,0,0.18)">
         ${spoolHtml}
-        <div style="font-size:10px;font-weight:700;margin-top:4px;color:var(--text);line-height:1.3">${f.nombre}</div>
-        <div style="font-size:10px;color:var(--text-muted)">${f.gramos}g</div>
-        <div style="font-size:11px;font-weight:700;color:var(--accent)">${fmtMoney(subtotal)}</div>
+        <div style="font-size:10px;font-weight:700;margin-top:8px;color:var(--text);line-height:1.4">${f.nombre}</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${cpgStr}/g</div>
+        <div style="background:var(--surface);border-radius:6px;padding:4px 0;margin-top:6px">
+          <div style="font-size:11px;color:var(--text-muted)">${f.gramos} g</div>
+          <div style="font-size:14px;font-weight:800;color:var(--accent)">${fmtMoney(subtotal)}</div>
+        </div>
       </div>`;
     }).join('');
 
-    const hwHtml = (d.hardware || []).filter(h => h.desc).map(h =>
-      `<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">
-        <span>${h.desc} × ${h.qty}</span>
-        <span style="font-weight:600">${fmtMoney(parseFloat(h.cost||0)*parseFloat(h.qty||1))}</span>
-      </div>`
+    // Info cards (impresión, MO, extras) — reusable row helper
+    const infoRow = (label, val) =>
+      `<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)">
+        <span style="color:var(--text-muted)">${label}</span><span style="font-weight:600">${val}</span>
+      </div>`;
+
+    const hwRows = (d.hardware || []).filter(h => h.desc).map(h =>
+      infoRow(`🔩 ${h.desc} ×${h.qty}`, fmtMoney(parseFloat(h.cost||0)*parseFloat(h.qty||1)))
     ).join('');
 
-    const fecha = row.created_at ? row.created_at.substring(0,10) : '—';
-    const hStr  = n => n >= 1 ? `${Math.floor(n)}h ${Math.round((n%1)*60)}min` : `${Math.round(n*60)}min`;
+    // Price card helper — full breakdown like the calculator
+    const priceCardDetail = (title, subtitle, accentColor, rows, bigPrice, bigLabel, suffix) =>
+      `<div style="background:var(--card);border:1px solid ${accentColor};border-radius:12px;padding:14px;box-shadow:0 2px 10px rgba(0,0,0,0.18)">
+        <div style="font-size:13px;font-weight:800;color:${accentColor}">${title}</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:10px">${subtitle}</div>
+        <div style="border-top:1px solid var(--border);padding-top:8px;margin-bottom:8px;display:flex;flex-direction:column;gap:3px">
+          ${rows}
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:8px">
+          <span style="font-size:11px;color:var(--text-muted);font-weight:600">${bigLabel}</span>
+          <span style="font-size:22px;font-weight:800;color:${accentColor}">${fmtMoney(bigPrice)}</span>
+        </div>
+        ${suffix || ''}
+      </div>`;
+
+    const pRow = (label, val) =>
+      `<div style="display:flex;justify-content:space-between;font-size:11px">
+        <span style="color:var(--text-muted)">${label}</span>
+        <span style="font-weight:600">${val}</span>
+      </div>`;
+
+    const onlineTax   = onlinePrice - costBase * margin;
+    const onlineCard  = priceCardDetail(
+      '🌐 Online', 'Etsy · Shopify · eBay', 'var(--accent-light)',
+      pRow('Costo base', fmtMoney(costBase))
+      + pRow(`Margen ×${margin}`, fmtMoney(costBase * margin - costBase))
+      + (taxPct > 0 ? pRow(`IVA ${taxPct}%`, fmtMoney(onlineTax)) : ''),
+      onlinePrice, 'Precio / pieza', ''
+    );
+
+    const localMOLine = costMO > 0 ? pRow('👷 MO (sin margen)', fmtMoney(costMO)) : '';
+    const localCard   = priceCardDetail(
+      '📍 Local / Facebook', 'Venta directa · Mercado local', '#22c55e',
+      pRow('Materiales + extras', fmtMoney(costBase - costMO))
+      + pRow(`Margen ×${margin}`, fmtMoney((costBase - costMO) * margin - (costBase - costMO)))
+      + localMOLine
+      + (taxPct > 0 ? pRow(`IVA ${taxPct}%`, fmtMoney(localSubtotal * taxRate)) : ''),
+      localSubtotal, 'Precio sin IVA',
+      taxPct > 0 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Con IVA ${taxPct}%: <strong style="color:var(--text)">${fmtMoney(localPrice)}</strong></div>` : ''
+    );
 
     closeModal();
     openModal(`📋 ${row.nombre}`, `
-      <div style="font-size:11px;color:var(--text-muted);margin-bottom:16px">Guardada el ${fecha} &nbsp;·&nbsp; Tier: ${tier.label} (×${margin})</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px">
+        📅 ${fecha} &nbsp;·&nbsp; ${tier.label} — margen ×${margin}
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        <div>
-          <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px">🖨️ IMPRESIÓN</div>
-          <div style="font-size:12px;line-height:1.8">
-            <div><b>Impresora:</b> ${d.printer || '—'}</div>
-            <div><b>Tiempo:</b> ${hStr(timeH)}</div>
-            <div><b>Consumo:</b> ${d.watts || 0} W → ${fmtMoney(costElec)}</div>
-            <div><b>Depreciación:</b> ${fmtMoney(costMach)}</div>
+
+        <!-- LEFT: costs -->
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px;letter-spacing:.05em">🖨️ IMPRESIÓN</div>
+            ${infoRow('Impresora', d.printer || '—')}
+            ${infoRow('Tiempo', hStr(timeH))}
+            ${infoRow(`Consumo (${d.watts||0} W)`, fmtMoney(costElec))}
+            ${infoRow('Depreciación', fmtMoney(costMach))}
           </div>
-          <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin:12px 0 8px">👷 MANO DE OBRA</div>
-          <div style="font-size:12px;line-height:1.8">
-            <div><b>Tiempo:</b> ${hStr(moH)}</div>
-            <div><b>Costo:</b> ${fmtMoney(costMO)}</div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px;letter-spacing:.05em">👷 MANO DE OBRA</div>
+            ${infoRow('Tiempo', hStr(moH))}
+            ${infoRow('Costo', fmtMoney(costMO))}
           </div>
-          ${embalaje > 0 ? `<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin:12px 0 8px">📦 EMBALAJE</div><div style="font-size:12px">${fmtMoney(embalaje)}</div>` : ''}
-          ${hwHtml ? `<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin:12px 0 8px">🔩 HARDWARE</div>${hwHtml}` : ''}
+          ${embalaje > 0 ? `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px;letter-spacing:.05em">📦 EMBALAJE</div>
+            ${infoRow('Costo por pieza', fmtMoney(embalaje))}
+          </div>` : ''}
+          ${hwRows ? `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px;letter-spacing:.05em">🔩 HARDWARE</div>
+            ${hwRows}
+          </div>` : ''}
         </div>
-        <div>
-          <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px">🧵 FILAMENTOS</div>
-          <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px">${filHtml || '<span style="font-size:12px;color:var(--text-muted)">—</span>'}</div>
-          <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:10px">💰 PRECIOS SUGERIDOS</div>
-          <div style="background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:12px;margin-bottom:8px">
-            <div style="font-size:12px;font-weight:800;color:var(--accent-light)">🌐 Online</div>
-            <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px">Etsy · Shopify · eBay</div>
-            <div style="font-size:22px;font-weight:800;color:var(--accent-light)">${fmtMoney(onlinePrice)}</div>
-            <div style="font-size:10px;color:var(--text-muted)">Con IVA ${taxPct}% incluido</div>
+
+        <!-- RIGHT: filaments + prices -->
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:10px;letter-spacing:.05em">🧵 FILAMENTOS</div>
+            <div style="display:flex;flex-wrap:wrap;gap:10px">${filCardsHtml || '<span style="font-size:12px;color:var(--text-muted)">—</span>'}</div>
           </div>
-          <div style="background:var(--surface);border:1px solid #22c55e;border-radius:10px;padding:12px">
-            <div style="font-size:12px;font-weight:800;color:#22c55e">📍 Local / Facebook</div>
-            <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px">Venta directa</div>
-            <div style="font-size:22px;font-weight:800;color:#22c55e">${fmtMoney(localSubtotal)}</div>
-            <div style="font-size:10px;color:var(--text-muted)">Sin IVA &nbsp;·&nbsp; Con IVA ${taxPct}%: ${fmtMoney(localPrice)}</div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:10px;letter-spacing:.05em">💰 PRECIOS SUGERIDOS</div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              ${onlineCard}
+              ${localCard}
+            </div>
           </div>
         </div>
       </div>
