@@ -902,15 +902,22 @@ select.form-control option { background: var(--card); }
 .calc-tooltip-wrap:hover .calc-tooltip-box { display: block; }
 
 /* Price cards */
-.calc-price-card { border-radius: 10px; padding: 12px; border: 1px solid var(--border); background: var(--card); }
-.calc-card-primary { border-color: var(--accent); }
-.calc-card-menudeo { border-color: #3b82f6; }
-.calc-card-mayoreo { border-color: #8b5cf6; }
-.cpc-label { font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px; }
-.cpc-total { font-size: 22px; font-weight: 800; color: var(--text); line-height: 1.1; }
-.calc-card-primary .cpc-total { color: var(--accent-light); }
-.calc-card-menudeo .cpc-total { color: #60a5fa; }
-.calc-card-mayoreo .cpc-total { color: #a78bfa; }
+.calc-price-card { border-radius: 12px; padding: 14px; border: 1px solid var(--border); background: var(--card); }
+.calc-card-online { border-color: var(--accent); }
+.calc-card-local  { border-color: #22c55e; }
+.cpc-header    { font-size: 13px; font-weight: 800; color: var(--text); margin-bottom: 2px; }
+.calc-card-online .cpc-header { color: var(--accent-light); }
+.calc-card-local  .cpc-header { color: #22c55e; }
+.cpc-subheader { font-size: 10px; color: var(--text-muted); margin-bottom: 10px; }
+.cpc-rows { display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--border); padding-top: 8px; margin-bottom: 8px; }
+.cpc-row   { display: flex; justify-content: space-between; font-size: 11px; }
+.cpc-row.muted span:first-child { color: var(--text-muted); }
+.cpc-row.muted span:last-child  { color: var(--text); font-weight: 600; }
+.cpc-total-row { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 8px; }
+.cpc-total-row > span:first-child { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+.cpc-price { font-size: 22px; font-weight: 800; }
+.calc-card-online .cpc-price { color: var(--accent-light); }
+.calc-card-local  .cpc-price { color: #22c55e; }
 
 @media (max-width: 640px) {
   .calc-wrap { grid-template-columns: 1fr; max-height: none; }

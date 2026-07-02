@@ -5,8 +5,12 @@
   let _allFils = [];
   let _allPrinters = [];
 
-  // Qty cards — default 1 / 5 / 10, user can change
-  const qtyDefaults = [1, 5, 10];
+  // Volume tier margins
+  const TIERS = {
+    unitario: { label: 'Unitario (1–4 pzas)',  margin: 2.2 },
+    menudeo:  { label: 'Menudeo (5–10 pzas)',  margin: 1.9 },
+    mayoreo:  { label: 'Mayoreo (10+ pzas)',   margin: 1.5 },
+  };
 
   // Colors per cost segment (for donut)
   const SEG_COLORS = {
@@ -95,18 +99,28 @@
     return { costFil, costElec, costMach, costMO, costHW, embalaje, costBase, timeH, tarifaH, machRate };
   }
 
-  function calcQtyPrice(costBase, qty, margin, taxRate) {
-    const total      = costBase * qty;
-    const priceNoTax = total * margin;
-    const tax        = priceNoTax * taxRate;
-    const priceTotal = priceNoTax + tax;
-    const perPiece   = priceTotal / qty;
-    return { total, priceNoTax, tax, priceTotal, perPiece };
+  function calcChannelPrice(costBase, costMO, margin, taxRate, channel) {
+    if (channel === 'online') {
+      // Full cost × margin
+      const subtotal = costBase * margin;
+      const tax      = subtotal * taxRate;
+      return { costBase, subtotal, tax, total: subtotal + tax, margin,
+               costMaterials: costBase - costMO, costMO };
+    } else {
+      // Local: materials × margin, then add MO flat (no markup on labor)
+      const costMaterials = costBase - costMO;
+      const subtotal      = costMaterials * margin + costMO;
+      const tax           = subtotal * taxRate;
+      return { costBase, subtotal, tax, total: subtotal + tax, margin,
+               costMaterials, costMO };
+    }
   }
 
   function recalc() {
-    const v = getValues();
-    const margin  = parseFloat(document.getElementById('calc-margin')?.value || appConfig.margen_unitario || 3);
+    const v       = getValues();
+    const tierKey = document.getElementById('calc-tier')?.value || 'unitario';
+    const tier    = TIERS[tierKey] || TIERS.unitario;
+    const margin  = tier.margin;
     const taxRate = parseFloat(appConfig.tax_rate || 0);
     const taxPct  = Math.round(taxRate * 100);
 
@@ -114,12 +128,12 @@
     const donutEl = document.getElementById('calc-donut');
     if (donutEl) {
       donutEl.innerHTML = renderDonut([
-        { value: v.costFil,   color: SEG_COLORS.filamento,    label: 'Filamento'     },
-        { value: v.costElec,  color: SEG_COLORS.electricidad, label: 'Electricidad'  },
-        { value: v.costMach,  color: SEG_COLORS.maquinado,    label: 'Maquinado'     },
-        { value: v.costMO,    color: SEG_COLORS.manoObra,     label: 'Mano de obra'  },
-        { value: v.costHW,    color: SEG_COLORS.hardware,     label: 'Hardware'      },
-        { value: v.embalaje,  color: SEG_COLORS.embalaje,     label: 'Embalaje'      },
+        { value: v.costFil,   color: SEG_COLORS.filamento,    label: 'Filamento'    },
+        { value: v.costElec,  color: SEG_COLORS.electricidad, label: 'Electricidad' },
+        { value: v.costMach,  color: SEG_COLORS.maquinado,    label: 'Maquinado'    },
+        { value: v.costMO,    color: SEG_COLORS.manoObra,     label: 'Mano de obra' },
+        { value: v.costHW,    color: SEG_COLORS.hardware,     label: 'Hardware'     },
+        { value: v.embalaje,  color: SEG_COLORS.embalaje,     label: 'Embalaje'     },
       ]);
     }
 
@@ -143,31 +157,42 @@
       ).join('');
     }
 
-    // Price cards
-    const qtys = [0, 1, 2].map(i => Math.max(1, parseInt(document.getElementById(`calc-qty-${i}`)?.value || qtyDefaults[i])));
-    const margins = qtys.map((_, i) => {
-      const keys = ['margen_unitario', 'margen_menudeo', 'margen_mayoreo'];
-      return parseFloat(appConfig[keys[i]] || margin);
-    });
-    // Use user-edited margin for card 0
-    margins[0] = margin;
+    // Price cards — online vs local
+    const pOnline = calcChannelPrice(v.costBase, v.costMO, margin, taxRate, 'online');
+    const pLocal  = calcChannelPrice(v.costBase, v.costMO, margin, taxRate, 'local');
 
-    qtys.forEach((qty, i) => {
-      const p = calcQtyPrice(v.costBase, qty, margins[i], taxRate);
-      const card = document.getElementById(`calc-price-card-${i}`);
+    function fillCard(cardId, p, channel) {
+      const card = document.getElementById(cardId);
       if (!card) return;
-      card.querySelector('.cpc-total').textContent   = fmtMoney(p.priceTotal);
-      card.querySelector('.cpc-cost').textContent    = `Costo: ${fmtMoney(p.total)}`;
-      card.querySelector('.cpc-margin').textContent  = `Margen ×${margins[i]}`;
-      card.querySelector('.cpc-tax').textContent     = taxPct > 0 ? `IVA ${taxPct}%: ${fmtMoney(p.tax)}` : '';
-      if (qty > 1) card.querySelector('.cpc-each').textContent = `${fmtMoney(p.perPiece)} / pieza`;
-      else card.querySelector('.cpc-each').textContent = '';
-    });
+      const moLine = channel === 'local' && p.costMO > 0
+        ? `<div class="cpc-row"><span>👷 MO (sin margen)</span><span>${fmtMoney(p.costMO)}</span></div>`
+        : '';
+      const matLabel = channel === 'local' ? 'Materiales + extras' : 'Costo base';
+      card.innerHTML = `
+        <div class="cpc-header">${channel === 'online' ? '🌐 Online' : '📍 Local / Facebook'}</div>
+        <div class="cpc-subheader">${channel === 'online' ? 'Etsy · Shopify · eBay' : 'Venta directa · Mercado local'}</div>
+        <div class="cpc-rows">
+          <div class="cpc-row muted"><span>${matLabel}</span><span>${fmtMoney(channel==='local'?p.costMaterials:p.costBase)}</span></div>
+          <div class="cpc-row muted"><span>Margen ×${margin}</span><span>${fmtMoney(p.subtotal - (channel==='local'?p.costMO:0))}</span></div>
+          ${moLine}
+          ${taxPct > 0 ? `<div class="cpc-row muted"><span>IVA ${taxPct}%</span><span>${fmtMoney(p.tax)}</span></div>` : ''}
+        </div>
+        <div class="cpc-total-row">
+          <span>Precio / pieza</span>
+          <span class="cpc-price">${fmtMoney(p.total)}</span>
+        </div>`;
+    }
 
-    // Store result
+    fillCard('calc-card-online', pOnline, 'online');
+    fillCard('calc-card-local',  pLocal,  'local');
+
+    // Store result for "Aceptar" button
     window._calcResult = {
-      precio_unitario: calcQtyPrice(v.costBase, 1, margin, taxRate).priceTotal,
-      costBase: v.costBase,
+      precio_final:    pOnline.total,
+      precio_local:    pLocal.total,
+      costBase:        v.costBase,
+      tier:            tierKey,
+      margin,
     };
   }
 
@@ -382,7 +407,7 @@
       mo_h:       document.getElementById('calc-mo-h')?.value || 0,
       mo_m:       document.getElementById('calc-mo-m')?.value || 0,
       embalaje:   document.getElementById('calc-embalaje')?.value || 0,
-      margin:     document.getElementById('calc-margin')?.value || 3,
+      tier:       document.getElementById('calc-tier')?.value || 'unitario',
       filamentos: fils,
       hardware:   hws,
     };
@@ -396,7 +421,6 @@
     await loadData();
 
     const taxPct = Math.round(parseFloat(appConfig.tax_rate || 0) * 100);
-    const defaultMargin = appConfig.margen_unitario || 3;
 
     openModal('🧮 Calculadora de Costos', `
       <div class="calc-wrap">
@@ -507,15 +531,17 @@
             </div>
           </div>
 
-          <!-- Margen -->
+          <!-- Volumen / Margen -->
           <div class="calc-section">
-            <div class="calc-section-title">📈 Margen</div>
+            <div class="calc-section-title">📈 Volumen de venta</div>
             <div class="form-group" style="margin:0">
-              <label>Multiplicador de ganancia</label>
-              <input id="calc-margin" class="form-control" type="number" step="0.1" min="1" value="${defaultMargin}" oninput="calcRecalc()">
-              <div style="font-size:10px;color:var(--text-muted);margin-top:3px">
-                Menudeo ×${appConfig.margen_menudeo || 2.5} &nbsp;|&nbsp; Mayoreo ×${appConfig.margen_mayoreo || 1.8} &nbsp;|&nbsp; IVA ${taxPct}%
-              </div>
+              <label>Cantidad estimada</label>
+              <select id="calc-tier" class="form-control" onchange="calcRecalc()">
+                <option value="unitario">Unitario (1–4 pzas) — ×2.2</option>
+                <option value="menudeo">Menudeo (5–10 pzas) — ×1.9</option>
+                <option value="mayoreo">Mayoreo (10+ pzas) — ×1.5</option>
+              </select>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:4px">IVA ${taxPct}% incluido en precios sugeridos</div>
             </div>
           </div>
         </div>
@@ -532,10 +558,9 @@
           <!-- Price cards -->
           <div class="calc-section">
             <div class="calc-section-title">💰 Precios sugeridos</div>
-            <div style="display:flex;flex-direction:column;gap:8px">
-              ${priceCardHtml(0, 1,  '1 pieza',   'calc-card-primary')}
-              ${priceCardHtml(1, 5,  'Menudeo',   'calc-card-menudeo')}
-              ${priceCardHtml(2, 10, 'Mayoreo',   'calc-card-mayoreo')}
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div id="calc-card-online" class="calc-price-card calc-card-online">—</div>
+              <div id="calc-card-local"  class="calc-price-card calc-card-local">—</div>
             </div>
           </div>
         </div>
@@ -559,13 +584,9 @@
 
   // ── Actions ───────────────────────────────────────────────────────────────────
   window.calcAceptar = function() {
-    const v = getValues();
-    const margin  = parseFloat(document.getElementById('calc-margin')?.value || 3);
-    const taxRate = parseFloat(appConfig.tax_rate || 0);
-    const precio  = calcQtyPrice(v.costBase, 1, margin, taxRate).priceTotal;
-    window._calcResult = { precio_final: precio.toFixed(2), gramos: 0 };
+    const r = window._calcResult || {};
     closeModal();
-    showToast(`Precio calculado: ${fmtMoney(precio)}`);
+    showToast(`Precio online: ${fmtMoney(r.precio_final)} · Local: ${fmtMoney(r.precio_local)}`);
   };
 
   window.calcGuardar = async function() {
@@ -574,12 +595,9 @@
       showToast('Escribe el nombre del proyecto antes de guardar', 'error');
       return;
     }
-    const v = getValues();
-    const margin  = parseFloat(document.getElementById('calc-margin')?.value || 3);
-    const taxRate = parseFloat(appConfig.tax_rate || 0);
-    const precio  = calcQtyPrice(v.costBase, 1, margin, taxRate).priceTotal;
+    const r = window._calcResult || {};
     try {
-      await api('POST', '/api/cotizaciones', { nombre: datos.nombre, datos, precio_unitario: precio });
+      await api('POST', '/api/cotizaciones', { nombre: datos.nombre, datos, precio_unitario: r.precio_final || 0 });
       showToast(`Cotización "${datos.nombre}" guardada`);
       closeModal();
     } catch (e) {
