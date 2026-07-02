@@ -87,6 +87,11 @@
   let filFilterMat = '', filFilterAcabado = '', filFilterMarca = '';
 
   const FIL_MATERIALES = ['PLA','PETG','ABS','TPU','ASA','PA','PC','PLA+','FLEX','PPS','HIPS'];
+  const FIL_MARCAS_CONOCIDAS = [
+    'Bambu Lab','eSUN','Polymaker','Hatchbox','Prusament','Creality','Sunlu',
+    'Overture','Eryone','Fiberlogy','ColorFabb','MatterHackers','FormFutura',
+    'Filamentum','Elegoo','Anycubic','Extrudr','Das Filament','Primavalue','3DJake',
+  ];
   const FIL_ACABADOS   = [
     'Estándar','Mate','Silk','Traslúcido','Galaxy','Marble','Wood',
     'Gradient','Glow','Sparkly','CF','Metal','Pure','Rainbow','HS'
@@ -133,6 +138,7 @@
       <circle cx="${CX}" cy="${CY}" r="${hubR}" fill="none" stroke="${isLow?'#ef444455':'#2e2e48'}" stroke-width="1.5"/>
       <circle cx="${CX}" cy="${CY}" r="${hub2R}" fill="#111118"/>
       <circle cx="${CX}" cy="${CY}" r="${hub3R}" fill="#1e1e2e"/>
+      ${f.material ? `<text x="${CX}" y="${CY}" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="${(size*0.1).toFixed(1)}" font-weight="800" opacity="0.85" font-family="system-ui,sans-serif">${(f.material||'').substring(0,4)}</text>` : ''}
     </svg>`;
   }
 
@@ -474,7 +480,14 @@
       <form id="fil-form" onsubmit="invSaveFilament(event,${id||'null'})">
         <div class="form-grid">
           <div class="form-group"><label>Marca *</label>
-            <input class="form-control" name="marca" value="${f.marca||''}" required autocomplete="off"></div>
+            <select class="form-control" id="fil-marca-sel" onchange="invMarcaChange(this)" required>
+              <option value="">— Selecciona marca —</option>
+              ${FIL_MARCAS_CONOCIDAS.map(m=>`<option value="${m}" ${f.marca===m?'selected':''}>${m}</option>`).join('')}
+              <option value="__otra__" ${f.marca && !FIL_MARCAS_CONOCIDAS.includes(f.marca)?'selected':''}>＋ Otra marca...</option>
+            </select>
+            <input class="form-control" name="marca" id="fil-marca-custom" placeholder="Escribe la marca"
+              style="margin-top:6px;${f.marca && !FIL_MARCAS_CONOCIDAS.includes(f.marca)?'':'display:none'}"
+              value="${f.marca && !FIL_MARCAS_CONOCIDAS.includes(f.marca)?f.marca:''}" autocomplete="off"></div>
           <div class="form-group"><label>Nombre comercial</label>
             <input class="form-control" name="nombre_comercial" value="${f.nombre_comercial||''}" autocomplete="off"></div>
           <div class="form-group"><label>Material</label>
@@ -507,7 +520,7 @@
           <div class="form-group"><label>Costo total</label>
             <input class="form-control" name="costo_total" type="number" step="0.01" value="${f.costo_total||''}" id="fil-costo-total" oninput="invCalcCostG()" autocomplete="off"></div>
           <div class="form-group"><label>Costo/g (auto)</label>
-            <div id="fil-cpg-label" style="padding:7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;color:var(--accent)">${f.costo_por_gramo ? fmtMoney(f.costo_por_gramo)+'/g' : '—'}</div>
+            <div id="fil-cpg-label" style="padding:7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;color:var(--accent)">${f.costo_por_gramo ? (parseFloat(f.costo_por_gramo)<0.01?'$'+parseFloat(f.costo_por_gramo).toFixed(5):'$'+parseFloat(f.costo_por_gramo).toFixed(4))+'/g' : '—'}</div>
             <input type="hidden" name="costo_por_gramo" id="fil-cpg" value="${f.costo_por_gramo||''}"></div>
           <div class="form-group"><label>Proveedor</label>
             <input class="form-control" name="proveedor" value="${f.proveedor||''}" autocomplete="off"></div>
@@ -530,10 +543,25 @@
     const cpgLabel = document.getElementById('fil-cpg-label');
     if (net > 0 && ct > 0) {
       const val = (ct / net).toFixed(6);
-      if (cpg)      cpg.value      = val;
-      if (cpgLabel) cpgLabel.textContent = fmtMoney(val) + '/g';
+      if (cpg) cpg.value = val;
+      const cpgNum = parseFloat(val);
+      const cpgStr = cpgNum < 0.01 ? `$${cpgNum.toFixed(5)}` : `$${cpgNum.toFixed(4)}`;
+      if (cpgLabel) cpgLabel.textContent = cpgStr + '/g';
     } else {
       if (cpgLabel) cpgLabel.textContent = '—';
+    }
+  };
+
+  window.invMarcaChange = function(sel) {
+    const custom = document.getElementById('fil-marca-custom');
+    if (!custom) return;
+    if (sel.value === '__otra__') {
+      custom.style.display = '';
+      custom.value = '';
+      custom.focus();
+    } else {
+      custom.style.display = 'none';
+      custom.value = sel.value; // sync so FormData picks it up
     }
   };
 

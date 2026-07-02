@@ -210,7 +210,10 @@
       if (sel.value && cg > 0) {
         const g = parseFloat(gEl?.value || 0);
         const subtotal = g * cg;
-        info.innerHTML = `<span style="color:var(--accent);font-weight:600">${fmtMoney(cg)}/g</span>`
+        const cgDisplay = parseFloat(cg) < 0.01
+          ? `$${parseFloat(cg).toFixed(5)}`
+          : `$${parseFloat(cg).toFixed(4)}`;
+        info.innerHTML = `<span style="color:var(--accent);font-weight:600">${cgDisplay}/g</span>`
           + (g > 0 ? ` &nbsp;·&nbsp; ${g}g = <strong style="color:var(--text)">${fmtMoney(subtotal)}</strong>` : '');
       } else if (sel.value && cg === 0) {
         info.innerHTML = `<span style="color:#f59e0b">⚠️ Sin costo registrado — ve a Inventario → Filamentos y agrega el costo de compra</span>`;
