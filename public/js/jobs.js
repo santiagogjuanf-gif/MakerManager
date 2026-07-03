@@ -1,6 +1,6 @@
 (function () {
   let allJobs = [], allClients = [], allPrinters = [], allFilaments = [];
-  let jobPage = 1, jobSearch = '';
+  let jobPage = 1, jobSearch = '', jobViewMode = 'list';
 
   const STAGES = [
     { key: 'Solicitud', label: 'Solicitud', color: 'badge-default', next: 'Levantamiento' },
@@ -46,6 +46,10 @@
         <button class="btn btn-secondary" onclick="openCalculator()" title="Calcular costo de impresión">🧮 Calculadora</button>
         <button class="btn btn-primary" onclick="jobOpenForm()">＋ Nuevo Trabajo</button>
         <input class="search-input form-control" style="flex:1;max-width:300px" placeholder="Buscar trabajo..." oninput="jobSearch2(this.value)" autocomplete="off">
+        <div style="display:flex;gap:2px;background:var(--surface);border-radius:8px;padding:3px;border:1px solid var(--border)">
+          <button id="job-view-list" class="btn btn-sm ${jobViewMode==='list'?'btn-primary':'btn-secondary'}" onclick="jobSetView('list')" style="padding:4px 10px" title="Vista lista">☰ Lista</button>
+          <button id="job-view-kanban" class="btn btn-sm ${jobViewMode==='kanban'?'btn-primary':'btn-secondary'}" onclick="jobSetView('kanban')" style="padding:4px 10px" title="Vista kanban">⬜ Kanban</button>
+        </div>
       </div>
       <div id="job-cards"></div>
       <div class="pagination" id="job-pagination"></div>`;
@@ -72,6 +76,62 @@
     renderJobs();
   }
 
+  window.jobSetView = function(mode) {
+    jobViewMode = mode;
+    document.getElementById('job-view-list')?.classList.toggle('btn-primary', mode === 'list');
+    document.getElementById('job-view-list')?.classList.toggle('btn-secondary', mode !== 'list');
+    document.getElementById('job-view-kanban')?.classList.toggle('btn-primary', mode === 'kanban');
+    document.getElementById('job-view-kanban')?.classList.toggle('btn-secondary', mode !== 'kanban');
+    renderJobs();
+  };
+
+  function renderKanban(filtered) {
+    const KANBAN_STAGES = [
+      { key: 'Solicitud',     icon: '📥', color: '#6366f1' },
+      { key: 'Levantamiento', icon: '📐', color: '#f59e0b' },
+      { key: 'Producción',    icon: '🖨️', color: '#3b82f6' },
+      { key: 'Cierre',        icon: '✅', color: '#22c55e' },
+    ];
+    const byStage = {};
+    KANBAN_STAGES.forEach(s => byStage[s.key] = []);
+    filtered.forEach(j => {
+      const key = j.estado || 'Solicitud';
+      if (byStage[key]) byStage[key].push(j);
+      else byStage['Solicitud'].push(j);
+    });
+
+    const cols = KANBAN_STAGES.map(st => {
+      const jobs = byStage[st.key] || [];
+      const cards = jobs.length === 0
+        ? `<div style="text-align:center;color:var(--text-muted);font-size:12px;padding:16px 8px">Sin trabajos</div>`
+        : jobs.map(j => `
+            <div onclick="jobView(${j.id})" style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;transition:border-color 0.15s"
+              onmouseover="this.style.borderColor='${st.color}'" onmouseout="this.style.borderColor='var(--border)'">
+              <div style="font-size:12px;font-weight:700;color:var(--text);line-height:1.3;margin-bottom:6px">${j.nombre_proyecto||'Sin nombre'}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">👥 ${j.cliente_nombre||'—'}</div>
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <span style="font-size:10px;color:var(--text-muted)">📅 ${j.fecha?j.fecha.substring(0,10):'-'}</span>
+                <span style="font-size:13px;font-weight:800;color:${st.color}">${fmtMoney(j.precio_final)}</span>
+              </div>
+              <div style="display:flex;gap:4px;margin-top:8px" onclick="event.stopPropagation()">
+                <button class="btn btn-secondary btn-sm" style="flex:1;font-size:11px" onclick="jobOpenForm(${j.id})">✏️ Editar</button>
+                <button class="btn btn-danger btn-sm" style="font-size:11px" onclick="jobDelete(${j.id})">🗑️</button>
+              </div>
+            </div>
+          `).join('');
+      return `<div style="flex:1;min-width:220px;max-width:300px">
+        <div style="background:${st.color}22;border:1px solid ${st.color}44;border-radius:12px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+          <span>${st.icon}</span>
+          <span style="font-size:12px;font-weight:700;color:${st.color}">${st.key}</span>
+          <span style="margin-left:auto;background:${st.color};color:white;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px">${jobs.length}</span>
+        </div>
+        ${cards}
+      </div>`;
+    }).join('');
+
+    return `<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;align-items:flex-start">${cols}</div>`;
+  }
+
   function renderJobs() {
     const q = jobSearch.toLowerCase();
     const filtered = allJobs.filter(j =>
@@ -82,6 +142,12 @@
 
     const container = document.getElementById('job-cards');
     if (!container) return;
+
+    if (jobViewMode === 'kanban') {
+      container.innerHTML = renderKanban(filtered);
+      document.getElementById('job-pagination').innerHTML = '';
+      return;
+    }
 
     if (!items.length) {
       container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div>Sin trabajos</div>';

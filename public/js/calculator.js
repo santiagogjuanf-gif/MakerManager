@@ -960,6 +960,7 @@
       <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
         <button class="btn btn-danger btn-sm" onclick="eliminarCotizacion(${id})">🗑️ Eliminar</button>
         <button class="btn btn-secondary" onclick="verCotizaciones()">← Volver</button>
+        <button class="btn btn-secondary" onclick="printCotizacion(${id})">🖨️ Imprimir</button>
         <button class="btn btn-primary" onclick="editarCotizacion(${id})">✏️ Editar</button>
       </div>
     `);
@@ -981,6 +982,145 @@
         verCotizaciones();
       } catch (e) { showToast('Error: ' + e.message, 'error'); }
     }, '🗑️');
+  };
+
+  // ── Print / PDF cotización ────────────────────────────────────────────────────
+  window.printCotizacion = async function(id) {
+    let row;
+    try { row = await api('GET', `/api/cotizaciones/${id}`); } catch { showToast('Error cargando cotización','error'); return; }
+    const d = row.datos || {};
+    const taxRate  = parseFloat(appConfig.tax_rate || 0);
+    const taxPct   = Math.round(taxRate * 100);
+    const tiers    = getTiers();
+    const tier     = tiers[d.tier || 'unitario'] || tiers.unitario;
+    const margin   = tier.margin;
+    const sym      = appConfig.simbolo_moneda || '$';
+    const fmt      = v => `${sym}${parseFloat(v||0).toFixed(2)}`;
+
+    const timeH   = parseFloat(d.tiempo_h||0) + parseFloat(d.tiempo_m||0)/60;
+    const moH     = parseFloat(d.mo_h||0)     + parseFloat(d.mo_m||0)/60;
+    const costMO  = moH * parseFloat(appConfig.tarifa_hora || 25);
+    let costFil = 0;
+    (d.filamentos||[]).forEach(f => { costFil += parseFloat(f.gramos||0)*parseFloat(f.costo_g||0); });
+    let costHW = 0;
+    (d.hardware||[]).forEach(h => { costHW += parseFloat(h.cost||0)*parseFloat(h.qty||1); });
+    const costElec  = (parseFloat(d.watts||0)/1000)*timeH*parseFloat(appConfig.costo_kwh||0.18);
+    const costMach  = timeH * parseFloat(d.mach_rate||0);
+    const embalaje  = parseFloat(d.embalaje||0);
+    const costBase  = costFil + costElec + costMach + costMO + costHW + embalaje;
+    const onlinePrice    = costBase * margin * (1+taxRate);
+    const localSubtotal  = (costBase - costMO)*margin + costMO;
+    const localPrice     = localSubtotal * (1+taxRate);
+
+    const hStr = n => n >= 1 ? `${Math.floor(n)}h ${Math.round((n%1)*60)}min` : `${Math.round(n*60)}min`;
+    const now  = new Date();
+    const dateStr = now.toLocaleDateString('es-MX', { year:'numeric', month:'long', day:'numeric' });
+    const bizName = appConfig.nombre_negocio || 'MakerManager Studio';
+    const bizTel  = appConfig.telefono || '';
+    const bizAddr = appConfig.direccion || '';
+    const terminos = appConfig.terminos_condiciones || '';
+
+    const filRows = (d.filamentos||[]).filter(f => f.nombre && parseFloat(f.gramos)>0).map(f =>
+      `<tr><td>${f.nombre}</td><td style="text-align:center">${f.gramos}g</td><td style="text-align:right">${fmt(parseFloat(f.gramos)*parseFloat(f.costo_g||0))}</td></tr>`
+    ).join('');
+
+    const hwRows = (d.hardware||[]).filter(h=>h.desc).map(h =>
+      `<tr><td>${h.desc} ×${h.qty||1}</td><td></td><td style="text-align:right">${fmt(parseFloat(h.cost||0)*parseFloat(h.qty||1))}</td></tr>`
+    ).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><title>Cotización — ${row.nombre}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,sans-serif;font-size:13px;color:#111;background:#fff;padding:32px 40px}
+  h1{font-size:22px;font-weight:800;color:#6d28d9}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:18px;border-bottom:2px solid #6d28d9}
+  .biz-name{font-size:18px;font-weight:800;color:#6d28d9}
+  .biz-info{font-size:11px;color:#555;margin-top:4px;line-height:1.6}
+  .meta{text-align:right;font-size:12px;color:#555}
+  .meta-id{font-size:20px;font-weight:800;color:#111;margin-bottom:4px}
+  h2{font-size:12px;font-weight:700;color:#6d28d9;letter-spacing:.08em;text-transform:uppercase;margin:18px 0 8px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{background:#f3f0ff;color:#6d28d9;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:6px 10px;text-align:left}
+  td{padding:7px 10px;border-bottom:1px solid #e5e7eb}
+  tr:last-child td{border-bottom:none}
+  .total-row td{font-weight:700;background:#f9fafb}
+  .price-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}
+  .price-card{border:2px solid #e5e7eb;border-radius:10px;padding:14px}
+  .price-card.online{border-color:#6d28d9}
+  .price-card.local{border-color:#16a34a}
+  .price-card-title{font-size:12px;font-weight:700;margin-bottom:8px}
+  .price-card.online .price-card-title{color:#6d28d9}
+  .price-card.local .price-card-title{color:#16a34a}
+  .price-row{display:flex;justify-content:space-between;font-size:11px;color:#555;margin-bottom:4px}
+  .price-total{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #e5e7eb;padding-top:8px;margin-top:6px}
+  .price-total span:last-child{font-size:20px;font-weight:800}
+  .price-card.online .price-total span:last-child{color:#6d28d9}
+  .price-card.local .price-total span:last-child{color:#16a34a}
+  .terms{font-size:10px;color:#777;margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;line-height:1.6}
+  .footer{margin-top:28px;display:flex;justify-content:space-between;font-size:11px;color:#aaa}
+  @media print{body{padding:16px 20px}.no-print{display:none}}
+</style></head><body>
+<button class="no-print" onclick="window.print()" style="margin-bottom:16px;padding:8px 20px;background:#6d28d9;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px">🖨️ Imprimir / Guardar PDF</button>
+<div class="header">
+  <div>
+    <div class="biz-name">${bizName}</div>
+    <div class="biz-info">${[bizTel, bizAddr].filter(Boolean).join(' · ')}</div>
+  </div>
+  <div class="meta">
+    <div class="meta-id">COTIZACIÓN #${id}</div>
+    <div>${dateStr}</div>
+    <div style="margin-top:4px;font-weight:700">${row.nombre}</div>
+    <div style="font-size:11px;color:#777;margin-top:2px">${tier.label} — margen ×${margin}</div>
+  </div>
+</div>
+
+<h2>Desglose de costos</h2>
+<table>
+  <thead><tr><th>Concepto</th><th style="text-align:center">Detalle</th><th style="text-align:right">Subtotal</th></tr></thead>
+  <tbody>
+    ${filRows || '<tr><td colspan="3" style="color:#999">Sin filamentos</td></tr>'}
+    ${costElec > 0 ? `<tr><td>⚡ Electricidad</td><td style="text-align:center">${d.watts||0}W · ${hStr(timeH)}</td><td style="text-align:right">${fmt(costElec)}</td></tr>` : ''}
+    ${costMach > 0 ? `<tr><td>🖨️ Depreciación impresora</td><td style="text-align:center">${d.printer||'—'} · ${hStr(timeH)}</td><td style="text-align:right">${fmt(costMach)}</td></tr>` : ''}
+    ${costMO > 0 ? `<tr><td>👷 Mano de obra</td><td style="text-align:center">${hStr(moH)}</td><td style="text-align:right">${fmt(costMO)}</td></tr>` : ''}
+    ${hwRows}
+    ${embalaje > 0 ? `<tr><td>📦 Embalaje</td><td></td><td style="text-align:right">${fmt(embalaje)}</td></tr>` : ''}
+    <tr class="total-row"><td colspan="2">Costo base total</td><td style="text-align:right">${fmt(costBase)}</td></tr>
+  </tbody>
+</table>
+
+<h2>Precios sugeridos</h2>
+<div class="price-grid">
+  <div class="price-card online">
+    <div class="price-card-title">🌐 Online (Etsy · Shopify)</div>
+    <div class="price-row"><span>Costo base</span><span>${fmt(costBase)}</span></div>
+    <div class="price-row"><span>Margen ×${margin}</span><span>${fmt(costBase*margin)}</span></div>
+    ${taxPct > 0 ? `<div class="price-row"><span>IVA ${taxPct}%</span><span>${fmt(costBase*margin*taxRate)}</span></div>` : ''}
+    <div class="price-total"><span>Precio / pieza</span><span>${fmt(onlinePrice)}</span></div>
+  </div>
+  <div class="price-card local">
+    <div class="price-card-title">📍 Local / Facebook</div>
+    <div class="price-row"><span>Materiales</span><span>${fmt(costBase-costMO)}</span></div>
+    <div class="price-row"><span>Margen ×${margin}</span><span>${fmt((costBase-costMO)*margin)}</span></div>
+    ${costMO > 0 ? `<div class="price-row"><span>MO (sin margen)</span><span>${fmt(costMO)}</span></div>` : ''}
+    <div class="price-total"><span>Precio sin IVA</span><span>${fmt(localSubtotal)}</span></div>
+    ${taxPct > 0 ? `<div style="font-size:11px;color:#555;margin-top:4px">Con IVA ${taxPct}%: <strong>${fmt(localPrice)}</strong></div>` : ''}
+  </div>
+</div>
+
+${terminos ? `<div class="terms"><strong>Términos y condiciones:</strong> ${terminos}</div>` : ''}
+
+<div class="footer">
+  <span>${bizName}</span>
+  <span>Generado el ${dateStr}</span>
+</div>
+
+<script>window.onload = () => setTimeout(() => window.print(), 300);<\/script>
+</body></html>`;
+
+    const win = window.open('', '_blank');
+    if (win) { win.document.write(html); win.document.close(); }
+    else showToast('Activa los popups del navegador para imprimir', 'error');
   };
 
   // ── Expose a tiny helper used by calculator-button in jobOpenFormWithPrice ────

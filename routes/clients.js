@@ -50,6 +50,24 @@ router.put('/:id', async (req, res) => {
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
+router.get('/:id/jobs', async (req, res) => {
+  try {
+    const jobs = await db.allAsync(`
+      SELECT pj.id, pj.nombre_proyecto, pj.fecha, pj.precio_final, pj.estado, pj.fallo,
+             p.nombre as impresora
+      FROM print_jobs pj
+      LEFT JOIN printers p ON pj.impresora_id = p.id
+      WHERE pj.cliente_id = ?
+      ORDER BY pj.fecha DESC, pj.created_at DESC
+    `, [req.params.id]);
+    const totals = await db.getAsync(
+      'SELECT COUNT(*) as total, SUM(CASE WHEN fallo=0 THEN precio_final ELSE 0 END) as gastado FROM print_jobs WHERE cliente_id=?',
+      [req.params.id]
+    );
+    res.json({ jobs, totals });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 router.delete('/:id', async (req, res) => {
   try { await db.runAsync('DELETE FROM clients WHERE id=?',[req.params.id]); res.json({success:true}); }
   catch(e) { res.status(500).json({ error: e.message }); }
