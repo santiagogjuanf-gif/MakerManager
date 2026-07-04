@@ -676,7 +676,7 @@
       <td>${fmtMoney(r.costo_por_ml)}/ml</td>
       <td class="actions">
         <button class="btn btn-secondary btn-sm" onclick="invEditResina(${r.id})">✏️</button>
-        <button class="btn btn-danger btn-sm" onclick="invDeleteResina(${r.id})">🗑️</button>
+        <button class="btn btn-danger btn-sm" onclick="invDeleteResina(${r.id})"> Eliminar</button>
       </td>
     </tr>`).join('') : '<tr><td colspan="6" class="empty-state"><div class="empty-state-icon">🫙</div>Sin resinas</td></tr>';
 
@@ -776,7 +776,7 @@
       <td>${fmtMoney(c.costo_unitario)}</td>
       <td class="actions">
         <button class="btn btn-secondary btn-sm" onclick="invEditLaser(${c.id})">✏️</button>
-        <button class="btn btn-danger btn-sm" onclick="invDeleteLaser(${c.id})">🗑️</button>
+        <button class="btn btn-danger btn-sm" onclick="invDeleteLaser(${c.id})"> Eliminar</button>
       </td>
     </tr>`).join('') : '<tr><td colspan="6" class="empty-state"><div class="empty-state-icon">🔥</div>Sin consumibles láser</td></tr>';
 
@@ -871,7 +871,7 @@
       <td>${fmtMoney(c.costo_unitario)}</td>
       <td class="actions">
         <button class="btn btn-secondary btn-sm" onclick="invEditCNC(${c.id})">✏️</button>
-        <button class="btn btn-danger btn-sm" onclick="invDeleteCNC(${c.id})">🗑️</button>
+        <button class="btn btn-danger btn-sm" onclick="invDeleteCNC(${c.id})"> Eliminar</button>
       </td>
     </tr>`).join('') : '<tr><td colspan="6" class="empty-state"><div class="empty-state-icon">🔩</div>Sin consumibles CNC</td></tr>';
 

@@ -127,7 +127,7 @@
       </div>` : ''}
 
       <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
-        <button class="btn btn-danger btn-sm" onclick="catDeleteProduct(${id})">🗑️</button>
+        <button class="btn btn-danger btn-sm" onclick="catDeleteProduct(${id})">🗑️ Eliminar</button>
         <button class="btn btn-secondary btn-sm" onclick="catEditProduct(${id})">✏️ Editar</button>
         <button class="btn btn-secondary btn-sm" onclick="catRecalcular(${id})">🧮 Recalcular</button>
         <button class="btn btn-secondary" onclick="closeModal()" style="margin-right:auto">Cerrar</button>
@@ -153,12 +153,21 @@
   window.catEditProduct = async function(id) {
     let prod;
     try { prod = await api('GET', `/api/productos/${id}`); } catch { showToast('Error cargando producto','error'); return; }
+    const fmtPrice = v => v ? parseFloat(v).toFixed(2) : '';
+    const fotoHtml = prod.foto_path
+      ? `<img src="${prod.foto_path}" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-bottom:8px">`
+      : `<div style="width:100%;height:80px;background:var(--surface);border:2px dashed var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px;margin-bottom:8px">Sin foto</div>`;
     openModal(`✏️ Editar Producto`, `
       <div class="form-group"><label>Nombre *</label><input id="cat-edit-nombre" class="form-control" value="${(prod.nombre||'').replace(/"/g,'&quot;')}" autocomplete="off"></div>
-      <div class="form-group"><label>Descripción</label><textarea id="cat-edit-desc" class="form-control" rows="3">${prod.descripcion||''}</textarea></div>
+      <div class="form-group"><label>Descripción</label><textarea id="cat-edit-desc" class="form-control" rows="2">${prod.descripcion||''}</textarea></div>
       <div class="form-grid">
-        <div class="form-group"><label>Precio Online</label><input id="cat-edit-online" class="form-control" type="number" step="any" value="${prod.precio_online||''}"></div>
-        <div class="form-group"><label>Precio Local</label><input id="cat-edit-local" class="form-control" type="number" step="any" value="${prod.precio_local||''}"></div>
+        <div class="form-group"><label>Precio Online</label><input id="cat-edit-online" class="form-control" type="number" step="any" value="${fmtPrice(prod.precio_online)}"></div>
+        <div class="form-group"><label>Precio Local</label><input id="cat-edit-local" class="form-control" type="number" step="any" value="${fmtPrice(prod.precio_local)}"></div>
+      </div>
+      <div class="form-group">
+        <label>Foto del producto</label>
+        ${fotoHtml}
+        <input type="file" id="cat-edit-foto" accept="image/*" class="form-control" style="font-size:12px">
       </div>
       <div class="form-actions">
         <button class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
@@ -175,6 +184,14 @@
     const descripcion   = document.getElementById('cat-edit-desc')?.value?.trim()||'';
     try {
       await api('PATCH', `/api/productos/${id}`, { nombre, descripcion, precio_online, precio_local });
+      // Upload photo if selected
+      const fotoInput = document.getElementById('cat-edit-foto');
+      if (fotoInput?.files?.length) {
+        const fd = new FormData();
+        fd.append('foto', fotoInput.files[0]);
+        const token = typeof getToken === 'function' ? getToken() : localStorage.getItem('mm_token');
+        await fetch(`/api/productos/${id}/foto`, { method:'POST', headers: token?{Authorization:'Bearer '+token}:{}, body: fd });
+      }
       showToast('Producto actualizado');
       closeModal();
       await refreshCatalog();

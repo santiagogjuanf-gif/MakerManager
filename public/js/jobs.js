@@ -191,7 +191,7 @@
         <div style="display:flex;gap:6px;margin-top:2px" onclick="event.stopPropagation()">
           <button class="btn btn-secondary btn-sm" style="flex:1" onclick="jobView(${j.id})">👁️ Ver</button>
           <button class="btn btn-secondary btn-sm" style="padding:4px 8px" onclick="jobOpenForm(${j.id})">✏️</button>
-          <button class="btn btn-danger btn-sm" style="padding:4px 8px" onclick="jobDelete(${j.id})">🗑️</button>
+          <button class="btn btn-danger btn-sm" style="padding:4px 8px" onclick="jobDelete(${j.id})">🗑️ Eliminar</button>
         </div>
       </div>`;
     }).join('')}</div>`;
@@ -305,7 +305,7 @@
     return `${html}<div class="form-actions">
       <button class="btn btn-secondary" onclick="closeModal();jobOpenForm(${j.id})">✏️ Editar</button>
       ${nextBtn}
-      <button class="btn btn-danger" onclick="jobDelete(${j.id})">🗑️</button>
+      <button class="btn btn-danger" onclick="jobDelete(${j.id})">🗑️ Eliminar</button>
     </div>`;
   }
 
@@ -337,6 +337,9 @@
       // Update header text
       const box=document.getElementById('job-camas-box');
       if (box) { const h=box.querySelector('div');if(h)h.querySelector('div').textContent=`🛏️ CAMAS (${done}/${camas.length})`; }
+      // Show/hide "Cerrar trabajo" based on all camas done
+      const cerrarBtn=document.getElementById('prod-cerrar-btn');
+      if (cerrarBtn) cerrarBtn.style.display=(camas.length>0&&camas.every(c=>c.completada))?'':'none';
       // Refresh background list (tablero) silently
       api('GET','/api/jobs').then(jobs=>{ allJobs=jobs; renderJobs(); }).catch(()=>{});
     } catch(e) { showToast('Error: '+e.message,'error'); }
@@ -555,7 +558,7 @@
         <div style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase">🛏️ Camas de impresión</div>
         <div style="display:flex;align-items:center;gap:8px">
           <label style="font-size:11px;color:var(--text-muted)">Total camas:</label>
-          <input type="number" min="1" id="prod-n-camas" value="${camas.length||1}" style="width:60px" class="form-control">
+          <input type="number" min="1" id="prod-n-camas" value="${camas.length||1}" data-orig="${camas.length||1}" style="width:60px" class="form-control">
         </div>
       </div>
       ${camas.length?`
@@ -615,8 +618,10 @@
         bodyHtml=renderSolicitudFields(j)+renderLevantamientoFields(j);
         buttonsHtml=`<button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button><button type="button" class="btn btn-primary" onclick="jobSave(${id})">💾 Guardar</button><button type="button" class="btn btn-success" onclick="jobSave(${id},'Producción')">🖨️ Guardar y pasar a Producción</button>`;
       } else if(stage.key==='Producción'){
+        const camas=j.camas||[];
+        const allDone=camas.length>0&&camas.every(c=>c.completada);
         bodyHtml=renderProduccionFields(j);
-        buttonsHtml=`<button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button><button type="button" class="btn btn-primary" onclick="jobSave(${id})">💾 Guardar</button><button type="button" class="btn btn-success" onclick="jobSave(${id},'Cierre')">✅ Cerrar trabajo</button>`;
+        buttonsHtml=`<button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button><button type="button" class="btn btn-primary" onclick="jobSaveInPlace(${id})">💾 Guardar</button>${allDone?`<button type="button" id="prod-cerrar-btn" class="btn btn-success" onclick="jobSave(${id},'Cierre')">✅ Cerrar trabajo</button>`:`<button type="button" id="prod-cerrar-btn" class="btn btn-success" onclick="jobSave(${id},'Cierre')" style="display:none">✅ Cerrar trabajo</button>`}`;
       } else {
         bodyHtml=renderSolicitudFields(j)+renderCierreFields(j);
         buttonsHtml=`<button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button><button type="button" class="btn btn-primary" onclick="jobSave(${id})">💾 Guardar</button>`;
@@ -698,7 +703,31 @@
     try{
       if(id) await api('PUT',`/api/jobs/${id}`,body);
       else   await api('POST','/api/jobs',body);
-      closeModal(); showToast(id?'Trabajo actualizado':'Trabajo creado'); await refreshJobs();
+      closeModal();
+      showToast(id?'Trabajo actualizado':'Trabajo creado');
+      await refreshJobs();
+    } catch(err){showToast('Error: '+err.message,'error');}
+  };
+
+  // Save production form without closing the modal
+  window.jobSaveInPlace=async function(id){
+    const form=document.getElementById('job-form');
+    if(!form||!id) return;
+    const notasProd=form.querySelector('[name="notas_produccion"]')?.value||'';
+    const nCamas=parseInt(document.getElementById('prod-n-camas')?.value)||0;
+    const body={notas_produccion:notasProd};
+    // Only rebuild camas if user explicitly changed the count
+    const origN=parseInt(document.getElementById('prod-n-camas')?.dataset.orig||0);
+    if(nCamas>0&&nCamas!==origN){
+      body.camas=Array.from({length:nCamas},(_,i)=>({numero:i+1,descripcion:'',tiempo_min:0,completada:0}));
+    }
+    try {
+      await api('PUT',`/api/jobs/${id}`,body);
+      showToast('Guardado');
+      // Update orig count if camas were rebuilt
+      const el=document.getElementById('prod-n-camas');
+      if(el&&nCamas!==origN) el.dataset.orig=nCamas;
+      await refreshJobs();
     } catch(err){showToast('Error: '+err.message,'error');}
   };
 

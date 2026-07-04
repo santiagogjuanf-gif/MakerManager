@@ -89,7 +89,7 @@
                 <span style="font-size:12px;color:var(--text-muted)">${c.total_pedidos || 0} pedido${(c.total_pedidos || 0) !== 1 ? 's' : ''}</span>
                 <div style="display:flex;gap:6px" onclick="event.stopPropagation()">
                   <button class="btn btn-secondary btn-sm" onclick="clEdit(${c.id})">✏️</button>
-                  <button class="btn btn-danger btn-sm" onclick="clDelete(${c.id})">🗑️</button>
+                  <button class="btn btn-danger btn-sm" onclick="clDelete(${c.id})"> Eliminar</button>
                 </div>
               </div>
             </div>

@@ -49,7 +49,7 @@ function renderFilaments(list) {
       <td>${fmtCAD(f.costo_total_cad)}</td>
       <td class="actions">
         <button class="btn btn-secondary btn-sm" onclick="openFilamentForm(${f.id})">✏️</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteFilament(${f.id})">🗑️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteFilament(${f.id})"> Eliminar</button>
       </td>
     </tr>`;
   }).join('');
