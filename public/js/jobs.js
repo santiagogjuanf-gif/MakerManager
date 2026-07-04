@@ -753,17 +753,10 @@
     try {
       await api('PUT',`/api/jobs/${id}`,body);
       showToast('Guardado');
+      // Update orig count so next change detection works correctly
+      const el2=document.getElementById('prod-n-camas');
+      if(el2&&nCamas!==origN) el2.dataset.orig=nCamas;
       await refreshJobs();
-      // Refresh modal content in-place so camas update is visible without closing
-      const j=allJobs.find(x=>x.id===id);
-      if(j){
-        const idx=stageIndex(j.estado);
-        const clienteName=allClients.find(c=>c.id===j.cliente_id)?.nombre||'-';
-        const printerName=allPrinters.find(p=>p.id===j.impresora_id)?.nombre||'-';
-        const lev=parseLev(j.levantamiento_datos);
-        const bodyEl=document.getElementById('modal-body');
-        if(bodyEl) bodyEl.innerHTML=buildJobViewHtml(j,idx,clienteName,printerName,lev);
-      }
     } catch(err){showToast('Error: '+err.message,'error');}
   };
 
