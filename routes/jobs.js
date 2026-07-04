@@ -242,7 +242,7 @@ router.put('/:id', async (req, res) => {
          : old.levantamiento_datos,
        merged.cotizacion_id||null, merged.canal_venta||null, merged.orden_id||null, req.params.id]
     );
-    if (d.filaments !== undefined || d.products !== undefined || d.extras !== undefined) {
+    if (d.filaments !== undefined || d.products !== undefined || d.extras !== undefined || d.camas !== undefined) {
       await saveJobData(req.params.id, d);
     }
     await deductInventory({ ...merged, filaments: d.filaments !== undefined ? d.filaments : oldFilaments.map(f=>({filamento_id:f.filamento_id,gramos_pieza:f.gramos_pieza})) }, -1);

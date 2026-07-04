@@ -22,9 +22,9 @@
       return {
         x: Math.random() * W,
         y: H + 20,
-        size: 3 + Math.random() * 7,
+        size: 4 + Math.random() * 9,
         speed: 0.25 + Math.random() * 0.6,
-        opacity: 0.08 + Math.random() * 0.15,
+        opacity: 0.18 + Math.random() * 0.22,
         rot: Math.random() * Math.PI,
         rotSpeed: (Math.random() - 0.5) * 0.015,
         drift: (Math.random() - 0.5) * 0.3,
@@ -37,7 +37,7 @@
         w: 30 + Math.random() * 100,
         x: -160,
         speed: 0.5 + Math.random() * 1.0,
-        opacity: 0.04 + Math.random() * 0.07,
+        opacity: 0.12 + Math.random() * 0.12,
         thick: 1.5 + Math.random() * 2.5,
       };
     }
@@ -70,8 +70,14 @@
       ctx.restore();
     }
 
+    function getBg() {
+      return getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#0f0f1a';
+    }
+
     function tick() {
-      ctx.clearRect(0, 0, W, H);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = getBg();
+      ctx.fillRect(0, 0, W, H);
 
       // Sweep lines (print layers)
       for (const l of layers) {
@@ -100,7 +106,7 @@
       nozzle.t++;
       nozzle.x += nozzle.vx;
       if (nozzle.x > W-16 || nozzle.x < 16) nozzle.vx *= -1;
-      ctx.globalAlpha = 0.1;
+      ctx.globalAlpha = 0.25;
       ctx.strokeStyle = getAccent(0.5);
       ctx.lineWidth = 1.2;
       // crosshair

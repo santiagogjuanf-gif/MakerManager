@@ -18,14 +18,14 @@
 
 body {
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background: var(--bg);
+  background: transparent;
   color: var(--text);
   min-height: 100vh;
   font-size: 14px;
   overflow-x: hidden;
 }
 
-.app { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+.app { display: flex; min-height: 100vh; position: relative; }
 
 /* Sidebar */
 .sidebar {
