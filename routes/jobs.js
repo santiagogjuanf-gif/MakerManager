@@ -65,7 +65,9 @@ async function calcJobCost(jobId) {
 router.get('/', async (req, res) => {
   try {
     const jobs = await db.allAsync(`
-      SELECT pj.*, c.nombre as cliente_nombre, p.nombre as impresora_nombre
+      SELECT pj.*, c.nombre as cliente_nombre, p.nombre as impresora_nombre,
+        (SELECT COUNT(*) FROM job_camas WHERE print_job_id=pj.id) as camas_total,
+        (SELECT COUNT(*) FROM job_camas WHERE print_job_id=pj.id AND completada=1) as camas_done
       FROM print_jobs pj
       LEFT JOIN clients c ON pj.cliente_id=c.id
       LEFT JOIN printers p ON pj.impresora_id=p.id

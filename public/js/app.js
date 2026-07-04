@@ -79,7 +79,7 @@ function closeModal() {
 }
 
 function cancelModal() {
-  if (confirm('¿Seguro que deseas cancelar? Se perderán los datos ingresados.')) closeModal();
+  confirmModal('¿Seguro que deseas cancelar? Se perderán los datos.', closeModal, '❌');
 }
 
 // Confirm modal
