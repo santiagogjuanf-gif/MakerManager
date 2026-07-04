@@ -306,11 +306,17 @@
     let advanceBtn='';
     if (nextStage==='Levantamiento') advanceBtn=`<button class="btn btn-primary" onclick="closeModal();jobGoToLevantamiento(${j.id})">📐 Levantamiento →</button>`;
     else if (nextStage==='Producción') advanceBtn=`<button class="btn btn-primary" onclick="closeModal();jobJustAdvance(${j.id},'Producción')">🖨️ Pasar a Producción</button>`;
-    else if (nextStage==='Cierre') advanceBtn=`<button id="view-cerrar-btn" class="btn btn-success" onclick="jobJustAdvance(${j.id},'Cierre')" ${allCamasDone?'':'style="display:none"'}>✅ Cerrar trabajo</button>`;
+
+    // In production stage: Guardar always visible, Cerrar appears only when all camas done
+    const isProduccion=nextStage==='Cierre';
+    const guardarBtn=isProduccion?`<button class="btn btn-primary" onclick="jobViewSave(${j.id})">💾 Guardar</button>`:'';
+    const cerrarBtn=isProduccion?`<button id="view-cerrar-btn" class="btn btn-success" onclick="jobJustAdvance(${j.id},'Cierre')" style="${allCamasDone?'':'display:none'}">✅ Cerrar trabajo</button>`:'';
 
     return `${html}<div class="form-actions">
       <button class="btn btn-secondary" onclick="closeModal();jobOpenForm(${j.id})">✏️ Editar</button>
       ${advanceBtn}
+      ${guardarBtn}
+      ${cerrarBtn}
       <button class="btn btn-danger" onclick="jobDelete(${j.id})">🗑️ Eliminar</button>
     </div>`;
   }
@@ -352,6 +358,13 @@
       // Refresh background list (tablero) silently
       api('GET','/api/jobs').then(jobs=>{ allJobs=jobs; renderJobs(); }).catch(()=>{});
     } catch(e) { showToast('Error: '+e.message,'error'); }
+  };
+
+  // Save from view modal (camas already persisted per-click); just close + refresh tablero
+  window.jobViewSave=async function(id){
+    closeModal();
+    showToast('Guardado');
+    await refreshJobs();
   };
 
   window.jobGoToLevantamiento=async function(id){ try { await api('PUT',`/api/jobs/${id}`,{estado:'Levantamiento'}); await jobOpenForm(id); } catch(e){showToast('Error: '+e.message,'error');} };
