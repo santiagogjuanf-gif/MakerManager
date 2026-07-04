@@ -71,6 +71,7 @@ router.get('/', async (req, res) => {
       FROM print_jobs pj
       LEFT JOIN clients c ON pj.cliente_id=c.id
       LEFT JOIN printers p ON pj.impresora_id=p.id
+      WHERE (pj.archivado IS NULL OR pj.archivado = 0)
       ORDER BY pj.created_at DESC
     `);
     for (const j of jobs) {
@@ -266,8 +267,10 @@ router.delete('/:id', async (req, res) => {
         await db.runAsync('UPDATE clients SET total_pedidos = MAX(0, total_pedidos - 1) WHERE id=?', [job.cliente_id]);
         await updateClassification(job.cliente_id);
       }
+      // Soft-delete: keep record for revenue history, just hide from tablero
+      await db.runAsync('UPDATE print_jobs SET archivado=1, archivado_at=? WHERE id=?',
+        [new Date().toISOString().slice(0,10), req.params.id]);
     }
-    await db.runAsync('DELETE FROM print_jobs WHERE id=?', [req.params.id]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

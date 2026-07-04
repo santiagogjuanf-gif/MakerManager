@@ -21,7 +21,16 @@
   function formatTime(min) { min=parseInt(min)||0; return `${Math.floor(min/60)}:${String(min%60).padStart(2,'0')}h`; }
   function tierBadge(tier) { const m={unitario:['badge-default','Unitario'],menudeo:['badge-regular','Menudeo'],mayoreo:['badge-frecuente','Mayoreo']}; const [c,l]=m[tier]||['badge-default',tier]; return `<span class="badge ${c}">${l}</span>`; }
   function spoolCard(f,size=60) {
-    if (typeof makeSpool==='function'&&f.material) return makeSpool({marca:f.marca||'',material:f.material||'',color:f.color||'',color_hex:f.color_hex||'',acabado:f.acabado||''},size);
+    if (typeof makeSpool==='function'&&f.material) {
+      // Lookup real stock from allFilaments; fall back to full spool if not found
+      const full=allFilaments.find(x=>x.id==(f.id||f.filamento_id))||{};
+      return makeSpool({
+        marca:f.marca||'',material:f.material||'',color:f.color||'',
+        color_hex:f.color_hex||'',acabado:f.acabado||'',
+        peso_actual_g: full.peso_actual_g??f.peso_actual_g??1000,
+        peso_inicial_g: full.peso_inicial_g??f.peso_inicial_g??1000,
+      },size);
+    }
     const hex=f.color_hex||colorHex(f.color||'');
     return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${hex};border:3px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*.18)}px;color:#fff;font-weight:700">${(f.material||'').substring(0,3)}</div>`;
   }

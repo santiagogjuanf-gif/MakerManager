@@ -70,7 +70,8 @@ function buildRevenueChart(data) {
     const x = PAD_L + i * slotW + (slotW - barW) / 2;
     const y = PAD_TOP + BAR_AREA - barH;
     const mes = d.mes ? monthNames[parseInt(d.mes.split('-')[1]) - 1] : '';
-    const valLabel = val >= 1000 ? `${(val/1000).toFixed(1)}k` : val > 0 ? Math.round(val).toString() : '';
+    const sym = (typeof appConfig !== 'undefined' && appConfig.simbolo_moneda) || '$';
+    const valLabel = val >= 1000 ? `${sym}${(val/1000).toFixed(1)}k` : val > 0 ? `${sym}${Math.round(val)}` : '';
     return `
       <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="4" fill="var(--accent)" opacity="0.85"/>
       ${valLabel ? `<text x="${(x+barW/2).toFixed(1)}" y="${(y-3).toFixed(1)}" text-anchor="middle" fill="var(--text-muted)" font-size="7.5" font-weight="600">${valLabel}</text>` : ''}

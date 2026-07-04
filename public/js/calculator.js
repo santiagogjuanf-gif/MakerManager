@@ -621,6 +621,8 @@
         <button type="button" class="btn btn-secondary" onclick="calcAceptar()">✓ Aceptar</button>
         ${_calcMode === 'producto'
           ? `<button type="button" id="calc-save-btn" class="btn btn-primary" onclick="calcGuardarProducto()">🏷️ ${_editingProductoId ? 'Actualizar producto' : 'Guardar en catálogo'}</button>`
+          : _calcMode === 'venta'
+          ? `<button type="button" class="btn btn-primary" onclick="calcCrearTrabajoDirecto()">🛒 Crear Trabajo</button>`
           : `<button type="button" id="calc-save-btn" class="btn btn-secondary" onclick="calcGuardarProducto(true)">🏷️ Guardar como producto</button>
              <button type="button" class="btn btn-primary" onclick="calcGuardar()">💾 ${_editingCotizacionId ? 'Actualizar cotización' : 'Guardar cotización'}</button>`
         }
@@ -810,6 +812,19 @@
     } catch (e) {
       showToast('Error al guardar: ' + e.message, 'error');
     }
+  };
+
+  // ── Crear trabajo directo desde modo venta (sin guardar cotización) ──────────
+  window.calcCrearTrabajoDirecto = async function() {
+    const datos = collectFormData();
+    const r = window._calcResult || {};
+    let cotizacionId;
+    try {
+      const saved = await api('POST', '/api/cotizaciones', { nombre: datos.nombre, datos, precio_unitario: r.precio_final || 0 });
+      cotizacionId = saved.id;
+    } catch(e) { showToast('Error: '+e.message,'error'); return; }
+    closeModal();
+    await aceptarCotizacion(cotizacionId);
   };
 
   // ── Ver cotizaciones guardadas ────────────────────────────────────────────────

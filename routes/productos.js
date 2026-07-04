@@ -51,6 +51,22 @@ router.put('/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+router.patch('/:id', async (req, res) => {
+  try {
+    const existing = await db.getAsync('SELECT * FROM productos WHERE id=?', [req.params.id]);
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    const nombre        = req.body.nombre        ?? existing.nombre;
+    const descripcion   = req.body.descripcion   ?? existing.descripcion;
+    const precio_online = req.body.precio_online ?? existing.precio_online;
+    const precio_local  = req.body.precio_local  ?? existing.precio_local;
+    await db.runAsync(
+      'UPDATE productos SET nombre=?, descripcion=?, precio_online=?, precio_local=? WHERE id=?',
+      [nombre, descripcion||'', precio_online||0, precio_local||0, req.params.id]
+    );
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.post('/:id/foto', upload.single('foto'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file' });

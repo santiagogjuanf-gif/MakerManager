@@ -84,7 +84,7 @@
     const filRows = (d.filamentos||[]).filter(f => f.nombre && parseFloat(f.gramos)>0).map(f => {
       const hex = f.color_hex || colorHex(f.color||'');
       const spoolHtml = typeof makeSpool === 'function' && f.material
-        ? makeSpool({ marca: f.marca||'', material: f.material||'', color: f.color||'', color_hex: f.color_hex||'', acabado: f.acabado||'' }, 60)
+        ? makeSpool({ marca: f.marca||'', material: f.material||'', color: f.color||'', color_hex: f.color_hex||'', acabado: f.acabado||'', peso_inicial_g: 1000, peso_actual_g: 1000 }, 60)
         : `<div style="width:60px;height:60px;border-radius:50%;background:${hex};border:2px solid var(--border)"></div>`;
       return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
         ${spoolHtml}
@@ -126,11 +126,12 @@
         <div style="display:flex;flex-wrap:wrap;gap:12px">${filRows || '<span style="color:var(--text-muted);font-size:12px">—</span>'}</div>
       </div>` : ''}
 
-      <div style="display:flex;gap:8px;justify-content:flex-end">
+      <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
         <button class="btn btn-danger btn-sm" onclick="catDeleteProduct(${id})">🗑️</button>
-        <button class="btn btn-secondary" onclick="catEditProduct(${id})">✏️ Editar</button>
+        <button class="btn btn-secondary btn-sm" onclick="catEditProduct(${id})">✏️ Editar</button>
+        <button class="btn btn-secondary btn-sm" onclick="catRecalcular(${id})">🧮 Recalcular</button>
         <button class="btn btn-secondary" onclick="closeModal()" style="margin-right:auto">Cerrar</button>
-        <button class="btn btn-primary" onclick="catCotizarCliente(${id})">🧮 Cotizar al cliente</button>
+        <button class="btn btn-primary" onclick="catCotizarCliente(${id})">🛒 Crear Trabajo</button>
       </div>
     `);
   };
@@ -139,14 +140,45 @@
     let prod;
     try { prod = await api('GET', `/api/productos/${id}`); } catch { showToast('Error','error'); return; }
     closeModal();
-    await openCalculator({ nombre: prod.nombre, _datos: prod.datos }, null, 'cotizacion');
+    await openCalculator({ nombre: prod.nombre, _datos: prod.datos }, null, 'venta');
   };
 
-  window.catEditProduct = async function(id) {
+  window.catRecalcular = async function(id) {
     let prod;
     try { prod = await api('GET', `/api/productos/${id}`); } catch { showToast('Error','error'); return; }
     closeModal();
     await openCalculator({ nombre: prod.nombre, _datos: prod.datos }, id, 'producto');
+  };
+
+  window.catEditProduct = async function(id) {
+    let prod;
+    try { prod = await api('GET', `/api/productos/${id}`); } catch { showToast('Error cargando producto','error'); return; }
+    openModal(`✏️ Editar Producto`, `
+      <div class="form-group"><label>Nombre *</label><input id="cat-edit-nombre" class="form-control" value="${(prod.nombre||'').replace(/"/g,'&quot;')}" autocomplete="off"></div>
+      <div class="form-group"><label>Descripción</label><textarea id="cat-edit-desc" class="form-control" rows="3">${prod.descripcion||''}</textarea></div>
+      <div class="form-grid">
+        <div class="form-group"><label>Precio Online</label><input id="cat-edit-online" class="form-control" type="number" step="any" value="${prod.precio_online||''}"></div>
+        <div class="form-group"><label>Precio Local</label><input id="cat-edit-local" class="form-control" type="number" step="any" value="${prod.precio_local||''}"></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="cancelModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="catEditSave(${id})">💾 Guardar</button>
+      </div>
+    `);
+  };
+
+  window.catEditSave = async function(id) {
+    const nombre = document.getElementById('cat-edit-nombre')?.value?.trim();
+    if (!nombre) { showToast('El nombre es obligatorio','error'); return; }
+    const precio_online = parseFloat(document.getElementById('cat-edit-online')?.value)||0;
+    const precio_local  = parseFloat(document.getElementById('cat-edit-local')?.value)||0;
+    const descripcion   = document.getElementById('cat-edit-desc')?.value?.trim()||'';
+    try {
+      await api('PATCH', `/api/productos/${id}`, { nombre, descripcion, precio_online, precio_local });
+      showToast('Producto actualizado');
+      closeModal();
+      await refreshCatalog();
+    } catch(e) { showToast('Error: '+e.message,'error'); }
   };
 
   window.catDeleteProduct = function(id) {
