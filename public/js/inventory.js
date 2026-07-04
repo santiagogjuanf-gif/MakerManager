@@ -1,5 +1,11 @@
 // Inventory page — dynamic tabs based on registered printer types
 (function () {
+  function restoreFocus(id, q) {
+    requestAnimationFrame(() => {
+      const el = document.getElementById(id);
+      if (el) { el.focus(); try { el.setSelectionRange(q.length, q.length); } catch {} }
+    });
+  }
   let allFilaments = [], allResinas = [], allLaser = [], allCNC = [];
   let allExternos = [], allInternos = [];
   let filPage = 1, resinPage = 1, laserPage = 1, cncPage = 1, extPage = 1, intPage = 1;
@@ -220,7 +226,7 @@
       <div class="fil-filter-panel${window.innerWidth <= 640 ? ' fil-filter-hidden' : ''}" id="fil-filter-panel">
         <input class="search-input form-control" style="flex:1;min-width:160px;max-width:240px"
           placeholder="Buscar filamento..." value="${filSearch}"
-          oninput="invSearchFil(this.value)" autocomplete="off">
+          id="inv-fil-search" oninput="invSearchFil(this.value)" autocomplete="off">
         <select class="form-control" style="width:auto" onchange="invSetFilFilter('mat',this.value)">
           <option value="">Material</option>${matOpts}
         </select>
@@ -241,7 +247,7 @@
     const panel = document.getElementById('fil-filter-panel');
     if (panel) panel.classList.toggle('fil-filter-hidden');
   };
-  window.invSearchFil = function (q) { filSearch = q; filPage = 1; renderFilaments(); };
+  window.invSearchFil = function (q) { filSearch = q; filPage = 1; renderFilaments(); restoreFocus('inv-fil-search', q); };
   window.invSetFilFilter = function (field, val) {
     if (field === 'mat') filFilterMat = val;
     else if (field === 'acabado') filFilterAcabado = val;
@@ -684,7 +690,7 @@
       <div class="table-container">
         <div class="table-toolbar">
           <input class="search-input form-control" style="width:220px" placeholder="Buscar resina..." value="${resinSearch}"
-            oninput="invSearchResin(this.value)" autocomplete="off">
+            id="inv-resin-search" oninput="invSearchResin(this.value)" autocomplete="off">
           <button class="btn btn-primary" onclick="invOpenResinaForm()">＋ Agregar</button>
         </div>
         <table>
@@ -697,7 +703,7 @@
     if (totalPages > 1) renderPaginationInline('resin-pagination', resinPage, totalPages, (p) => { resinPage = p; renderResinas(); });
   }
 
-  window.invSearchResin = function (q) { resinSearch = q; resinPage = 1; renderResinas(); };
+  window.invSearchResin = function (q) { resinSearch = q; resinPage = 1; renderResinas(); restoreFocus('inv-resin-search', q); };
 
   window.invOpenResinaForm = async function (id) {
     const r = id ? (allResinas.find(x => x.id === id) || {}) : {};
@@ -784,7 +790,7 @@
       <div class="table-container">
         <div class="table-toolbar">
           <input class="search-input form-control" style="width:220px" placeholder="Buscar consumible..." value="${laserSearch}"
-            oninput="invSearchLaser(this.value)" autocomplete="off">
+            id="inv-laser-search" oninput="invSearchLaser(this.value)" autocomplete="off">
           <button class="btn btn-primary" onclick="invOpenLaserForm()">＋ Agregar</button>
         </div>
         <table>
@@ -797,7 +803,7 @@
     if (totalPages > 1) renderPaginationInline('laser-pagination', laserPage, totalPages, (p) => { laserPage = p; renderLaser(); });
   }
 
-  window.invSearchLaser = function (q) { laserSearch = q; laserPage = 1; renderLaser(); };
+  window.invSearchLaser = function (q) { laserSearch = q; laserPage = 1; renderLaser(); restoreFocus('inv-laser-search', q); };
 
   function consumibleForm(data, submitFn) {
     const c = data || {};
@@ -879,7 +885,7 @@
       <div class="table-container">
         <div class="table-toolbar">
           <input class="search-input form-control" style="width:220px" placeholder="Buscar consumible..." value="${cncSearch}"
-            oninput="invSearchCNC(this.value)" autocomplete="off">
+            id="inv-cnc-search" oninput="invSearchCNC(this.value)" autocomplete="off">
           <button class="btn btn-primary" onclick="invOpenCNCForm()">＋ Agregar</button>
         </div>
         <table>
@@ -892,7 +898,7 @@
     if (totalPages > 1) renderPaginationInline('cnc-pagination', cncPage, totalPages, (p) => { cncPage = p; renderCNC(); });
   }
 
-  window.invSearchCNC = function (q) { cncSearch = q; cncPage = 1; renderCNC(); };
+  window.invSearchCNC = function (q) { cncSearch = q; cncPage = 1; renderCNC(); restoreFocus('inv-cnc-search', q); };
 
   window.invOpenCNCForm = function (id) {
     const c = id ? (allCNC.find(x => x.id === id) || {}) : {};
@@ -990,7 +996,7 @@
 
     tab.innerHTML = `
     <div class="fil-toolbar-top">
-      <input class="search-input form-control" style="flex:1;max-width:280px" placeholder="Buscar..." value="${extSearch}" oninput="invSearchExt(this.value)" autocomplete="off">
+      <input class="search-input form-control" style="flex:1;max-width:280px" id="inv-ext-search" placeholder="Buscar..." value="${extSearch}" oninput="invSearchExt(this.value)" autocomplete="off">
       <button class="btn btn-primary btn-sm" onclick="invOpenExtForm()">＋ Agregar</button>
     </div>
     ${cards}
@@ -998,7 +1004,7 @@
     renderPaginationInline('ext-pagination', extPage, totalPages, p => { extPage = p; renderExternos(); });
   }
 
-  window.invSearchExt = function(q) { extSearch = q; extPage = 1; renderExternos(); };
+  window.invSearchExt = function(q) { extSearch = q; extPage = 1; renderExternos(); restoreFocus('inv-ext-search', q); };
 
   const CONS_EMOJIS = [
     // Herramientas
@@ -1116,7 +1122,7 @@
 
     tab.innerHTML = `
     <div class="fil-toolbar-top">
-      <input class="search-input form-control" style="flex:1;max-width:280px" placeholder="Buscar..." value="${intSearch}" oninput="invSearchInt(this.value)" autocomplete="off">
+      <input class="search-input form-control" style="flex:1;max-width:280px" id="inv-int-search" placeholder="Buscar..." value="${intSearch}" oninput="invSearchInt(this.value)" autocomplete="off">
       <button class="btn btn-primary btn-sm" onclick="invOpenIntForm()">＋ Agregar</button>
     </div>
     ${cards}
@@ -1124,7 +1130,7 @@
     renderPaginationInline('int-pagination', intPage, totalPages, p => { intPage = p; renderInternos(); });
   }
 
-  window.invSearchInt = function(q) { intSearch = q; intPage = 1; renderInternos(); };
+  window.invSearchInt = function(q) { intSearch = q; intPage = 1; renderInternos(); restoreFocus('inv-int-search', q); };
   window.invOpenIntForm = function(id) { consumibleForm('interno', id, id ? allInternos.find(x=>x.id===id)||{} : {}); };
   window.invEditInt = function(id) { invOpenIntForm(id); };
   window.invDeleteInt = function(id) {

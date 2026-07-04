@@ -138,7 +138,7 @@
         </div>`;
       }
 
-      return `<div style="flex:1;min-width:240px;max-width:320px">
+      return `<div style="flex:1 1 280px;min-width:260px;max-width:100%">
         <div style="background:${st.color}22;border:1px solid ${st.color}44;border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:6px">
           <span>${st.icon}</span>
           <span style="font-size:13px;font-weight:700;color:${st.color}">${st.key}</span>
@@ -148,7 +148,7 @@
       </div>`;
     }).join('');
 
-    return `<div style="display:flex;gap:16px;overflow-x:auto;padding-bottom:12px;align-items:flex-start">${cols}</div>`;
+    return `<div style="display:flex;flex-wrap:wrap;gap:16px;padding-bottom:12px;align-items:flex-start">${cols}</div>`;
   }
 
   window.colPg=function(stage,page){ colPage[stage]=page; renderJobs(); };
@@ -297,14 +297,17 @@
     }
 
     const nextStage=STAGES[idx].next;
-    let nextBtn='';
-    if (nextStage==='Levantamiento') nextBtn=`<button class="btn btn-primary" onclick="closeModal();jobGoToLevantamiento(${j.id})">📐 Levantamiento →</button>`;
-    else if (nextStage==='Producción') nextBtn=`<button class="btn btn-primary" onclick="closeModal();jobJustAdvance(${j.id},'Producción')">🖨️ Pasar a Producción</button>`;
-    else if (nextStage==='Cierre')     nextBtn=`<button class="btn btn-primary" onclick="closeModal();jobOpenForm(${j.id})">✅ Cierre →</button>`;
+    const camas=j.camas||[];
+    const allCamasDone=camas.length>0&&camas.every(c=>c.completada);
+
+    let advanceBtn='';
+    if (nextStage==='Levantamiento') advanceBtn=`<button class="btn btn-primary" onclick="closeModal();jobGoToLevantamiento(${j.id})">📐 Levantamiento →</button>`;
+    else if (nextStage==='Producción') advanceBtn=`<button class="btn btn-primary" onclick="closeModal();jobJustAdvance(${j.id},'Producción')">🖨️ Pasar a Producción</button>`;
+    else if (nextStage==='Cierre') advanceBtn=`<button id="view-cerrar-btn" class="btn btn-success" onclick="jobJustAdvance(${j.id},'Cierre')" ${allCamasDone?'':'style="display:none"'}>✅ Cerrar trabajo</button>`;
 
     return `${html}<div class="form-actions">
       <button class="btn btn-secondary" onclick="closeModal();jobOpenForm(${j.id})">✏️ Editar</button>
-      ${nextBtn}
+      ${advanceBtn}
       <button class="btn btn-danger" onclick="jobDelete(${j.id})">🗑️ Eliminar</button>
     </div>`;
   }
@@ -337,9 +340,12 @@
       // Update header text
       const box=document.getElementById('job-camas-box');
       if (box) { const h=box.querySelector('div');if(h)h.querySelector('div').textContent=`🛏️ CAMAS (${done}/${camas.length})`; }
-      // Show/hide "Cerrar trabajo" based on all camas done
+      // Show/hide "Cerrar trabajo" based on all camas done (edit form or view modal)
+      const allDone=camas.length>0&&camas.every(c=>c.completada);
       const cerrarBtn=document.getElementById('prod-cerrar-btn');
-      if (cerrarBtn) cerrarBtn.style.display=(camas.length>0&&camas.every(c=>c.completada))?'':'none';
+      if (cerrarBtn) cerrarBtn.style.display=allDone?'':'none';
+      const viewCerrarBtn=document.getElementById('view-cerrar-btn');
+      if (viewCerrarBtn) viewCerrarBtn.style.display=allDone?'':'none';
       // Refresh background list (tablero) silently
       api('GET','/api/jobs').then(jobs=>{ allJobs=jobs; renderJobs(); }).catch(()=>{});
     } catch(e) { showToast('Error: '+e.message,'error'); }
