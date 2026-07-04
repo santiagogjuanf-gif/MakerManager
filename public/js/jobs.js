@@ -297,7 +297,6 @@
     }
 
     const nextStage=STAGES[idx].next;
-    const camas=j.camas||[];
     const allCamasDone=camas.length>0&&camas.every(c=>c.completada);
 
     let advanceBtn='';

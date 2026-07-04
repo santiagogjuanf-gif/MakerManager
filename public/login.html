@@ -7,8 +7,9 @@
   <link rel="stylesheet" href="/css/styles.css">
   <link rel="icon" href="/favicon.png">
   <style>
-    body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg); }
-    .login-wrap { width:100%; max-width:420px; padding:20px; }
+    body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg); position:relative; overflow:hidden; }
+    #bg-canvas { position:fixed; inset:0; width:100%;height:100%; pointer-events:none; z-index:0; }
+    .login-wrap { width:100%; max-width:420px; padding:20px; position:relative; z-index:1; }
     .login-box { background:var(--card); border:1px solid var(--border); border-radius:20px; padding:48px 40px; box-shadow:0 24px 64px rgba(0,0,0,0.5); }
     .login-logo { text-align:center; margin-bottom:28px; }
     .login-logo img { width:80px; height:80px; object-fit:contain; border-radius:12px; }
@@ -24,6 +25,7 @@
   </style>
 </head>
 <body>
+  <canvas id="bg-canvas"></canvas>
   <div class="login-wrap">
     <div class="login-box">
       <div class="login-logo" id="ll"><div class="lp">⚙️</div></div>
@@ -44,9 +46,11 @@
     </div>
     <div class="login-footer">MakerManager v2.0</div>
   </div>
+  <script src="/js/bg-anim.js"></script>
   <script>
     const THEMES={morado:{accent:'#6c63ff',accentLight:'#8b84ff',bg:'#0f1117',surface:'#1a1d27',card:'#1e2130',border:'#2d3148',text:'#e2e8f0',textMuted:'#8892a4'},cerberus:{accent:'#f97316',accentLight:'#fb923c',bg:'#080b10',surface:'#111318',card:'#14171e',border:'#1f2330',text:'#f1f5f9',textMuted:'#8892a4'},cian:{accent:'#06b6d4',accentLight:'#22d3ee',bg:'#f8fafc',surface:'#f1f5f9',card:'#ffffff',border:'#e2e8f0',text:'#1e293b',textMuted:'#64748b'},bambu:{accent:'#4ade80',accentLight:'#86efac',bg:'#f8fafc',surface:'#f0fdf4',card:'#ffffff',border:'#d1fae5',text:'#1e293b',textMuted:'#64748b'}};
     function applyTheme(t){const th=THEMES[t]||THEMES.morado;const r=document.documentElement.style;[['--accent',th.accent],['--accent-light',th.accentLight],['--accent-dim',th.accent+'26'],['--bg',th.bg],['--surface',th.surface],['--card',th.card],['--border',th.border],['--text',th.text],['--text-muted',th.textMuted]].forEach(([k,v])=>r.setProperty(k,v));}
+    window.addEventListener('load', () => initBgAnim('bg-canvas'));
     fetch('/api/config').then(r=>r.json()).then(cfg=>{
       if(cfg.nombre_negocio) document.getElementById('ln').textContent=cfg.nombre_negocio;
       if(cfg.logo_path) document.getElementById('ll').innerHTML=`<img src="${cfg.logo_path}" alt="Logo">`;
