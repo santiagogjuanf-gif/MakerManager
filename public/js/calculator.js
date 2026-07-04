@@ -1137,21 +1137,44 @@
     const d = row.datos || {};
     const r = window._calcResult || {};
 
-    // Build job body from cotización data
+    // Build levantamiento_datos from cotización so it pre-fills the Levantamiento form
+    const levDatos = {
+      printer_id:   null,
+      printer:      d.printer || '',
+      tiempo_h:     d.tiempo_h || 0,
+      tiempo_m:     d.tiempo_m || 0,
+      mo_h:         d.mo_h || 0,
+      mo_m:         d.mo_m || 0,
+      embalaje:     d.embalaje || 0,
+      tier:         d.tier || 'unitario',
+      filamentos:   (d.filamentos || []).map(f => ({
+        fil_id:          f.fil_id || null,
+        filamento_id:    f.fil_id || null,
+        gramos:          parseFloat(f.gramos || 0),
+        gramos_pieza:    parseFloat(f.gramos || 0),
+        nombre:          f.nombre || '',
+        color:           f.color || '',
+        color_hex:       f.color_hex || '',
+        material:        f.material || '',
+        acabado:         f.acabado || '',
+        marca:           f.marca || '',
+        nombre_comercial:f.nombre_comercial || '',
+      })),
+    };
+
     const jobBody = {
       nombre_proyecto:       jobNombre,
       cliente_id:            clienteId,
       descripcion:           jobNotas,
       estado:                'Solicitud',
-      impresora_id:          null,
       tiempo_impresion_min:  (parseFloat(d.tiempo_h||0)*60 + parseFloat(d.tiempo_m||0)),
-      tiempo_preparacion_min: 0,
-      tiempo_postproceso_min: 0,
-      tiempo_diseno_min:      (parseFloat(d.mo_h||0)*60 + parseFloat(d.mo_m||0)),
+      tiempo_diseno_min:     (parseFloat(d.mo_h||0)*60 + parseFloat(d.mo_m||0)),
       precio_unitario:        row.precio_unitario || 0,
       precio_final:           row.precio_unitario || 0,
       tipo_precio:            d.tier || 'unitario',
       notas:                  jobNotas,
+      cotizacion_id:          cotizacionId,
+      levantamiento_datos:    levDatos,
     };
 
     try {

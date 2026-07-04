@@ -148,6 +148,15 @@ async function init() {
       peso_nuevo REAL,
       nota TEXT)`,
 
+    `CREATE TABLE IF NOT EXISTS job_camas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      print_job_id INTEGER REFERENCES print_jobs(id) ON DELETE CASCADE,
+      numero INTEGER DEFAULT 1,
+      descripcion TEXT,
+      tiempo_min INTEGER DEFAULT 60,
+      completada INTEGER DEFAULT 0,
+      completada_at TEXT)`,
+
     `CREATE TABLE IF NOT EXISTS productos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nombre TEXT NOT NULL,
@@ -175,6 +184,12 @@ async function init() {
   ];
   for (const colDef of filColumns) {
     try { await db.runAsync(`ALTER TABLE filaments ADD COLUMN ${colDef}`); } catch (e) { /* column already exists */ }
+  }
+
+  // Migrate print_jobs with levantamiento and cotizacion link columns
+  const jobLevColumns = ['levantamiento_datos TEXT', 'cotizacion_id INTEGER'];
+  for (const colDef of jobLevColumns) {
+    try { await db.runAsync(`ALTER TABLE print_jobs ADD COLUMN ${colDef}`); } catch (e) { /* exists */ }
   }
 
   // Fix costo_por_gramo: recalculate using peso_inicial_g directly (not minus spool weight)

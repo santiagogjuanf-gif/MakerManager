@@ -90,9 +90,10 @@ router.get('/:id', async (req, res) => {
       WHERE pj.id=?`, [req.params.id]);
     if (!job) return res.status(404).json({ error: 'Not found' });
     job.filaments = await db.allAsync(
-      'SELECT jf.*, f.color, f.material, f.nombre_comercial, f.costo_por_gramo FROM job_filaments jf JOIN filaments f ON jf.filamento_id=f.id WHERE jf.print_job_id=?', [req.params.id]);
+      'SELECT jf.*, f.color, f.material, f.nombre_comercial, f.costo_por_gramo, f.marca FROM job_filaments jf JOIN filaments f ON jf.filamento_id=f.id WHERE jf.print_job_id=?', [req.params.id]);
     job.products = await db.allAsync('SELECT * FROM job_products WHERE print_job_id=?', [req.params.id]);
     job.extras = await db.allAsync('SELECT * FROM job_extras WHERE print_job_id=?', [req.params.id]);
+    job.camas = await db.allAsync('SELECT * FROM job_camas WHERE print_job_id=? ORDER BY numero ASC', [req.params.id]);
     res.json(job);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -139,6 +140,16 @@ async function saveJobData(jobId, d) {
       );
     }
   }
+  // Save camas (print beds)
+  if (d.camas && Array.isArray(d.camas)) {
+    await db.runAsync('DELETE FROM job_camas WHERE print_job_id=?', [jobId]);
+    for (const c of d.camas) {
+      await db.runAsync(
+        'INSERT INTO job_camas (print_job_id,numero,descripcion,tiempo_min,completada) VALUES (?,?,?,?,?)',
+        [jobId, c.numero||1, c.descripcion||'', parseInt(c.tiempo_min)||60, c.completada?1:0]
+      );
+    }
+  }
 }
 
 async function deductInventory(d, sign = -1) {
@@ -161,14 +172,31 @@ async function deductInventory(d, sign = -1) {
   }
 }
 
+router.patch('/:id/camas/:camaId', async (req, res) => {
+  try {
+    const cama = await db.getAsync('SELECT * FROM job_camas WHERE id=? AND print_job_id=?', [req.params.camaId, req.params.id]);
+    if (!cama) return res.status(404).json({ error: 'Not found' });
+    const completada = cama.completada ? 0 : 1;
+    await db.runAsync(
+      'UPDATE job_camas SET completada=?, completada_at=? WHERE id=?',
+      [completada, completada ? new Date().toISOString().slice(0,10) : null, req.params.camaId]
+    );
+    res.json({ success: true, completada });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 router.post('/', async (req, res) => {
   try {
     const d = req.body;
     const r = await db.runAsync(
-      `INSERT INTO print_jobs (nombre_proyecto,cliente_id,fecha,descripcion,estado)
-       VALUES (?,?,?,?,?)`,
+      `INSERT INTO print_jobs (nombre_proyecto,cliente_id,fecha,descripcion,estado,levantamiento_datos,cotizacion_id,precio_final,tipo_precio,tiempo_impresion_min,tiempo_diseno_min)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
       [d.nombre_proyecto, d.cliente_id||null, d.fecha||new Date().toISOString().slice(0,10),
-       d.descripcion||null, 'Solicitud']
+       d.descripcion||null, d.estado||'Solicitud',
+       d.levantamiento_datos ? JSON.stringify(d.levantamiento_datos) : null,
+       d.cotizacion_id||null,
+       d.precio_final||null, d.tipo_precio||'unitario',
+       d.tiempo_impresion_min||0, d.tiempo_diseno_min||0]
     );
     if (d.cliente_id) {
       await db.runAsync('UPDATE clients SET total_pedidos = total_pedidos + 1 WHERE id=?', [d.cliente_id]);
@@ -197,14 +225,18 @@ router.put('/:id', async (req, res) => {
     }
 
     await db.runAsync(
-      `UPDATE print_jobs SET nombre_proyecto=?,cliente_id=?,fecha=?,descripcion=?,estado=?,impresora_id=?,gramos_purga=?,gramos_perdidos=?,tiempo_impresion_min=?,tiempo_preparacion_min=?,tiempo_postproceso_min=?,tiempo_diseno_min=?,fallo=?,notas=?,notas_produccion=?,precio_unitario=?,precio_menudeo=?,precio_mayoreo=?,precio_final=?,tipo_precio=?,requiere_factura=? WHERE id=?`,
+      `UPDATE print_jobs SET nombre_proyecto=?,cliente_id=?,fecha=?,descripcion=?,estado=?,impresora_id=?,gramos_purga=?,gramos_perdidos=?,tiempo_impresion_min=?,tiempo_preparacion_min=?,tiempo_postproceso_min=?,tiempo_diseno_min=?,fallo=?,notas=?,notas_produccion=?,precio_unitario=?,precio_menudeo=?,precio_mayoreo=?,precio_final=?,tipo_precio=?,requiere_factura=?,levantamiento_datos=?,cotizacion_id=? WHERE id=?`,
       [merged.nombre_proyecto, merged.cliente_id||null, merged.fecha, merged.descripcion||null, merged.estado||'Solicitud', merged.impresora_id||null,
        merged.gramos_purga||0, merged.gramos_perdidos||0,
        merged.tiempo_impresion_min||0, merged.tiempo_preparacion_min||0,
        merged.tiempo_postproceso_min||0, merged.tiempo_diseno_min||0,
        merged.fallo?1:0, merged.notas, merged.notas_produccion,
        merged.precio_unitario||null, merged.precio_menudeo||null, merged.precio_mayoreo||null,
-       merged.precio_final||null, merged.tipo_precio||'menudeo', merged.requiere_factura?1:0, req.params.id]
+       merged.precio_final||null, merged.tipo_precio||'menudeo', merged.requiere_factura?1:0,
+       d.levantamiento_datos !== undefined
+         ? (d.levantamiento_datos ? JSON.stringify(d.levantamiento_datos) : null)
+         : old.levantamiento_datos,
+       merged.cotizacion_id||null, req.params.id]
     );
     if (d.filaments !== undefined || d.products !== undefined || d.extras !== undefined) {
       await saveJobData(req.params.id, d);
