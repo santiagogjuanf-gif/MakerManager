@@ -147,6 +147,16 @@ async function init() {
       peso_anterior REAL,
       peso_nuevo REAL,
       nota TEXT)`,
+
+    `CREATE TABLE IF NOT EXISTS productos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT NOT NULL,
+      descripcion TEXT,
+      foto_path TEXT,
+      datos TEXT,
+      precio_online REAL DEFAULT 0,
+      precio_local REAL DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
   ];
 
   for (const sql of tables) await db.runAsync(sql);

@@ -1,10 +1,12 @@
 (function () {
   // ── State ────────────────────────────────────────────────────────────────────
-  let filCount = 1;      // how many filament rows
-  let hwCount  = 0;      // how many hardware rows
+  let filCount = 1;
+  let hwCount  = 0;
   let _allFils = [];
   let _allPrinters = [];
-  let _editingCotizacionId = null;  // null = new, number = editing existing
+  let _editingCotizacionId = null;   // null = new cotización, number = editing existing
+  let _editingProductoId   = null;   // null = new product, number = editing existing
+  let _calcMode = 'cotizacion';      // 'cotizacion' | 'producto'
 
   // Volume tier margins — read from appConfig at runtime
   function getTiers() {
@@ -411,7 +413,19 @@
       const cg  = document.getElementById(`calc-fil-cg-${i}`)?.value;
       if (sel && sel.value) {
         const opt = sel.options[sel.selectedIndex];
-        fils.push({ nombre: opt?.text || '', fil_id: opt?.dataset?.id || '', gramos: g, costo_g: cg });
+        const filId = opt?.dataset?.id || '';
+        const matched = filId ? _allFils.find(f => f.id == filId) : null;
+        fils.push({
+          nombre:    opt?.text || '',
+          fil_id:    filId,
+          gramos:    g,
+          costo_g:   cg,
+          color:     matched?.color     || '',
+          material:  matched?.material  || '',
+          color_hex: matched?.color_hex || '',
+          acabado:   matched?.acabado   || '',
+          marca:     matched?.marca     || '',
+        });
       }
     }
     const hws = [];
@@ -440,10 +454,12 @@
   }
 
   // ── Open modal ────────────────────────────────────────────────────────────────
-  window.openCalculator = async function(prefill, editingId) {
+  window.openCalculator = async function(prefill, editingId, mode) {
     filCount = 1;
     hwCount  = 0;
-    _editingCotizacionId = editingId || null;
+    _calcMode = mode || 'cotizacion';
+    _editingCotizacionId = (_calcMode === 'cotizacion') ? (editingId || null) : null;
+    _editingProductoId   = (_calcMode === 'producto')   ? (editingId || null) : null;
 
     await loadData();
 
@@ -603,7 +619,11 @@
         <button type="button" class="btn btn-secondary" onclick="closeModal()">✗ Cancelar</button>
         <button type="button" class="btn btn-secondary" onclick="verCotizaciones()" style="margin-right:auto">📂 Ver guardadas</button>
         <button type="button" class="btn btn-secondary" onclick="calcAceptar()">✓ Aceptar</button>
-        <button type="button" id="calc-save-btn" class="btn btn-primary" onclick="calcGuardar()">💾 ${_editingCotizacionId ? 'Actualizar cotización' : 'Guardar cotización'}</button>
+        ${_calcMode === 'producto'
+          ? `<button type="button" id="calc-save-btn" class="btn btn-primary" onclick="calcGuardarProducto()">🏷️ ${_editingProductoId ? 'Actualizar producto' : 'Guardar en catálogo'}</button>`
+          : `<button type="button" id="calc-save-btn" class="btn btn-secondary" onclick="calcGuardarProducto(true)">🏷️ Guardar como producto</button>
+             <button type="button" class="btn btn-primary" onclick="calcGuardar()">💾 ${_editingCotizacionId ? 'Actualizar cotización' : 'Guardar cotización'}</button>`
+        }
       </div>
     `);
 
@@ -738,6 +758,31 @@
 
     return errors;
   }
+
+  window.calcGuardarProducto = async function(andAlsoCotizacion) {
+    const errors = calcValidate();
+    const errEl = document.getElementById('calc-save-errors');
+    if (errors.length > 0) {
+      if (errEl) { errEl.innerHTML = errors.map(e => `<div>⚠️ ${e}</div>`).join(''); errEl.style.display = 'block'; }
+      return;
+    }
+    if (errEl) errEl.style.display = 'none';
+    const datos = collectFormData();
+    const r = window._calcResult || {};
+    try {
+      if (_editingProductoId) {
+        await api('PUT', `/api/productos/${_editingProductoId}`, { nombre: datos.nombre, datos, precio_online: r.precio_final || 0, precio_local: r.precio_local || 0 });
+        showToast(`Producto "${datos.nombre}" actualizado`);
+      } else {
+        await api('POST', '/api/productos', { nombre: datos.nombre, datos, precio_online: r.precio_final || 0, precio_local: r.precio_local || 0 });
+        showToast(`"${datos.nombre}" guardado en catálogo`);
+      }
+      if (window.refreshCatalog) refreshCatalog();
+      if (!andAlsoCotizacion) { closeModal(); return; }
+    } catch (e) { showToast('Error: ' + e.message, 'error'); return; }
+    // Also save as cotización if called from cotización mode
+    if (andAlsoCotizacion) await window.calcGuardar();
+  };
 
   window.calcGuardar = async function() {
     const errors = calcValidate();
@@ -957,11 +1002,12 @@
           </div>
         </div>
       </div>
-      <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+      <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
         <button class="btn btn-danger btn-sm" onclick="eliminarCotizacion(${id})">🗑️ Eliminar</button>
         <button class="btn btn-secondary" onclick="verCotizaciones()">← Volver</button>
         <button class="btn btn-secondary" onclick="printCotizacion(${id})">🖨️ Imprimir</button>
-        <button class="btn btn-primary" onclick="editarCotizacion(${id})">✏️ Editar</button>
+        <button class="btn btn-secondary" onclick="editarCotizacion(${id})">✏️ Editar</button>
+        <button class="btn btn-primary" onclick="aceptarCotizacion(${id})">✅ Aceptar cotización</button>
       </div>
     `);
     document.getElementById('modal-box')?.classList.add('modal-wide');
@@ -982,6 +1028,141 @@
         verCotizaciones();
       } catch (e) { showToast('Error: ' + e.message, 'error'); }
     }, '🗑️');
+  };
+
+  // ── Aceptar cotización → crear trabajo ───────────────────────────────────────
+  window.aceptarCotizacion = async function(id) {
+    let row;
+    try { row = await api('GET', `/api/cotizaciones/${id}`); } catch { showToast('Error','error'); return; }
+    const d = row.datos || {};
+
+    // Check filament availability
+    let filWarnings = [];
+    if (_allFils.length === 0) await loadData();
+    (d.filamentos||[]).filter(f => f.fil_id || f.nombre).forEach(f => {
+      const found = f.fil_id
+        ? _allFils.find(af => af.id == f.fil_id)
+        : _allFils.find(af => `${af.marca||''} ${af.material}`.trim().toLowerCase() === (f.nombre||'').toLowerCase().split(' ').slice(0,2).join(' '));
+      if (!found) {
+        filWarnings.push(`"${f.nombre}" — no encontrado en inventario`);
+      } else if (found.estado === 'Agotado' || parseFloat(found.peso_actual_g||0) < parseFloat(f.gramos||0)) {
+        filWarnings.push(`"${f.nombre}" — ${found.estado === 'Agotado' ? 'agotado' : `solo ${Math.round(found.peso_actual_g)}g disponibles, necesitas ${f.gramos}g`}`);
+      }
+    });
+
+    // Load clients for picker
+    let allClients = [];
+    try { allClients = await api('GET', '/api/clients'); } catch {}
+
+    const warnHtml = filWarnings.length > 0 ? `
+      <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.4);border-radius:10px;padding:10px 12px;margin-bottom:16px">
+        <div style="font-size:12px;font-weight:700;color:#f59e0b;margin-bottom:6px">⚠️ Advertencia de inventario</div>
+        ${filWarnings.map(w => `<div style="font-size:12px;color:var(--text-muted)">${w}</div>`).join('')}
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Puedes continuar, pero verifica tu inventario antes de producir.</div>
+      </div>` : '';
+
+    const clientOpts = allClients.map(c =>
+      `<option value="${c.id}">${c.nombre}${c.telefono?' · '+c.telefono:''}</option>`
+    ).join('');
+
+    openModal('✅ Aceptar cotización', `
+      ${warnHtml}
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+        Cotización: <strong>${row.nombre}</strong> · ${fmtMoney(row.precio_unitario)}/pieza
+      </div>
+
+      <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:12px;letter-spacing:.05em">👤 CLIENTE</div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label style="font-size:12px">Seleccionar cliente existente</label>
+          <select id="acept-client-sel" class="form-control" onchange="acept_clientChange()">
+            <option value="">— Seleccionar o crear nuevo —</option>
+            ${clientOpts}
+          </select>
+        </div>
+        <div id="acept-new-client" style="">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;text-align:center">— ó crear cliente nuevo —</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="form-group" style="margin:0"><label style="font-size:11px">Nombre *</label><input id="acept-cl-nombre" class="form-control" placeholder="Nombre del cliente" autocomplete="off"></div>
+            <div class="form-group" style="margin:0"><label style="font-size:11px">Teléfono</label><input id="acept-cl-tel" class="form-control" placeholder="+1 xxx xxxx" autocomplete="off"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:12px;letter-spacing:.05em">📋 TRABAJO</div>
+        <div class="form-group" style="margin-bottom:8px">
+          <label style="font-size:12px">Nombre del trabajo</label>
+          <input id="acept-job-nombre" class="form-control" value="${row.nombre}" autocomplete="off">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label style="font-size:12px">Notas adicionales</label>
+          <textarea id="acept-job-notas" class="form-control" rows="2" placeholder="Instrucciones especiales, variantes, etc." autocomplete="off"></textarea>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="acept_confirmar(${id})">✅ Crear trabajo</button>
+      </div>
+    `);
+  };
+
+  window.acept_clientChange = function() {
+    const sel = document.getElementById('acept-client-sel');
+    const newClientDiv = document.getElementById('acept-new-client');
+    if (newClientDiv) newClientDiv.style.display = sel?.value ? 'none' : '';
+  };
+
+  window.acept_confirmar = async function(cotizacionId) {
+    const clientSel   = document.getElementById('acept-client-sel');
+    const clNombre    = document.getElementById('acept-cl-nombre')?.value?.trim();
+    const clTel       = document.getElementById('acept-cl-tel')?.value?.trim();
+    const jobNombre   = document.getElementById('acept-job-nombre')?.value?.trim() || 'Sin nombre';
+    const jobNotas    = document.getElementById('acept-job-notas')?.value?.trim() || '';
+
+    let clienteId = clientSel?.value ? parseInt(clientSel.value) : null;
+
+    // Create new client if no existing selected
+    if (!clienteId && clNombre) {
+      try {
+        const r = await api('POST', '/api/clients', { nombre: clNombre, telefono: clTel });
+        clienteId = r.id;
+      } catch (e) { showToast('Error creando cliente: ' + e.message, 'error'); return; }
+    }
+
+    // Get cotización data
+    let row;
+    try { row = await api('GET', `/api/cotizaciones/${cotizacionId}`); } catch { showToast('Error','error'); return; }
+    const d = row.datos || {};
+    const r = window._calcResult || {};
+
+    // Build job body from cotización data
+    const jobBody = {
+      nombre_proyecto:       jobNombre,
+      cliente_id:            clienteId,
+      descripcion:           jobNotas,
+      estado:                'Solicitud',
+      impresora_id:          null,
+      tiempo_impresion_min:  (parseFloat(d.tiempo_h||0)*60 + parseFloat(d.tiempo_m||0)),
+      tiempo_preparacion_min: 0,
+      tiempo_postproceso_min: 0,
+      tiempo_diseno_min:      (parseFloat(d.mo_h||0)*60 + parseFloat(d.mo_m||0)),
+      precio_unitario:        row.precio_unitario || 0,
+      precio_final:           row.precio_unitario || 0,
+      tipo_precio:            d.tier || 'unitario',
+      notas:                  jobNotas,
+    };
+
+    try {
+      const created = await api('POST', '/api/jobs', jobBody);
+      showToast(`Trabajo "${jobNombre}" creado en Solicitud`);
+      closeModal();
+      // Navigate to kanban/jobs
+      window._jobToOpen = created.id;
+      window.location.hash = 'jobs';
+      navigate('jobs');
+    } catch (e) { showToast('Error creando trabajo: ' + e.message, 'error'); }
   };
 
   // ── Print / PDF cotización ────────────────────────────────────────────────────

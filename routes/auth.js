@@ -4,7 +4,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../database/db');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'makermanager-secret-2024';
+// Random secret per process start — forces re-login on every server restart.
+// Set JWT_SECRET env var for a persistent secret (e.g. in production with PM2).
+const JWT_SECRET = process.env.JWT_SECRET || require('crypto').randomBytes(32).toString('hex');
 
 router.post('/login', async (req, res) => {
   try {
