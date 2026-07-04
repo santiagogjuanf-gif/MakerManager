@@ -166,6 +166,18 @@ async function init() {
       precio_online REAL DEFAULT 0,
       precio_local REAL DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
+
+    `CREATE TABLE IF NOT EXISTS gastos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fecha TEXT DEFAULT CURRENT_DATE,
+      categoria TEXT DEFAULT 'General',
+      descripcion TEXT NOT NULL,
+      monto REAL DEFAULT 0,
+      proveedor TEXT,
+      referencia_tipo TEXT,
+      referencia_id INTEGER,
+      notas TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
   ];
 
   for (const sql of tables) await db.runAsync(sql);

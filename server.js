@@ -29,6 +29,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/consumibles', require('./routes/consumibles'));
 app.use('/api/cotizaciones', require('./routes/cotizaciones'));
 app.use('/api/productos', require('./routes/productos'));
+app.use('/api/contabilidad', require('./routes/contabilidad'));
 
 app.post('/api/seed', async (req, res) => {
   try {
