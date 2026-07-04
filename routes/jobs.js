@@ -192,14 +192,15 @@ router.post('/', async (req, res) => {
   try {
     const d = req.body;
     const r = await db.runAsync(
-      `INSERT INTO print_jobs (nombre_proyecto,cliente_id,fecha,descripcion,estado,levantamiento_datos,cotizacion_id,precio_final,tipo_precio,tiempo_impresion_min,tiempo_diseno_min)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO print_jobs (nombre_proyecto,cliente_id,fecha,descripcion,estado,levantamiento_datos,cotizacion_id,precio_final,tipo_precio,tiempo_impresion_min,tiempo_diseno_min,canal_venta,orden_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [d.nombre_proyecto, d.cliente_id||null, d.fecha||new Date().toISOString().slice(0,10),
        d.descripcion||null, d.estado||'Solicitud',
        d.levantamiento_datos ? JSON.stringify(d.levantamiento_datos) : null,
        d.cotizacion_id||null,
        d.precio_final||null, d.tipo_precio||'unitario',
-       d.tiempo_impresion_min||0, d.tiempo_diseno_min||0]
+       d.tiempo_impresion_min||0, d.tiempo_diseno_min||0,
+       d.canal_venta||null, d.orden_id||null]
     );
     if (d.cliente_id) {
       await db.runAsync('UPDATE clients SET total_pedidos = total_pedidos + 1 WHERE id=?', [d.cliente_id]);
@@ -228,7 +229,7 @@ router.put('/:id', async (req, res) => {
     }
 
     await db.runAsync(
-      `UPDATE print_jobs SET nombre_proyecto=?,cliente_id=?,fecha=?,descripcion=?,estado=?,impresora_id=?,gramos_purga=?,gramos_perdidos=?,tiempo_impresion_min=?,tiempo_preparacion_min=?,tiempo_postproceso_min=?,tiempo_diseno_min=?,fallo=?,notas=?,notas_produccion=?,precio_unitario=?,precio_menudeo=?,precio_mayoreo=?,precio_final=?,tipo_precio=?,requiere_factura=?,levantamiento_datos=?,cotizacion_id=? WHERE id=?`,
+      `UPDATE print_jobs SET nombre_proyecto=?,cliente_id=?,fecha=?,descripcion=?,estado=?,impresora_id=?,gramos_purga=?,gramos_perdidos=?,tiempo_impresion_min=?,tiempo_preparacion_min=?,tiempo_postproceso_min=?,tiempo_diseno_min=?,fallo=?,notas=?,notas_produccion=?,precio_unitario=?,precio_menudeo=?,precio_mayoreo=?,precio_final=?,tipo_precio=?,requiere_factura=?,levantamiento_datos=?,cotizacion_id=?,canal_venta=?,orden_id=? WHERE id=?`,
       [merged.nombre_proyecto, merged.cliente_id||null, merged.fecha, merged.descripcion||null, merged.estado||'Solicitud', merged.impresora_id||null,
        merged.gramos_purga||0, merged.gramos_perdidos||0,
        merged.tiempo_impresion_min||0, merged.tiempo_preparacion_min||0,
@@ -239,7 +240,7 @@ router.put('/:id', async (req, res) => {
        d.levantamiento_datos !== undefined
          ? (d.levantamiento_datos ? JSON.stringify(d.levantamiento_datos) : null)
          : old.levantamiento_datos,
-       merged.cotizacion_id||null, req.params.id]
+       merged.cotizacion_id||null, merged.canal_venta||null, merged.orden_id||null, req.params.id]
     );
     if (d.filaments !== undefined || d.products !== undefined || d.extras !== undefined) {
       await saveJobData(req.params.id, d);

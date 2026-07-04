@@ -115,7 +115,8 @@
               <div style="font-size:12px;font-weight:700;line-height:1.3;flex:1">${j.nombre_proyecto||'Sin nombre'}</div>
               ${printerName?`<div style="font-size:10px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2px 7px;white-space:nowrap;color:var(--text-muted);flex-shrink:0">🖨️ ${printerName}</div>`:''}
             </div>
-            <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">👥 ${j.cliente_nombre||'—'}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">👥 ${j.cliente_nombre||'—'}</div>
+            ${j.canal_venta?`<div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">${({'Shopify':'🛍️','Mercado Libre':'🟡','Etsy':'🧡','Amazon':'📦','WhatsApp':'💬','Presencial':'🏪'})[j.canal_venta]||'🔗'} ${j.canal_venta}${j.orden_id?` · <span style="color:var(--accent-light)">#${j.orden_id}</span>`:''}</div>`:''}
             ${j.precio_final?`<div style="font-size:13px;font-weight:800;color:${st.color};margin-bottom:6px">${fmtMoney(j.precio_final)}</div>`:''}
             ${pct!==null?`<div>
               <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-bottom:3px"><span>${done}/${total} camas</span><span>${pct}%</span></div>
@@ -223,10 +224,13 @@
 
   function buildJobViewHtml(j,idx,clienteName,printerName,lev) {
     const camas=j.camas||[];
+    const _canalIcons={'Shopify':'🛍️','Mercado Libre':'🟡','Etsy':'🧡','Amazon':'📦','WhatsApp':'💬','Facebook':'👤','Instagram':'📸','Presencial':'🏪','WooCommerce':'🛒','Wix':'🌐','Otro':'🔗'};
     let html=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <div style="font-size:13px">👥 <strong>${clienteName}</strong></div>
       <div style="font-size:12px;color:var(--text-muted)">📅 ${j.fecha?j.fecha.substring(0,10):'-'}</div>
       ${j.tipo_precio?tierBadge(j.tipo_precio):''}
+      ${j.canal_venta?`<div style="font-size:11px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2px 8px">${_canalIcons[j.canal_venta]||'🔗'} ${j.canal_venta}</div>`:''}
+      ${j.orden_id?`<div style="font-size:11px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:20px;padding:2px 8px;color:var(--accent-light)"># ${j.orden_id}</div>`:''}
       ${j.impresora_id?`<div style="font-size:11px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2px 8px">🖨️ ${printerName}</div>`:''}
     </div>
     ${j.descripcion?`<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;line-height:1.5">${j.descripcion}</div>`:''}`;
@@ -355,16 +359,36 @@
 
   // ─── SOLICITUD ───────────────────────────────────────────────────────────────
 
+  const CANALES_VENTA = ['Presencial','WhatsApp','Shopify','Mercado Libre','Etsy','Amazon','Wix','WooCommerce','Facebook','Instagram','Otro'];
+
   function renderSolicitudFields(j) {
     const co=allClients.map(c=>`<option value="${c.id}" ${j.cliente_id==c.id?'selected':''}>${c.nombre}</option>`).join('');
+    const canales=CANALES_VENTA.map(c=>`<option value="${c}" ${j.canal_venta===c?'selected':''}>${c}</option>`).join('');
+    const isOnline=j.canal_venta&&j.canal_venta!=='Presencial'&&j.canal_venta!=='WhatsApp';
     return `<div style="font-weight:700;color:var(--accent-light);margin-bottom:12px">📥 Solicitud</div>
       <div class="form-grid" style="margin-bottom:16px">
         <div class="form-group form-full"><label>Nombre del proyecto *</label><input class="form-control" name="nombre_proyecto" value="${j.nombre_proyecto||''}" required autocomplete="off"></div>
         <div class="form-group"><label>Cliente</label><select class="form-control" name="cliente_id"><option value="">— Sin cliente —</option>${co}</select></div>
         <div class="form-group"><label>Fecha</label><input class="form-control" name="fecha" type="date" value="${j.fecha?j.fecha.substring(0,10):new Date().toISOString().substring(0,10)}" autocomplete="off"></div>
+        <div class="form-group">
+          <label>Canal de venta</label>
+          <select class="form-control" name="canal_venta" id="sol-canal" onchange="jobCanalChange()">
+            <option value="">— Sin canal —</option>${canales}
+          </select>
+        </div>
+        <div class="form-group" id="sol-orden-wrap" style="${isOnline?'':'display:none'}">
+          <label>ID / Nº de orden</label>
+          <input class="form-control" name="orden_id" value="${j.orden_id||''}" placeholder="Ej: #1234, MLA12345..." autocomplete="off">
+        </div>
         <div class="form-group form-full"><label>Descripción</label><textarea class="form-control" name="descripcion" rows="2" autocomplete="off">${j.descripcion||''}</textarea></div>
       </div>`;
   }
+
+  window.jobCanalChange=function(){
+    const v=document.getElementById('sol-canal')?.value||'';
+    const w=document.getElementById('sol-orden-wrap');
+    if(w) w.style.display=(v&&v!=='Presencial'&&v!=='WhatsApp')?'':'none';
+  };
 
   // ─── LEVANTAMIENTO ───────────────────────────────────────────────────────────
 
