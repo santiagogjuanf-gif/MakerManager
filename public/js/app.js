@@ -158,7 +158,7 @@ async function loadConfig() {
 }
 
 // Router
-const pages = ['dashboard', 'inventory', 'printers', 'clients', 'jobs', 'config'];
+const pages = ['dashboard', 'catalog', 'inventory', 'printers', 'clients', 'jobs', 'config'];
 const pageLoaders = {};
 
 function navigate(page) {
