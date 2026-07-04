@@ -331,31 +331,18 @@
       </div>`).join('');
   }
 
-  // Toggle cama WITHOUT closing/reopening the modal — update in place
+  // Toggle cama — re-render modal body so Cerrar button appears instantly when all done
   window.jobToggleCama=async function(jobId, camaId) {
     try {
-      const result=await api('PATCH',`/api/jobs/${jobId}/camas/${camaId}`,{});
-      // Re-fetch camas only and update the DOM in place
+      await api('PATCH',`/api/jobs/${jobId}/camas/${camaId}`,{});
       const j=await api('GET',`/api/jobs/${jobId}`);
-      const camas=j.camas||[];
-      const done=camas.filter(c=>c.completada).length;
-      const pct=Math.round(done/camas.length*100);
-      // Update bar
-      const bar=document.getElementById('job-camas-bar');
-      if (bar) bar.style.width=pct+'%';
-      // Update list
-      const listEl=document.getElementById('job-camas-list');
-      if (listEl) listEl.innerHTML=camasListHtml(camas,jobId,stageIndex(j.estado));
-      // Update header text
-      const box=document.getElementById('job-camas-box');
-      if (box) { const h=box.querySelector('div');if(h)h.querySelector('div').textContent=`🛏️ CAMAS (${done}/${camas.length})`; }
-      // Show/hide "Cerrar trabajo" based on all camas done (edit form or view modal)
-      const allDone=camas.length>0&&camas.every(c=>c.completada);
-      const cerrarBtn=document.getElementById('prod-cerrar-btn');
-      if (cerrarBtn) cerrarBtn.style.display=allDone?'':'none';
-      const viewCerrarBtn=document.getElementById('view-cerrar-btn');
-      if (viewCerrarBtn) viewCerrarBtn.style.display=allDone?'':'none';
-      // Refresh background list (tablero) silently
+      const idx=stageIndex(j.estado);
+      const clienteName=allClients.find(c=>c.id===j.cliente_id)?.nombre||'-';
+      const printerName=allPrinters.find(p=>p.id===j.impresora_id)?.nombre||'-';
+      const lev=parseLev(j.levantamiento_datos);
+      const bodyEl=document.getElementById('modal-body');
+      if (bodyEl) bodyEl.innerHTML=buildJobViewHtml(j,idx,clienteName,printerName,lev);
+      // Refresh tablero cards silently
       api('GET','/api/jobs').then(jobs=>{ allJobs=jobs; renderJobs(); }).catch(()=>{});
     } catch(e) { showToast('Error: '+e.message,'error'); }
   };
