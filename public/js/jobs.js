@@ -753,10 +753,9 @@
     try {
       await api('PUT',`/api/jobs/${id}`,body);
       showToast('Guardado');
-      // Update orig count so next change detection works correctly
-      const el2=document.getElementById('prod-n-camas');
-      if(el2&&nCamas!==origN) el2.dataset.orig=nCamas;
       await refreshJobs();
+      // Return to the view modal with updated data
+      await jobView(id);
     } catch(err){showToast('Error: '+err.message,'error');}
   };
 
