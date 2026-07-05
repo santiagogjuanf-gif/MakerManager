@@ -6,10 +6,16 @@ const fs = require('fs');
 const db = require('../database/db');
 const { calcJobCost } = require('./jobs');
 
+// Multi-tenant DB selector
+router.use((req, res, next) => {
+  req.db = (req.tenant && req.tenantDb) ? req.tenantDb : require('../database/db');
+  next();
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const tipo = req.query.tipo || 'cliente'; // 'cliente' or 'interno'
-    const job = await db.getAsync(`
+    const job = await req.db.getAsync(`
       SELECT pj.*, c.nombre as cliente_nombre, c.telefono as cliente_telefono,
              p.nombre as impresora_nombre
       FROM print_jobs pj
@@ -18,8 +24,8 @@ router.get('/:id', async (req, res) => {
       WHERE pj.id=?`, [req.params.id]);
     if (!job) return res.status(404).json({ error: 'Not found' });
 
-    const cost = await calcJobCost(req.params.id);
-    const cfgRows = await db.allAsync('SELECT key, value FROM config');
+    const cost = await calcJobCost(req.params.id, req.db);
+    const cfgRows = await req.db.allAsync('SELECT key, value FROM config');
     const cfg = {};
     cfgRows.forEach(r => cfg[r.key] = r.value);
 
@@ -62,7 +68,6 @@ router.get('/:id', async (req, res) => {
 
     doc.moveTo(50, y).lineTo(550, y).strokeColor('#eee').stroke(); y += 12;
 
-    // Products table
     doc.fontSize(10).fillColor('#333').text('Descripción', 50, y);
     doc.text('Cant.', 380, y); doc.text('Precio', 440, y); doc.text('Total', 490, y);
     y += 14;
@@ -79,7 +84,6 @@ router.get('/:id', async (req, res) => {
       y += 14;
     }
 
-    // Extras in client version
     if (tipo === 'cliente' && cost.extras && cost.extras.length > 0) {
       for (const e of cost.extras) {
         doc.text(`  + ${e.nombre_extra}`, 55, y);
@@ -94,7 +98,6 @@ router.get('/:id', async (req, res) => {
     doc.moveTo(50,y).lineTo(550,y).strokeColor('#999').lineWidth(1).stroke(); y += 10;
 
     if (tipo === 'interno') {
-      // Full breakdown for internal use
       doc.fontSize(10).fillColor('#333').text('Desglose de costos (interno)', 50, y); y += 16;
       doc.fontSize(9).fillColor('#555');
       const rows = [
@@ -116,7 +119,6 @@ router.get('/:id', async (req, res) => {
       doc.fontSize(13).fillColor('#6c63ff').text('PRECIO FINAL', 60, y);
       doc.text(fmt(job.precio_final), 450, y, {align:'right',width:100}); y+=30;
     } else {
-      // Client version — only subtotal, tax, total
       doc.fontSize(10).fillColor('#333');
       doc.text('Subtotal', 350, y); doc.text(fmt(precioBase), 450, y, {align:'right',width:100}); y+=14;
       if (job.requiere_factura && tax > 0) {

@@ -195,6 +195,10 @@ async function startup() {
   if (!ok) return;
   await loadConfig();
   if (appConfig.theme_color) applyTheme(appConfig.theme_color);
+  // Load tenant plan
+  try {
+    window.tenantPlan = await api('GET', '/api/plan');
+  } catch(e) { window.tenantPlan = null; }
   handleRoute();
 }
 

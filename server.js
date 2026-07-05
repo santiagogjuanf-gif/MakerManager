@@ -1,10 +1,8 @@
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const db = require('./database/db');
-const tenantMiddleware = require('./middleware/tenant');
 
 fs.mkdirSync(path.join(__dirname, 'public/uploads'), { recursive: true });
 fs.mkdirSync(path.join(__dirname, 'database/tenants'), { recursive: true });
@@ -16,8 +14,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res, filePath) {
-    // JS and CSS: always revalidate — prevents Cloudflare and browsers from
-    // serving stale bundles after a deploy.
     if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
       res.setHeader('Cache-Control', 'no-cache');
     }
@@ -25,12 +21,18 @@ app.use(express.static(path.join(__dirname, 'public'), {
 }));
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
-// Superadmin panel (static + API)
+// Superadmin static panel
 app.use('/superadmin', express.static(path.join(__dirname, 'public/superadmin')));
+
+// Superadmin API routes
 app.use('/superadmin/api', require('./routes/superadmin'));
 
-// Tenant middleware — resolves slug from subdomain and loads tenant DB
-app.use(tenantMiddleware);
+// Tenant middleware (skip for superadmin routes)
+const tenantMiddleware = require('./middleware/tenant');
+app.use((req, res, next) => {
+  if (req.path.startsWith('/superadmin')) return next();
+  tenantMiddleware(req, res, next);
+});
 
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/filaments', require('./routes/filaments'));
@@ -48,6 +50,15 @@ app.use('/api/consumibles', require('./routes/consumibles'));
 app.use('/api/cotizaciones', require('./routes/cotizaciones'));
 app.use('/api/productos', require('./routes/productos'));
 app.use('/api/contabilidad', require('./routes/contabilidad'));
+
+// Plan endpoint
+app.get('/api/plan', (req, res) => {
+  if (req.tenant && req.tenant.plan) {
+    res.json(req.tenant.plan);
+  } else {
+    res.json({ max_admins: 99, max_workers: 99, max_filamentos: 9999, max_resinas: 9999, max_clientes: 9999, max_impresoras: 9999, max_trabajos_activos: 9999, feature_contabilidad: true, feature_pdf: true, feature_nfc: true });
+  }
+});
 
 app.post('/api/seed', async (req, res) => {
   try {
@@ -85,6 +96,7 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-db.ready.then(() => {
+const superadminDb = require('./database/superadmin-db');
+Promise.all([db.ready, superadminDb.ready]).then(() => {
   app.listen(PORT, () => console.log(`MakerManager v2.0 → http://localhost:${PORT}`));
 }).catch(e => { console.error('DB init failed:', e); process.exit(1); });

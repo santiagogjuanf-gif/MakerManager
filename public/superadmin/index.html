@@ -3,510 +3,560 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MakerManager — SuperAdmin</title>
+<title>MakerManager — Superadmin</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#0f1117;--bg2:#1a1d2e;--bg3:#252840;--accent:#7c3aed;--accent2:#5b21b6;--text:#e2e8f0;--muted:#94a3b8;--danger:#ef4444;--success:#22c55e;--warn:#f97316}
-body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;min-height:100vh}
-a{color:inherit;text-decoration:none}
-button{cursor:pointer;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;transition:.15s}
-input,select,textarea{background:var(--bg);border:1px solid #334155;border-radius:8px;color:var(--text);padding:8px 12px;font-size:14px;width:100%}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
-label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
-.field{margin-bottom:14px}
-/* Layout */
-#app{display:none}
+:root{--bg:#0f1117;--surface:#1a1d27;--card:#1e2130;--accent:#6c63ff;--accent-light:#8b84ff;--border:#2d3148;--text:#e2e8f0;--text-muted:#8892a4}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+input,select,textarea{background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 12px;font-size:14px;width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+button{cursor:pointer;border:none;border-radius:6px;padding:8px 16px;font-size:14px;font-weight:600;transition:.15s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-light)}
+.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--card)}
+.btn-danger{background:#ef4444;color:#fff}
+.btn-danger:hover{background:#dc2626}
+.btn-warning{background:#f97316;color:#fff}
+.btn-warning:hover{background:#ea6e00}
+.btn-success{background:#22c55e;color:#fff}
+.btn-success:hover{background:#16a34a}
+.btn-sm{padding:4px 10px;font-size:12px}
+/* Login */
 #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh}
-.login-box{background:var(--bg2);border-radius:16px;padding:40px;width:100%;max-width:380px;text-align:center}
-.login-box h1{font-size:22px;margin-bottom:8px}
-.login-box p{color:var(--muted);font-size:14px;margin-bottom:28px}
-.login-box .field{text-align:left}
-.btn-primary{background:var(--accent);color:#fff;padding:10px 24px}
-.btn-primary:hover{background:var(--accent2)}
-.btn-danger{background:var(--danger);color:#fff}
-.btn-ghost{background:transparent;border:1px solid #334155;color:var(--text)}
-.btn-ghost:hover{background:var(--bg3)}
-.btn-sm{padding:5px 12px;font-size:12px}
-.btn-success{background:var(--success);color:#fff}
-/* Sidebar + main */
-#app{flex-direction:row;min-height:100vh}
-.sidebar{width:220px;background:var(--bg2);padding:20px 0;flex-shrink:0;display:flex;flex-direction:column}
-.sidebar-logo{padding:0 20px 24px;font-size:15px;font-weight:700;color:var(--accent)}
-.sidebar-logo span{font-size:11px;color:var(--muted);display:block;font-weight:400}
-.nav-item{padding:10px 20px;cursor:pointer;font-size:14px;border-left:3px solid transparent;transition:.15s}
-.nav-item:hover{background:var(--bg3)}
-.nav-item.active{border-color:var(--accent);color:var(--accent);background:rgba(124,58,237,.1)}
-.sidebar-footer{margin-top:auto;padding:20px}
-.main{flex:1;padding:28px;overflow-y:auto}
-.main-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
-.main-header h2{font-size:20px}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:40px;width:380px;max-width:95vw}
+.login-box h1{font-size:22px;margin-bottom:4px;color:var(--accent)}
+.login-box p{color:var(--text-muted);font-size:13px;margin-bottom:24px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+/* Main app */
+#app{display:none;flex-direction:row;min-height:100vh}
+.sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 0;flex-shrink:0}
+.sidebar-logo{padding:0 20px 24px;font-size:16px;font-weight:700;color:var(--accent)}
+.sidebar-logo span{color:var(--text-muted);font-size:12px;display:block;font-weight:400;margin-top:2px}
+.nav-item{padding:10px 20px;cursor:pointer;border-left:3px solid transparent;color:var(--text-muted);font-size:14px;font-weight:500;transition:.15s}
+.nav-item:hover{color:var(--text);background:rgba(108,99,255,.08)}
+.nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(108,99,255,.1)}
+.sidebar-footer{margin-top:auto;padding:16px 20px}
+.sidebar-footer button{width:100%;font-size:12px}
+.main{flex:1;overflow-y:auto;padding:32px}
+.section{display:none}
+.section.active{display:block}
+h2{font-size:22px;font-weight:700;margin-bottom:24px}
 /* Cards */
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px}
-.stat-card{background:var(--bg2);border-radius:12px;padding:20px}
-.stat-card .val{font-size:28px;font-weight:700;color:var(--accent)}
-.stat-card .lbl{font-size:13px;color:var(--muted);margin-top:4px}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;margin-bottom:32px}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}
+.kpi-card .label{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.kpi-card .value{font-size:28px;font-weight:700;color:var(--accent)}
 /* Table */
-.table-wrap{background:var(--bg2);border-radius:12px;overflow:hidden}
-table{width:100%;border-collapse:collapse}
-th{background:var(--bg3);padding:10px 16px;text-align:left;font-size:13px;color:var(--muted);font-weight:600}
-td{padding:10px 16px;font-size:14px;border-top:1px solid #1e2235}
-tr:hover td{background:rgba(255,255,255,.02)}
-.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
-.badge-trial{background:#fbbf2420;color:#fbbf24}
-.badge-activo{background:#22c55e20;color:#22c55e}
-.badge-suspendido{background:#ef444420;color:#ef4444}
-.badge-cancelado{background:#64748b30;color:#64748b}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);border-bottom:1px solid var(--border)}
+td{padding:10px 12px;border-bottom:1px solid var(--border)}
+tr:hover td{background:rgba(255,255,255,.03)}
+/* Badges */
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.badge-activo{background:#22c55e22;color:#22c55e}
+.badge-trial{background:#3b82f622;color:#3b82f6}
+.badge-suspendido{background:#f9731622;color:#f97316}
+.badge-cancelado{background:#ef444422;color:#ef4444}
 /* Modal */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center}
-.modal-overlay.open{display:flex}
-.modal{background:var(--bg2);border-radius:16px;padding:28px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
-.modal h3{font-size:18px;margin-bottom:20px}
-.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
-/* Custom plan grid */
-.limits-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-/* Toasts */
-#toast{position:fixed;bottom:24px;right:24px;z-index:200;display:flex;flex-direction:column;gap:8px}
-.toast{background:var(--bg3);color:var(--text);padding:12px 20px;border-radius:10px;font-size:14px;animation:slideIn .2s}
-.toast.err{border-left:3px solid var(--danger)}
-.toast.ok{border-left:3px solid var(--success)}
-@keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:none;opacity:1}}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal-overlay.hidden{display:none}
+.modal-box{background:var(--card);border:1px solid var(--border);border-radius:12px;width:560px;max-width:100%;max-height:90vh;overflow-y:auto}
+.modal-box.wide{width:720px}
+.modal-header{padding:20px 24px 0;display:flex;justify-content:space-between;align-items:center}
+.modal-header h3{font-size:18px;font-weight:700}
+.modal-close{background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:4px}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:20px 24px 24px}
+.modal-footer{padding:0 24px 20px;display:flex;gap:10px;justify-content:flex-end}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-row.cols-3{grid-template-columns:1fr 1fr 1fr}
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 20px;font-size:14px;z-index:9999;animation:slideIn .2s ease}
+.toast.success{border-color:#22c55e;color:#22c55e}
+.toast.error{border-color:#ef4444;color:#ef4444}
+.toast.hidden{display:none}
+@keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.section-header h2{margin:0}
+.error-msg{color:#ef4444;font-size:13px;margin-top:8px}
+.success-creds{background:var(--surface);border:1px solid var(--accent);border-radius:8px;padding:16px;margin-bottom:16px}
+.success-creds p{font-size:13px;margin-bottom:6px}
+.success-creds code{background:rgba(108,99,255,.15);padding:2px 6px;border-radius:4px;font-family:monospace}
 </style>
 </head>
 <body>
 
+<!-- Login -->
 <div id="login-screen">
   <div class="login-box">
-    <h1>🔐 SuperAdmin</h1>
-    <p>MakerManager — Panel de Control</p>
-    <div class="field"><label>Usuario</label><input id="sa-user" value="admin"></div>
-    <div class="field"><label>Contraseña</label><input id="sa-pass" type="password" value="admin"></div>
-    <button class="btn-primary" style="width:100%;margin-top:8px" onclick="saLogin()">Entrar</button>
+    <h1>&#9881; Superadmin</h1>
+    <p>MakerManager SaaS Control Panel</p>
+    <div class="form-group">
+      <label>Usuario</label>
+      <input type="text" id="sa-username" placeholder="admin" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>Contraseña</label>
+      <input type="password" id="sa-password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div id="login-error" class="error-msg"></div>
+    <button class="btn-primary" style="width:100%;margin-top:12px" onclick="doLogin()">Iniciar sesión</button>
   </div>
 </div>
 
-<div id="app" style="display:none">
+<!-- Main App -->
+<div id="app">
   <div class="sidebar">
-    <div class="sidebar-logo">MakerManager<span>SuperAdmin</span></div>
-    <div class="nav-item active" onclick="showPage('dashboard')">📊 Dashboard</div>
-    <div class="nav-item" onclick="showPage('tenants')">🏢 Tenants</div>
-    <div class="nav-item" onclick="showPage('plans')">📦 Planes</div>
+    <div class="sidebar-logo">MakerManager<span>Superadmin Panel</span></div>
+    <div class="nav-item active" data-section="dashboard" onclick="switchSection('dashboard')">&#128200; Dashboard</div>
+    <div class="nav-item" data-section="tenants" onclick="switchSection('tenants')">&#127970; Tenants</div>
+    <div class="nav-item" data-section="plans" onclick="switchSection('plans')">&#128181; Planes</div>
     <div class="sidebar-footer">
-      <button class="btn-ghost btn-sm" style="width:100%" onclick="saLogout()">Cerrar sesión</button>
+      <button class="btn-secondary" onclick="doLogout()">&#128274; Cerrar sesión</button>
     </div>
   </div>
   <div class="main">
-    <div id="page-dashboard"></div>
-    <div id="page-tenants" style="display:none"></div>
-    <div id="page-plans" style="display:none"></div>
-  </div>
-</div>
-
-<!-- Modal: crear/editar tenant -->
-<div class="modal-overlay" id="modal-tenant">
-  <div class="modal">
-    <h3 id="modal-tenant-title">Nuevo Tenant</h3>
-    <div class="field"><label>Slug (subdominio)</label><input id="t-slug" placeholder="miestudio"></div>
-    <div class="field"><label>Nombre del negocio</label><input id="t-nombre"></div>
-    <div class="field"><label>Email de contacto</label><input id="t-email" type="email"></div>
-    <div class="field"><label>Usuario admin</label><input id="t-admin-user" placeholder="admin"></div>
-    <div class="field"><label>Contraseña admin</label><input id="t-admin-pass" type="password" placeholder=""></div>
-    <div class="field"><label>Plan</label>
-      <select id="t-plan" onchange="onPlanChange()">
-        <option value="">— Selecciona plan —</option>
-        <option value="custom">🔧 Plan Personalizado</option>
-      </select>
-    </div>
-    <div class="field"><label>Estado</label>
-      <select id="t-estado">
-        <option value="trial">Trial</option>
-        <option value="activo">Activo</option>
-        <option value="suspendido">Suspendido</option>
-      </select>
-    </div>
-    <div class="field">
-      <label>Trial fin (dejar vacío = 14 días)</label>
-      <input id="t-trial-fin" type="date">
-    </div>
-    <div id="custom-plan-section" style="display:none">
-      <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Límites personalizados:</p>
-      <div class="limits-grid">
-        <div class="field"><label>Max Admins</label><input id="cp-admins" type="number" value="1"></div>
-        <div class="field"><label>Max Workers</label><input id="cp-workers" type="number" value="2"></div>
-        <div class="field"><label>Max Filamentos</label><input id="cp-fil" type="number" value="20"></div>
-        <div class="field"><label>Max Resinas</label><input id="cp-res" type="number" value="10"></div>
-        <div class="field"><label>Max Clientes</label><input id="cp-cli" type="number" value="50"></div>
-        <div class="field"><label>Max Impresoras</label><input id="cp-imp" type="number" value="5"></div>
-        <div class="field"><label>Max Trabajos activos</label><input id="cp-jobs" type="number" value="20"></div>
-        <div class="field"><label>Precio mensual</label><input id="cp-precio" type="number" step="0.01" value="0"></div>
-      </div>
-      <div style="display:flex;gap:16px;margin-bottom:12px">
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--text)">
-          <input id="cp-cont" type="checkbox"> Contabilidad
-        </label>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--text)">
-          <input id="cp-pdf" type="checkbox"> PDF
-        </label>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--text)">
-          <input id="cp-nfc" type="checkbox"> NFC
-        </label>
+    <!-- Dashboard -->
+    <div class="section active" id="section-dashboard">
+      <h2>Dashboard</h2>
+      <div class="kpi-grid" id="kpi-grid">
+        <div class="kpi-card"><div class="label">Total Tenants</div><div class="value" id="kpi-total">—</div></div>
+        <div class="kpi-card"><div class="label">Activos</div><div class="value" style="color:#22c55e" id="kpi-activos">—</div></div>
+        <div class="kpi-card"><div class="label">Trials</div><div class="value" style="color:#3b82f6" id="kpi-trials">—</div></div>
+        <div class="kpi-card"><div class="label">Suspendidos</div><div class="value" style="color:#f97316" id="kpi-suspendidos">—</div></div>
+        <div class="kpi-card"><div class="label">Ingresos Est./mes</div><div class="value" style="color:#22c55e" id="kpi-ingresos">—</div></div>
       </div>
     </div>
-    <div class="field"><label>Notas internas</label><textarea id="t-notas" rows="2"></textarea></div>
-    <div class="modal-footer">
-      <button class="btn-ghost" onclick="closeModal('modal-tenant')">Cancelar</button>
-      <button class="btn-primary" onclick="saveTenant()">Guardar</button>
+    <!-- Tenants -->
+    <div class="section" id="section-tenants">
+      <div class="section-header">
+        <h2>Tenants</h2>
+        <button class="btn-primary" onclick="openCreateTenantModal()">+ Nuevo Tenant</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Negocio</th><th>Slug</th><th>Plan</th><th>Estado</th><th>Vencimiento</th><th>Acciones</th></tr></thead>
+          <tbody id="tenants-table-body"><tr><td colspan="6" style="text-align:center;color:var(--text-muted)">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Plans -->
+    <div class="section" id="section-plans">
+      <div class="section-header">
+        <h2>Planes</h2>
+        <button class="btn-primary" onclick="openCreatePlanModal()">+ Nuevo Plan</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Nombre</th><th>Slug</th><th>Precio/mes</th><th>Admins</th><th>Workers</th><th>Filamentos</th><th>Resinas</th><th>Clientes</th><th>Impresoras</th><th>Jobs</th><th>Features</th><th>Activo</th></tr></thead>
+          <tbody id="plans-table-body"><tr><td colspan="12" style="text-align:center;color:var(--text-muted)">Cargando...</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- Modal: ver detalle tenant -->
-<div class="modal-overlay" id="modal-tenant-detail">
-  <div class="modal">
-    <h3 id="detail-title">Detalle Tenant</h3>
-    <div id="detail-body"></div>
-    <div class="modal-footer">
-      <button class="btn-ghost" onclick="closeModal('modal-tenant-detail')">Cerrar</button>
-      <button class="btn-primary" onclick="editFromDetail()">Editar</button>
+<!-- Modal -->
+<div class="modal-overlay hidden" id="modal-overlay">
+  <div class="modal-box" id="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-title">Modal</h3>
+      <button class="modal-close" onclick="closeModal()">&#10005;</button>
     </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
   </div>
 </div>
 
-<div id="toast"></div>
+<!-- Toast -->
+<div class="toast hidden" id="toast"></div>
 
 <script>
-const API = '/superadmin/api';
-let saToken = localStorage.getItem('sa_token') || '';
-let currentPage = 'dashboard';
-let plans = [];
-let tenants = [];
-let editingTenantId = null;
-let detailTenantId = null;
+const BASE = '';
+let saToken = localStorage.getItem('sa_token');
 
-// ── Auth ──────────────────────────────────────────
-async function saLogin() {
-  const username = document.getElementById('sa-user').value.trim();
-  const password = document.getElementById('sa-pass').value;
-  const r = await apiFetch('/login', 'POST', { username, password }, true);
-  if (r.token) {
-    saToken = r.token;
+// ── Auth ──────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const username = document.getElementById('sa-username').value.trim();
+  const password = document.getElementById('sa-password').value;
+  document.getElementById('login-error').textContent = '';
+  try {
+    const r = await fetch(`${BASE}/superadmin/api/login`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({username, password})
+    });
+    const data = await r.json();
+    if (!r.ok) { document.getElementById('login-error').textContent = data.error || 'Error'; return; }
+    saToken = data.token;
     localStorage.setItem('sa_token', saToken);
-    bootApp();
-  } else {
-    toast(r.error || 'Error de autenticación', 'err');
-  }
+    showApp();
+  } catch(e) { document.getElementById('login-error').textContent = 'Error de red'; }
 }
 
-function saLogout() {
+function doLogout() {
   localStorage.removeItem('sa_token');
-  saToken = '';
-  document.getElementById('login-screen').style.display = 'flex';
+  saToken = null;
   document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
 }
 
-// ── Fetch helper ──────────────────────────────────
-async function apiFetch(endpoint, method = 'GET', body = null, noAuth = false) {
-  const headers = { 'Content-Type': 'application/json' };
-  if (!noAuth && saToken) headers['Authorization'] = `Bearer ${saToken}`;
-  const opts = { method, headers };
+async function saApi(method, path, body) {
+  const opts = {method, headers:{'Content-Type':'application/json','Authorization':'Bearer '+saToken}};
   if (body) opts.body = JSON.stringify(body);
-  const r = await fetch(API + endpoint, opts);
-  if (r.status === 401) { saLogout(); return {}; }
-  return r.json().catch(() => ({}));
+  const r = await fetch(`${BASE}/superadmin/api${path}`, opts);
+  if (r.status === 401) { doLogout(); throw new Error('401'); }
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+  return data;
 }
 
-// ── Boot ──────────────────────────────────────────
-async function bootApp() {
+function showApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
-  await loadPlans();
-  showPage('dashboard');
+  switchSection('dashboard');
 }
 
-// ── Navigation ────────────────────────────────────
-function showPage(page) {
-  currentPage = page;
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('[onclick^="showPage"]').forEach(el => {
-    if (el.getAttribute('onclick').includes(`'${page}'`)) el.classList.add('active');
-  });
-  ['dashboard','tenants','plans'].forEach(p => {
-    document.getElementById(`page-${p}`).style.display = p === page ? '' : 'none';
-  });
-  if (page === 'dashboard') renderDashboard();
-  if (page === 'tenants') renderTenants();
-  if (page === 'plans') renderPlans();
+// ── Section switching ─────────────────────────────────────────────────────────
+function switchSection(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('section-'+name).classList.add('active');
+  document.querySelector(`.nav-item[data-section="${name}"]`).classList.add('active');
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'tenants') loadTenants();
+  if (name === 'plans') loadPlans();
 }
 
-// ── Dashboard ─────────────────────────────────────
-async function renderDashboard() {
-  const el = document.getElementById('page-dashboard');
-  el.innerHTML = '<div class="main-header"><h2>📊 Dashboard</h2></div><p style="color:var(--muted)">Cargando...</p>';
-  const data = await apiFetch('/dashboard');
-  if (!data.tenants) { el.innerHTML += '<p style="color:var(--danger)">Error cargando datos</p>'; return; }
-  const byEstado = (e) => data.tenants.filter(t => t.estado === e).length;
-  el.innerHTML = `
-    <div class="main-header"><h2>📊 Dashboard</h2><button class="btn-primary" onclick="openCreateTenant()">+ Nuevo Tenant</button></div>
-    <div class="stats-grid">
-      <div class="stat-card"><div class="val">${data.tenants.length}</div><div class="lbl">Tenants totales</div></div>
-      <div class="stat-card"><div class="val">${byEstado('activo')}</div><div class="lbl">Activos</div></div>
-      <div class="stat-card"><div class="val">${byEstado('trial')}</div><div class="lbl">En trial</div></div>
-      <div class="stat-card"><div class="val">${byEstado('suspendido')}</div><div class="lbl">Suspendidos</div></div>
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const d = await saApi('GET', '/dashboard');
+    document.getElementById('kpi-total').textContent = d.total || 0;
+    document.getElementById('kpi-activos').textContent = d.activos || 0;
+    document.getElementById('kpi-trials').textContent = d.trials || 0;
+    document.getElementById('kpi-suspendidos').textContent = d.suspendidos || 0;
+    document.getElementById('kpi-ingresos').textContent = '$' + parseFloat(d.ingresos_estimados||0).toFixed(2);
+  } catch(e) { showToast('Error cargando dashboard: '+e.message, 'error'); }
+}
+
+// ── Tenants ───────────────────────────────────────────────────────────────────
+let allPlans = [];
+
+async function loadTenants() {
+  try {
+    allPlans = await saApi('GET', '/plans');
+    const tenants = await saApi('GET', '/tenants');
+    const tbody = document.getElementById('tenants-table-body');
+    if (!tenants.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">No hay tenants</td></tr>'; return; }
+    tbody.innerHTML = tenants.map(t => `
+      <tr>
+        <td><strong>${esc(t.nombre_negocio)}</strong></td>
+        <td><code style="color:var(--accent-light);font-size:12px">${esc(t.slug)}</code></td>
+        <td>${esc(t.plan_nombre||'—')}</td>
+        <td><span class="badge badge-${t.estado}">${t.estado}</span></td>
+        <td style="font-size:12px;color:var(--text-muted)">${t.fecha_vencimiento||t.trial_fin||'—'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn-secondary btn-sm" onclick="openTenantDetail(${t.id})">Ver</button>
+          ${t.estado==='suspendido'
+            ? `<button class="btn-success btn-sm" style="margin-left:4px" onclick="activateTenant(${t.id})">Activar</button>`
+            : `<button class="btn-warning btn-sm" style="margin-left:4px" onclick="suspendTenant(${t.id})">Suspender</button>`
+          }
+          <button class="btn-danger btn-sm" style="margin-left:4px" onclick="deleteTenant(${t.id},'${esc(t.nombre_negocio)}')">&#128465;</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch(e) { showToast('Error: '+e.message, 'error'); }
+}
+
+function openCreateTenantModal() {
+  const planOptions = allPlans.map(p => `<option value="${p.id}">${p.nombre} ($${p.precio_mensual}/mes)</option>`).join('');
+  setModal('Crear Tenant', `
+    <div class="form-row">
+      <div class="form-group"><label>Nombre del negocio</label><input id="t-nombre" oninput="autoSlug()" placeholder="Mi Taller 3D"></div>
+      <div class="form-group"><label>Slug (URL)</label><input id="t-slug" placeholder="mi-taller-3d"></div>
     </div>
-    <div class="table-wrap">
-      <table>
-        <tr><th>Negocio</th><th>Slug</th><th>Plan</th><th>Estado</th><th>Creado</th><th>Acciones</th></tr>
-        ${data.tenants.map(t => `
-          <tr>
-            <td>${t.nombre_negocio}</td>
-            <td><code style="font-size:12px;color:var(--accent)">${t.slug}</code></td>
-            <td>${t.plan_nombre || '—'}</td>
-            <td><span class="badge badge-${t.estado}">${t.estado}</span></td>
-            <td style="color:var(--muted);font-size:12px">${t.created_at?.slice(0,10) || ''}</td>
-            <td>
-              <button class="btn-ghost btn-sm" onclick="openDetail(${t.id})">Ver</button>
-              <button class="btn-ghost btn-sm" onclick="openEditTenant(${t.id})">Editar</button>
-            </td>
-          </tr>`).join('')}
-      </table>
-    </div>`;
-  tenants = data.tenants;
-}
-
-// ── Tenants ───────────────────────────────────────
-async function renderTenants() {
-  const el = document.getElementById('page-tenants');
-  el.innerHTML = '<div class="main-header"><h2>🏢 Tenants</h2><button class="btn-primary" onclick="openCreateTenant()">+ Nuevo Tenant</button></div><p style="color:var(--muted)">Cargando...</p>';
-  const data = await apiFetch('/tenants');
-  tenants = data.tenants || [];
-  el.innerHTML = `
-    <div class="main-header"><h2>🏢 Tenants</h2><button class="btn-primary" onclick="openCreateTenant()">+ Nuevo Tenant</button></div>
-    <div class="table-wrap">
-      <table>
-        <tr><th>Negocio</th><th>Slug</th><th>Plan</th><th>Estado</th><th>Trial fin</th><th>Acciones</th></tr>
-        ${tenants.map(t => `
-          <tr>
-            <td>${t.nombre_negocio}</td>
-            <td><code style="font-size:12px;color:var(--accent)">${t.slug}</code></td>
-            <td>${t.plan_nombre || t.plan_slug || '—'}</td>
-            <td><span class="badge badge-${t.estado}">${t.estado}</span></td>
-            <td style="color:var(--muted);font-size:12px">${t.trial_fin || '—'}</td>
-            <td style="display:flex;gap:6px;flex-wrap:wrap">
-              <button class="btn-ghost btn-sm" onclick="openDetail(${t.id})">Ver</button>
-              <button class="btn-ghost btn-sm" onclick="openEditTenant(${t.id})">Editar</button>
-              ${t.estado !== 'suspendido' ? `<button class="btn-sm" style="background:#f9731620;color:var(--warn)" onclick="quickAction(${t.id},'suspender')">Suspender</button>` : `<button class="btn-success btn-sm" onclick="quickAction(${t.id},'activar')">Activar</button>`}
-              <button class="btn-sm btn-danger" onclick="deleteTenant(${t.id},'${t.slug}')">Eliminar</button>
-            </td>
-          </tr>`).join('')}
-      </table>
-    </div>`;
-}
-
-async function quickAction(id, action) {
-  const estado = action === 'suspender' ? 'suspendido' : 'activo';
-  await apiFetch(`/tenants/${id}`, 'PUT', { estado });
-  toast(`Tenant ${action === 'suspender' ? 'suspendido' : 'activado'}`, 'ok');
-  renderTenants();
-}
-
-async function deleteTenant(id, slug) {
-  if (!confirm(`¿Eliminar tenant "${slug}"? Esto borrará todos sus datos.`)) return;
-  const r = await apiFetch(`/tenants/${id}`, 'DELETE');
-  if (r.success) { toast('Tenant eliminado', 'ok'); renderTenants(); }
-  else toast(r.error || 'Error', 'err');
-}
-
-// ── Detail ────────────────────────────────────────
-async function openDetail(id) {
-  detailTenantId = id;
-  const t = tenants.find(x => x.id === id);
-  if (!t) return;
-  document.getElementById('detail-title').textContent = t.nombre_negocio;
-  document.getElementById('detail-body').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:14px">
-      <div><span style="color:var(--muted)">Slug:</span> <b>${t.slug}</b></div>
-      <div><span style="color:var(--muted)">Estado:</span> <span class="badge badge-${t.estado}">${t.estado}</span></div>
-      <div><span style="color:var(--muted)">Plan:</span> ${t.plan_nombre || '—'}</div>
-      <div><span style="color:var(--muted)">Email:</span> ${t.email_contacto || '—'}</div>
-      <div><span style="color:var(--muted)">Trial inicio:</span> ${t.trial_inicio || '—'}</div>
-      <div><span style="color:var(--muted)">Trial fin:</span> ${t.trial_fin || '—'}</div>
-      <div><span style="color:var(--muted)">Activación:</span> ${t.fecha_activacion || '—'}</div>
-      <div><span style="color:var(--muted)">Vencimiento:</span> ${t.fecha_vencimiento || '—'}</div>
-    </div>
-    ${t.notas_admin ? `<div style="margin-top:16px;padding:12px;background:var(--bg3);border-radius:8px;font-size:13px;color:var(--muted)">${t.notas_admin}</div>` : ''}
-    <div style="margin-top:16px">
-      <p style="font-size:13px;color:var(--muted);margin-bottom:8px">Límites del plan:</p>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:13px">
-        <div>Admins: ${t.max_admins ?? '—'}</div>
-        <div>Workers: ${t.max_workers ?? '—'}</div>
-        <div>Filamentos: ${t.max_filamentos ?? '—'}</div>
-        <div>Resinas: ${t.max_resinas ?? '—'}</div>
-        <div>Clientes: ${t.max_clientes ?? '—'}</div>
-        <div>Impresoras: ${t.max_impresoras ?? '—'}</div>
-        <div>Jobs: ${t.max_trabajos_activos ?? '—'}</div>
-        <div>PDF: ${t.feature_pdf ? '✅' : '❌'}</div>
-        <div>NFC: ${t.feature_nfc ? '✅' : '❌'}</div>
+    <div class="form-group"><label>Email de contacto</label><input id="t-email" type="email" placeholder="contacto@negocio.com"></div>
+    <div class="form-group"><label>Plan</label><select id="t-plan">${planOptions}</select></div>
+    <div class="form-group">
+      <label>Tipo de acceso</label>
+      <div style="display:flex;gap:20px;margin-top:8px">
+        <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:14px;font-weight:400"><input type="radio" name="t-acceso" value="trial" checked onchange="toggleTrialDays()"> Trial</label>
+        <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:14px;font-weight:400"><input type="radio" name="t-acceso" value="activo" onchange="toggleTrialDays()"> Activo</label>
       </div>
     </div>
-    <div style="margin-top:16px">
-      <p style="font-size:13px;color:var(--muted);margin-bottom:8px">URL:</p>
-      <a href="https://${t.slug}.makermanager.cerberusdev.pro" target="_blank" style="color:var(--accent);font-size:13px">
-        https://${t.slug}.makermanager.cerberusdev.pro
-      </a>
-    </div>`;
-  document.getElementById('modal-tenant-detail').classList.add('open');
+    <div id="trial-days-row" class="form-group"><label>Días de trial</label><input id="t-trial-dias" type="number" value="14" min="1"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Usuario admin</label><input id="t-admin-user" placeholder="admin" value="admin"></div>
+      <div class="form-group"><label>Contraseña admin</label>
+        <div style="display:flex;gap:8px">
+          <input id="t-admin-pass" placeholder="••••••••">
+          <button class="btn-secondary" onclick="genPass()" style="white-space:nowrap;flex-shrink:0">Generar</button>
+        </div>
+      </div>
+    </div>
+    <div class="form-group"><label>Nombre visible admin</label><input id="t-admin-display" placeholder="Administrador"></div>
+    <div class="form-group"><label>Notas internas</label><textarea id="t-notas" rows="3"></textarea></div>
+    <div id="create-tenant-error" class="error-msg"></div>
+  `, [
+    {text:'Cancelar', cls:'btn-secondary', fn:'closeModal()'},
+    {text:'Crear Tenant', cls:'btn-primary', fn:'submitCreateTenant()'}
+  ]);
 }
 
-function editFromDetail() {
-  closeModal('modal-tenant-detail');
-  openEditTenant(detailTenantId);
+function toggleTrialDays() {
+  const val = document.querySelector('input[name="t-acceso"]:checked')?.value;
+  document.getElementById('trial-days-row').style.display = val === 'trial' ? '' : 'none';
 }
 
-// ── Create / Edit Tenant ──────────────────────────
-function openCreateTenant() {
-  editingTenantId = null;
-  document.getElementById('modal-tenant-title').textContent = 'Nuevo Tenant';
-  document.getElementById('t-slug').disabled = false;
-  ['t-slug','t-nombre','t-email','t-admin-user','t-admin-pass','t-notas'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('t-plan').value = '';
-  document.getElementById('t-estado').value = 'trial';
-  document.getElementById('t-trial-fin').value = '';
-  document.getElementById('custom-plan-section').style.display = 'none';
-  document.getElementById('modal-tenant').classList.add('open');
+function autoSlug() {
+  const nombre = document.getElementById('t-nombre')?.value || '';
+  const slug = nombre.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'').replace(/-+/g,'-').replace(/^-|-$/g,'');
+  const slugEl = document.getElementById('t-slug');
+  if (slugEl) slugEl.value = slug;
 }
 
-function openEditTenant(id) {
-  const t = tenants.find(x => x.id === id);
-  if (!t) return;
-  editingTenantId = id;
-  document.getElementById('modal-tenant-title').textContent = 'Editar Tenant';
-  document.getElementById('t-slug').value = t.slug;
-  document.getElementById('t-slug').disabled = true;
-  document.getElementById('t-nombre').value = t.nombre_negocio || '';
-  document.getElementById('t-email').value = t.email_contacto || '';
-  document.getElementById('t-admin-user').value = '';
-  document.getElementById('t-admin-pass').value = '';
-  document.getElementById('t-notas').value = t.notas_admin || '';
-  document.getElementById('t-plan').value = t.plan_slug || '';
-  document.getElementById('t-estado').value = t.estado || 'trial';
-  document.getElementById('t-trial-fin').value = t.trial_fin || '';
-  document.getElementById('custom-plan-section').style.display = 'none';
-  document.getElementById('modal-tenant').classList.add('open');
+function genPass() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let pass = '';
+  for(let i=0;i<8;i++) pass += chars[Math.floor(Math.random()*chars.length)];
+  document.getElementById('t-admin-pass').value = pass;
 }
 
-function onPlanChange() {
-  const v = document.getElementById('t-plan').value;
-  document.getElementById('custom-plan-section').style.display = v === 'custom' ? '' : 'none';
+async function submitCreateTenant() {
+  const errEl = document.getElementById('create-tenant-error');
+  errEl.textContent = '';
+  const tipo_acceso = document.querySelector('input[name="t-acceso"]:checked')?.value;
+  const body = {
+    slug: document.getElementById('t-slug').value.trim(),
+    nombre_negocio: document.getElementById('t-nombre').value.trim(),
+    email_contacto: document.getElementById('t-email').value.trim(),
+    plan_id: parseInt(document.getElementById('t-plan').value),
+    tipo_acceso,
+    trial_dias: parseInt(document.getElementById('t-trial-dias')?.value||14),
+    admin_username: document.getElementById('t-admin-user').value.trim()||'admin',
+    admin_password: document.getElementById('t-admin-pass').value.trim(),
+    admin_display_name: document.getElementById('t-admin-display').value.trim()||'Administrador',
+    notas_admin: document.getElementById('t-notas').value.trim(),
+  };
+  try {
+    const r = await saApi('POST', '/tenants', body);
+    closeModal();
+    showSuccessModal(r);
+    loadTenants();
+  } catch(e) { errEl.textContent = e.message; }
 }
 
-async function saveTenant() {
-  const slug = document.getElementById('t-slug').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'');
-  const nombre_negocio = document.getElementById('t-nombre').value.trim();
-  const email_contacto = document.getElementById('t-email').value.trim();
-  const admin_username = document.getElementById('t-admin-user').value.trim();
-  const admin_password = document.getElementById('t-admin-pass').value;
-  const plan_slug = document.getElementById('t-plan').value;
-  const estado = document.getElementById('t-estado').value;
-  const trial_fin = document.getElementById('t-trial-fin').value;
-  const notas_admin = document.getElementById('t-notas').value.trim();
-
-  if (!nombre_negocio) return toast('Nombre requerido', 'err');
-
-  const body = { slug, nombre_negocio, email_contacto, plan_slug, estado, trial_fin, notas_admin };
-  if (admin_username) body.admin_username = admin_username;
-  if (admin_password) body.admin_password = admin_password;
-
-  if (plan_slug === 'custom') {
-    body.custom_plan = {
-      max_admins: +document.getElementById('cp-admins').value,
-      max_workers: +document.getElementById('cp-workers').value,
-      max_filamentos: +document.getElementById('cp-fil').value,
-      max_resinas: +document.getElementById('cp-res').value,
-      max_clientes: +document.getElementById('cp-cli').value,
-      max_impresoras: +document.getElementById('cp-imp').value,
-      max_trabajos_activos: +document.getElementById('cp-jobs').value,
-      precio_mensual: +document.getElementById('cp-precio').value,
-      feature_contabilidad: document.getElementById('cp-cont').checked ? 1 : 0,
-      feature_pdf: document.getElementById('cp-pdf').checked ? 1 : 0,
-      feature_nfc: document.getElementById('cp-nfc').checked ? 1 : 0,
-    };
-  }
-
-  let r;
-  if (editingTenantId) {
-    r = await apiFetch(`/tenants/${editingTenantId}`, 'PUT', body);
-  } else {
-    if (!slug) return toast('Slug requerido', 'err');
-    if (!admin_username || !admin_password) return toast('Usuario y contraseña admin requeridos', 'err');
-    r = await apiFetch('/tenants', 'POST', body);
-  }
-
-  if (r.success || r.id) {
-    toast(editingTenantId ? 'Tenant actualizado' : 'Tenant creado', 'ok');
-    closeModal('modal-tenant');
-    if (currentPage === 'tenants') renderTenants();
-    else renderDashboard();
-  } else {
-    toast(r.error || 'Error guardando', 'err');
-  }
+function showSuccessModal(r) {
+  setModal('&#10003; Tenant creado', `
+    <div class="success-creds">
+      <p>&#127970; URL: <code>${esc(r.url)}</code></p>
+      <p>&#128100; Usuario: <code>${esc(r.admin_username)}</code></p>
+      <p>&#128274; Contraseña: <code>${esc(r.admin_password)}</code></p>
+    </div>
+    <p style="font-size:13px;color:var(--text-muted)">Guarda estas credenciales. La contraseña no se puede recuperar.</p>
+  `, [
+    {text:'Copiar credenciales', cls:'btn-secondary', fn:`copyCredentials('${esc(r.url)}','${esc(r.admin_username)}','${esc(r.admin_password)}')`},
+    {text:'Cerrar', cls:'btn-primary', fn:'closeModal()'},
+  ]);
 }
 
-// ── Plans ─────────────────────────────────────────
+function copyCredentials(url, user, pass) {
+  navigator.clipboard.writeText(`URL: ${url}\nUsuario: ${user}\nContraseña: ${pass}`);
+  showToast('Credenciales copiadas', 'success');
+}
+
+async function openTenantDetail(id) {
+  try {
+    const t = await saApi('GET', `/tenants/${id}`);
+    const planOptions = allPlans.map(p => `<option value="${p.id}" ${t.plan_id===p.id?'selected':''}>${p.nombre}</option>`).join('');
+    const estadoOptions = ['trial','activo','suspendido','cancelado'].map(s => `<option value="${s}" ${t.estado===s?'selected':''}>${s}</option>`).join('');
+    setModal(`Tenant: ${esc(t.nombre_negocio)}`, `
+      <div class="form-row">
+        <div class="form-group"><label>Nombre negocio</label><input id="td-nombre" value="${esc(t.nombre_negocio)}"></div>
+        <div class="form-group"><label>Email</label><input id="td-email" value="${esc(t.email_contacto||'')}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Plan</label><select id="td-plan">${planOptions}</select></div>
+        <div class="form-group"><label>Estado</label><select id="td-estado">${estadoOptions}</select></div>
+      </div>
+      <div class="form-group"><label>Vencimiento</label><input id="td-venc" type="date" value="${t.fecha_vencimiento||''}"></div>
+      <div class="form-group"><label>Notas internas</label><textarea id="td-notas" rows="3">${esc(t.notas_admin||'')}</textarea></div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-secondary btn-sm" onclick="extendTrial(${t.id})">&#128336; Extender trial</button>
+        <a href="https://${esc(t.slug)}.makermanager.cerberusdev.pro" target="_blank" class="btn-secondary btn-sm" style="display:inline-block;padding:4px 10px">&#127758; Abrir URL</a>
+      </div>
+      <div id="td-error" class="error-msg" style="margin-top:8px"></div>
+    `, [
+      {text:'Cancelar', cls:'btn-secondary', fn:'closeModal()'},
+      {text:'Guardar cambios', cls:'btn-primary', fn:`saveTenantDetail(${t.id})`},
+    ], true);
+  } catch(e) { showToast('Error: '+e.message, 'error'); }
+}
+
+async function saveTenantDetail(id) {
+  const errEl = document.getElementById('td-error');
+  if (errEl) errEl.textContent = '';
+  try {
+    await saApi('PUT', `/tenants/${id}`, {
+      nombre_negocio: document.getElementById('td-nombre').value,
+      email_contacto: document.getElementById('td-email').value,
+      plan_id: parseInt(document.getElementById('td-plan').value),
+      estado: document.getElementById('td-estado').value,
+      notas_admin: document.getElementById('td-notas').value,
+      fecha_vencimiento: document.getElementById('td-venc').value||null,
+    });
+    closeModal();
+    showToast('Tenant actualizado', 'success');
+    loadTenants();
+  } catch(e) { if(errEl) errEl.textContent = e.message; }
+}
+
+async function suspendTenant(id) {
+  if (!confirm('¿Suspender este tenant?')) return;
+  try { await saApi('POST', `/tenants/${id}/suspend`); showToast('Suspendido', 'success'); loadTenants(); loadDashboard(); }
+  catch(e) { showToast('Error: '+e.message, 'error'); }
+}
+
+async function activateTenant(id) {
+  try { await saApi('POST', `/tenants/${id}/activate`); showToast('Activado', 'success'); loadTenants(); loadDashboard(); }
+  catch(e) { showToast('Error: '+e.message, 'error'); }
+}
+
+async function deleteTenant(id, nombre) {
+  if (!confirm(`¿Eliminar permanentemente "${nombre}"? Esto borrará su base de datos.`)) return;
+  try { await saApi('DELETE', `/tenants/${id}`); showToast('Tenant eliminado', 'success'); loadTenants(); loadDashboard(); }
+  catch(e) { showToast('Error: '+e.message, 'error'); }
+}
+
+async function extendTrial(id) {
+  const dias = prompt('¿Cuántos días de trial?', '14');
+  if (!dias) return;
+  try { await saApi('POST', `/tenants/${id}/trial`, {dias:parseInt(dias)}); showToast('Trial extendido', 'success'); closeModal(); loadTenants(); }
+  catch(e) { showToast('Error: '+e.message, 'error'); }
+}
+
+// ── Plans ─────────────────────────────────────────────────────────────────────
 async function loadPlans() {
-  const data = await apiFetch('/plans');
-  plans = data.plans || [];
-  const sel = document.getElementById('t-plan');
-  // Preserve custom option
-  while (sel.options.length > 2) sel.remove(2);
-  plans.forEach(p => {
-    const opt = new Option(`${p.nombre} ($${p.precio_mensual}/mes)`, p.slug);
-    sel.add(opt);
-  });
+  try {
+    const plans = await saApi('GET', '/plans');
+    const tbody = document.getElementById('plans-table-body');
+    tbody.innerHTML = plans.map(p => `
+      <tr>
+        <td><strong>${esc(p.nombre)}</strong></td>
+        <td><code style="font-size:12px">${esc(p.slug)}</code></td>
+        <td>$${parseFloat(p.precio_mensual).toFixed(2)}</td>
+        <td>${p.max_admins}</td><td>${p.max_workers}</td>
+        <td>${p.max_filamentos}</td><td>${p.max_resinas}</td>
+        <td>${p.max_clientes}</td><td>${p.max_impresoras}</td>
+        <td>${p.max_trabajos_activos}</td>
+        <td style="font-size:11px">
+          ${p.feature_contabilidad?'&#9989; Cont.':'&#10060;'}
+          ${p.feature_pdf?'&#9989; PDF':'&#10060;'}
+          ${p.feature_nfc?'&#9989; NFC':'&#10060;'}
+        </td>
+        <td><span class="badge ${p.activo?'badge-activo':'badge-cancelado'}">${p.activo?'Sí':'No'}</span></td>
+      </tr>
+    `).join('');
+  } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
 
-async function renderPlans() {
-  const el = document.getElementById('page-plans');
-  el.innerHTML = `
-    <div class="main-header"><h2>📦 Planes</h2></div>
-    <div class="table-wrap">
-      <table>
-        <tr><th>Plan</th><th>Precio</th><th>Admins</th><th>Workers</th><th>Fil</th><th>Cli</th><th>Jobs</th><th>Features</th></tr>
-        ${plans.map(p => `
-          <tr>
-            <td><b>${p.nombre}</b><br><code style="font-size:11px;color:var(--muted)">${p.slug}</code></td>
-            <td>$${p.precio_mensual}/mes</td>
-            <td>${p.max_admins}</td>
-            <td>${p.max_workers}</td>
-            <td>${p.max_filamentos}</td>
-            <td>${p.max_clientes}</td>
-            <td>${p.max_trabajos_activos}</td>
-            <td>${[p.feature_contabilidad?'Cont':'',p.feature_pdf?'PDF':'',p.feature_nfc?'NFC':''].filter(Boolean).join(', ') || '—'}</td>
-          </tr>`).join('')}
-      </table>
-    </div>`;
+function openCreatePlanModal() {
+  setModal('Crear Plan', `
+    <div class="form-row">
+      <div class="form-group"><label>Nombre</label><input id="p-nombre" placeholder="Mi Plan"></div>
+      <div class="form-group"><label>Slug</label><input id="p-slug" placeholder="mi-plan"></div>
+    </div>
+    <div class="form-group"><label>Precio mensual ($)</label><input id="p-precio" type="number" step="0.01" value="9.99"></div>
+    <div class="form-row cols-3">
+      <div class="form-group"><label>Max Admins</label><input id="p-admins" type="number" value="1"></div>
+      <div class="form-group"><label>Max Workers</label><input id="p-workers" type="number" value="3"></div>
+      <div class="form-group"><label>Max Filamentos</label><input id="p-fils" type="number" value="30"></div>
+    </div>
+    <div class="form-row cols-3">
+      <div class="form-group"><label>Max Resinas</label><input id="p-res" type="number" value="15"></div>
+      <div class="form-group"><label>Max Clientes</label><input id="p-cls" type="number" value="100"></div>
+      <div class="form-group"><label>Max Impresoras</label><input id="p-imps" type="number" value="5"></div>
+    </div>
+    <div class="form-group"><label>Max Jobs Activos</label><input id="p-jobs" type="number" value="50"></div>
+    <div style="display:flex;gap:20px;margin-top:8px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="checkbox" id="p-cont"> Contabilidad</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="checkbox" id="p-pdf"> PDF</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="checkbox" id="p-nfc"> NFC</label>
+    </div>
+    <div id="plan-error" class="error-msg" style="margin-top:8px"></div>
+  `, [
+    {text:'Cancelar', cls:'btn-secondary', fn:'closeModal()'},
+    {text:'Crear Plan', cls:'btn-primary', fn:'submitCreatePlan()'},
+  ]);
 }
 
-// ── Utilities ─────────────────────────────────────
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
-function toast(msg, type='ok') {
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.textContent = msg;
-  document.getElementById('toast').appendChild(el);
-  setTimeout(() => el.remove(), 3500);
+async function submitCreatePlan() {
+  const errEl = document.getElementById('plan-error');
+  errEl.textContent = '';
+  try {
+    await saApi('POST', '/plans', {
+      nombre: document.getElementById('p-nombre').value.trim(),
+      slug: document.getElementById('p-slug').value.trim(),
+      precio_mensual: parseFloat(document.getElementById('p-precio').value)||0,
+      max_admins: parseInt(document.getElementById('p-admins').value)||1,
+      max_workers: parseInt(document.getElementById('p-workers').value)||1,
+      max_filamentos: parseInt(document.getElementById('p-fils').value)||15,
+      max_resinas: parseInt(document.getElementById('p-res').value)||5,
+      max_clientes: parseInt(document.getElementById('p-cls').value)||20,
+      max_impresoras: parseInt(document.getElementById('p-imps').value)||2,
+      max_trabajos_activos: parseInt(document.getElementById('p-jobs').value)||10,
+      feature_contabilidad: document.getElementById('p-cont').checked,
+      feature_pdf: document.getElementById('p-pdf').checked,
+      feature_nfc: document.getElementById('p-nfc').checked,
+    });
+    closeModal();
+    showToast('Plan creado', 'success');
+    loadPlans();
+  } catch(e) { errEl.textContent = e.message; }
 }
 
-// ── Init ──────────────────────────────────────────
-if (saToken) {
-  apiFetch('/dashboard').then(d => {
-    if (d.tenants) bootApp();
-    else { saToken = ''; }
-  });
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type}`;
+  t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 3500);
+}
+
+function setModal(title, body, footerBtns=[], wide=false) {
+  document.getElementById('modal-title').innerHTML = title;
+  document.getElementById('modal-body').innerHTML = body;
+  document.getElementById('modal-footer').innerHTML = footerBtns.map(b =>
+    `<button class="${b.cls}" onclick="${b.fn}">${b.text}</button>`
+  ).join('');
+  document.getElementById('modal-box').className = 'modal-box' + (wide?' wide':'');
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+}
+
+// Login on enter key
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+  if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
 });
+
+// Init
+if (saToken) {
+  saApi('GET', '/me').then(() => showApp()).catch(() => { localStorage.removeItem('sa_token'); saToken = null; });
+}
 </script>
 </body>
 </html>
