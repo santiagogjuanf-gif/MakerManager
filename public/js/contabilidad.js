@@ -388,8 +388,7 @@
     }, '🗑️');
   };
 
-  window.pageLoaders = window.pageLoaders || {};
-  window.pageLoaders.contabilidad = async function() {
+  pageLoaders['contabilidad'] = async function() {
     document.getElementById('page-contabilidad').innerHTML = `<div id="contabilidad-root"><div class="loading-spinner" style="margin:60px auto"></div></div>`;
     await render();
   };
