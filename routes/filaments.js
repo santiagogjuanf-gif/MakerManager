@@ -2,20 +2,26 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
 
+// Multi-tenant DB selector
+router.use((req, res, next) => {
+  req.db = (req.tenant && req.tenantDb) ? req.tenantDb : require('../database/db');
+  next();
+});
+
 router.get('/', async (req, res) => {
-  try { res.json(await db.allAsync('SELECT * FROM filaments ORDER BY created_at DESC')); }
+  try { res.json(await req.db.allAsync('SELECT * FROM filaments ORDER BY created_at DESC')); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 router.get('/nfc/:uid', async (req, res) => {
   try {
-    const row = await db.getAsync('SELECT id FROM filaments WHERE uid_nfc=?', [req.params.uid]);
+    const row = await req.db.getAsync('SELECT id FROM filaments WHERE uid_nfc=?', [req.params.uid]);
     if (!row) return res.status(404).json({ error: 'Filamento no encontrado para este UID' });
     res.json({ id: row.id });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 router.get('/:id/history', async (req, res) => {
   try {
-    const rows = await db.allAsync(
+    const rows = await req.db.allAsync(
       'SELECT * FROM filament_history WHERE filament_id=? ORDER BY fecha DESC LIMIT 50',
       [req.params.id]
     );
@@ -24,7 +30,7 @@ router.get('/:id/history', async (req, res) => {
 });
 router.get('/:id', async (req, res) => {
   try {
-    const r = await db.getAsync('SELECT * FROM filaments WHERE id=?', [req.params.id]);
+    const r = await req.db.getAsync('SELECT * FROM filaments WHERE id=?', [req.params.id]);
     if (!r) return res.status(404).json({ error: 'Not found' });
     res.json(r);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -38,9 +44,14 @@ function calcCpg(d) {
 
 router.post('/', async (req, res) => {
   try {
+    // Plan limit check
+    if (req.tenant?.plan) {
+      const count = await req.db.getAsync('SELECT COUNT(*) as cnt FROM filaments');
+      if (count.cnt >= req.tenant.plan.max_filamentos) return res.status(400).json({ error: `Límite de ${req.tenant.plan.max_filamentos} filamentos alcanzado para tu plan` });
+    }
     const d = req.body;
     const cpg = parseFloat(d.costo_por_gramo) || calcCpg(d);
-    const r = await db.runAsync(
+    const r = await req.db.runAsync(
       `INSERT INTO filaments (marca,nombre_comercial,material,color,color_hex,acabado,tipo_bobina,diametro_mm,peso_inicial_g,peso_actual_g,peso_bobina_vacia_g,costo_total,costo_por_gramo,proveedor,tiene_nfc,uid_nfc,notas,estado)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [d.marca, d.nombre_comercial, d.material||'PLA', d.color, d.color_hex||null,
@@ -57,11 +68,11 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const d = req.body;
-    const old = await db.getAsync('SELECT * FROM filaments WHERE id=?', [req.params.id]);
+    const old = await req.db.getAsync('SELECT * FROM filaments WHERE id=?', [req.params.id]);
     if (!old) return res.status(404).json({ error: 'Not found' });
     const merged = { ...old, ...d };
     const cpg = calcCpg(merged) || (merged.costo_por_gramo || 0);
-    await db.runAsync(
+    await req.db.runAsync(
       `UPDATE filaments SET marca=?,nombre_comercial=?,material=?,color=?,color_hex=?,acabado=?,tipo_bobina=?,
        diametro_mm=?,peso_inicial_g=?,peso_actual_g=?,peso_bobina_vacia_g=?,costo_total=?,costo_por_gramo=?,
        proveedor=?,tiene_nfc=?,uid_nfc=?,notas=?,estado=? WHERE id=?`,
@@ -75,7 +86,7 @@ router.put('/:id', async (req, res) => {
     const newPeso = parseFloat(merged.peso_actual_g);
     const oldPeso = parseFloat(old.peso_actual_g);
     if (d.peso_actual_g !== undefined && Math.abs(newPeso - oldPeso) > 0.001) {
-      await db.runAsync(
+      await req.db.runAsync(
         'INSERT INTO filament_history (filament_id, peso_anterior, peso_nuevo, nota) VALUES (?,?,?,?)',
         [req.params.id, oldPeso, newPeso, d._nota_historial || null]
       );
@@ -84,30 +95,27 @@ router.put('/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Quick status patch — PATCH /:id/estado
 router.patch('/:id/estado', async (req, res) => {
   try {
     const { estado } = req.body;
     if (!['En uso', 'En stock', 'Agotado'].includes(estado)) return res.status(400).json({ error: 'Estado inválido' });
-    await db.runAsync('UPDATE filaments SET estado=? WHERE id=?', [estado, req.params.id]);
+    await req.db.runAsync('UPDATE filaments SET estado=? WHERE id=?', [estado, req.params.id]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Marcar agotado: deletes spool and promotes next En stock of same material+color to En uso
 router.post('/:id/agotar', async (req, res) => {
   try {
-    const f = await db.getAsync('SELECT * FROM filaments WHERE id=?', [req.params.id]);
+    const f = await req.db.getAsync('SELECT * FROM filaments WHERE id=?', [req.params.id]);
     if (!f) return res.status(404).json({ error: 'Not found' });
-    await db.runAsync('DELETE FROM filaments WHERE id=?', [req.params.id]);
-    // Promote next En stock spool of same material + color to En uso
-    const next = await db.getAsync(
+    await req.db.runAsync('DELETE FROM filaments WHERE id=?', [req.params.id]);
+    const next = await req.db.getAsync(
       `SELECT id FROM filaments WHERE material=? AND color=? AND estado='En stock' ORDER BY created_at ASC LIMIT 1`,
       [f.material, f.color]
     );
     let promoted = null;
     if (next) {
-      await db.runAsync(`UPDATE filaments SET estado='En uso' WHERE id=?`, [next.id]);
+      await req.db.runAsync(`UPDATE filaments SET estado='En uso' WHERE id=?`, [next.id]);
       promoted = next.id;
     }
     res.json({ success: true, promoted });
@@ -115,7 +123,7 @@ router.post('/:id/agotar', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  try { await db.runAsync('DELETE FROM filaments WHERE id=?',[req.params.id]); res.json({ success: true }); }
+  try { await req.db.runAsync('DELETE FROM filaments WHERE id=?',[req.params.id]); res.json({ success: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 module.exports = router;

@@ -1,10 +1,13 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const db = require('./database/db');
+const tenantMiddleware = require('./middleware/tenant');
 
 fs.mkdirSync(path.join(__dirname, 'public/uploads'), { recursive: true });
+fs.mkdirSync(path.join(__dirname, 'database/tenants'), { recursive: true });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,6 +24,13 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+
+// Superadmin panel (static + API)
+app.use('/superadmin', express.static(path.join(__dirname, 'public/superadmin')));
+app.use('/superadmin/api', require('./routes/superadmin'));
+
+// Tenant middleware — resolves slug from subdomain and loads tenant DB
+app.use(tenantMiddleware);
 
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/filaments', require('./routes/filaments'));

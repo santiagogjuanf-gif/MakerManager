@@ -2,6 +2,12 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
 
+// Multi-tenant DB selector
+router.use((req, res, next) => {
+  req.db = (req.tenant && req.tenantDb) ? req.tenantDb : require('../database/db');
+  next();
+});
+
 // List gastos with optional filters
 router.get('/gastos', async (req, res) => {
   try {
@@ -11,7 +17,7 @@ router.get('/gastos', async (req, res) => {
     if (mes) { sql += ' AND strftime(\'%Y-%m\', fecha) = ?'; params.push(mes); }
     if (categoria) { sql += ' AND categoria = ?'; params.push(categoria); }
     sql += ' ORDER BY fecha DESC, id DESC';
-    const rows = await db.allAsync(sql, params);
+    const rows = await req.db.allAsync(sql, params);
     res.json(rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -19,7 +25,7 @@ router.get('/gastos', async (req, res) => {
 router.post('/gastos', async (req, res) => {
   try {
     const { fecha, categoria, descripcion, monto, proveedor, referencia_tipo, referencia_id, notas } = req.body;
-    const r = await db.runAsync(
+    const r = await req.db.runAsync(
       'INSERT INTO gastos (fecha, categoria, descripcion, monto, proveedor, referencia_tipo, referencia_id, notas) VALUES (?,?,?,?,?,?,?,?)',
       [fecha || new Date().toISOString().slice(0,10), categoria||'General', descripcion, monto||0, proveedor||null, referencia_tipo||null, referencia_id||null, notas||null]
     );
@@ -30,7 +36,7 @@ router.post('/gastos', async (req, res) => {
 router.put('/gastos/:id', async (req, res) => {
   try {
     const { fecha, categoria, descripcion, monto, proveedor, notas } = req.body;
-    await db.runAsync(
+    await req.db.runAsync(
       'UPDATE gastos SET fecha=?, categoria=?, descripcion=?, monto=?, proveedor=?, notas=? WHERE id=?',
       [fecha, categoria, descripcion, monto, proveedor||null, notas||null, req.params.id]
     );
@@ -40,7 +46,7 @@ router.put('/gastos/:id', async (req, res) => {
 
 router.delete('/gastos/:id', async (req, res) => {
   try {
-    await db.runAsync('DELETE FROM gastos WHERE id=?', [req.params.id]);
+    await req.db.runAsync('DELETE FROM gastos WHERE id=?', [req.params.id]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -56,7 +62,7 @@ router.get('/trabajos-cerrados', async (req, res) => {
     const params = [];
     if (mes) { sql += ` AND strftime('%Y-%m', pj.fecha)=?`; params.push(mes); }
     sql += ' ORDER BY pj.fecha DESC';
-    const rows = await db.allAsync(sql, params);
+    const rows = await req.db.allAsync(sql, params);
     res.json(rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -64,33 +70,29 @@ router.get('/trabajos-cerrados', async (req, res) => {
 // Main summary: ingresos + gastos + charts data
 router.get('/resumen', async (req, res) => {
   try {
-    const cfgRows = await db.allAsync('SELECT key, value FROM config');
+    const cfgRows = await req.db.allAsync('SELECT key, value FROM config');
     const cfg = {};
     cfgRows.forEach(r => cfg[r.key] = r.value);
 
     const mes = req.query.mes || new Date().toISOString().slice(0,7);
 
-    // Month ingresos (closed + cobrado jobs only)
-    const ingMes = await db.getAsync(
+    const ingMes = await req.db.getAsync(
       `SELECT COALESCE(SUM(precio_final),0) as total, COUNT(*) as cnt
        FROM print_jobs WHERE strftime('%Y-%m', fecha)=? AND estado='Cierre' AND fallo=0 AND (cobrado IS NULL OR cobrado=1)`,
       [mes]
     );
 
-    // Month gastos
-    const gastMes = await db.getAsync(
+    const gastMes = await req.db.getAsync(
       `SELECT COALESCE(SUM(monto),0) as total, COUNT(*) as cnt FROM gastos WHERE strftime('%Y-%m', fecha)=?`,
       [mes]
     );
 
-    // Gastos por categoría (current month)
-    const gastCat = await db.allAsync(
+    const gastCat = await req.db.allAsync(
       `SELECT categoria, COALESCE(SUM(monto),0) as total FROM gastos WHERE strftime('%Y-%m', fecha)=? GROUP BY categoria ORDER BY total DESC`,
       [mes]
     );
 
-    // Last 6 months: ingresos + gastos
-    const meses6 = await db.allAsync(`
+    const meses6 = await req.db.allAsync(`
       SELECT m.mes,
         COALESCE(i.ingresos, 0) as ingresos,
         COALESCE(g.gastos, 0) as gastos
@@ -110,25 +112,22 @@ router.get('/resumen', async (req, res) => {
       ORDER BY m.mes ASC
     `);
 
-    // Pending jobs value (in production/levantamiento)
-    const pending = await db.getAsync(
+    const pending = await req.db.getAsync(
       `SELECT COALESCE(SUM(precio_final),0) as total, COUNT(*) as cnt
        FROM print_jobs WHERE estado IN ('Solicitud','Levantamiento','Producción') AND fallo=0`
     );
 
-    // Top gastos categories all-time
-    const topCat = await db.allAsync(
+    const topCat = await req.db.allAsync(
       `SELECT categoria, SUM(monto) as total FROM gastos GROUP BY categoria ORDER BY total DESC LIMIT 6`
     );
 
-    // Recent transactions (ingresos + gastos combined), current month
-    const recentIng = await db.allAsync(
+    const recentIng = await req.db.allAsync(
       `SELECT 'ingreso' as tipo, fecha, nombre_proyecto as descripcion, precio_final as monto, 'Trabajo' as categoria,
               (cobrado IS NULL OR cobrado=1) as cobrado
        FROM print_jobs WHERE strftime('%Y-%m', fecha)=? AND estado='Cierre' AND fallo=0 ORDER BY fecha DESC LIMIT 20`,
       [mes]
     );
-    const recentGast = await db.allAsync(
+    const recentGast = await req.db.allAsync(
       `SELECT 'gasto' as tipo, fecha, descripcion, monto, categoria FROM gastos WHERE strftime('%Y-%m', fecha)=? ORDER BY fecha DESC LIMIT 20`,
       [mes]
     );
