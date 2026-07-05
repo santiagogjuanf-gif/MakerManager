@@ -220,6 +220,7 @@
         </div>
         <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
           <button class="btn btn-secondary btn-sm" onclick="invToggleFilFilter()" id="fil-filter-btn">🔍 Filtrar</button>
+          ${'NDEFReader' in window ? `<button class="btn btn-secondary btn-sm" onclick="nfcLeer()" title="Leer etiqueta NFC">📡 NFC</button>` : ''}
           <button class="btn btn-primary btn-sm" onclick="invOpenFilamentForm()">＋ Agregar</button>
         </div>
       </div>
@@ -471,69 +472,29 @@
 
   // ---------- NFC ----------
   function invNFCMenu(f) {
-    const url = `${location.protocol}//${location.host}/nfc/${f.id}`;
-    const hasNDEF = 'NDEFReader' in window;
-    openModal(`📡 NFC — ${f.marca||''} ${f.material}`, `
-      <div style="display:flex;flex-direction:column;gap:14px;padding:4px 0">
-        <div>
-          <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;margin-bottom:6px">URL del tag (cópiala en NFC Tools)</div>
-          <code style="display:block;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;word-break:break-all">${url}</code>
-          <button class="btn btn-secondary" style="margin-top:8px;width:100%"
-            onclick="navigator.clipboard.writeText('${url}').then(()=>showToast('URL copiada ✓'))">📋 Copiar URL</button>
-        </div>
-        ${hasNDEF ? `
-          <div>
-            <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;margin-bottom:6px">Escritura directa (requiere HTTPS)</div>
-            <button class="btn btn-success" style="width:100%;margin-bottom:8px" onclick="invNFCWrite(${f.id},'${url}')">✍️ Escribir URL al tag NFC</button>
-            <button class="btn btn-secondary" style="width:100%" onclick="invNFCRead()">📡 Leer tag NFC</button>
-          </div>` : `
-          <div class="alert alert-info" style="font-size:13px">
-            ℹ️ Para escritura NFC descarga <strong>NFC Tools</strong> en tu teléfono.<br>
-            Escribe la URL de arriba como tipo <em>URL</em> en el tag.<br>
-            Al tocarlo, Chrome abrirá este filamento automáticamente.
-          </div>`}
-        ${f.tiene_nfc ? `<div style="color:#22c55e;font-size:13px">✅ Tag ya vinculado · UID: ${f.uid_nfc||'—'}</div>` : ''}
+    const nombre = `${f.marca||''} ${f.material||''} ${f.color||''}`.trim();
+    openModal(`📡 NFC — ${nombre}`, `
+      <div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">
+        ${f.tiene_nfc
+          ? `<div style="background:#10b98122;border:1px solid #10b981;border-radius:10px;padding:12px;font-size:13px">
+               <div style="font-weight:700;color:#10b981;margin-bottom:4px">✅ Tag vinculado</div>
+               <div style="font-size:11px;color:var(--text-muted)">UID: ${f.uid_nfc||'—'}</div>
+             </div>`
+          : `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:13px;color:var(--text-muted)">
+               ○ Sin tag NFC vinculado
+             </div>`}
+        <button class="btn btn-primary" style="width:100%" onclick="closeModal();nfcRegistrar(${f.id},'${nombre.replace(/'/g,"\\'")}')">
+          📡 ${f.tiene_nfc ? 'Reescribir' : 'Registrar'} etiqueta NFC
+        </button>
+        <button class="btn btn-secondary" style="width:100%" onclick="closeModal();nfcLeer()">
+          🔍 Leer e identificar etiqueta
+        </button>
+        ${f.tiene_nfc ? `<button class="btn btn-danger" style="width:100%" onclick="closeModal();nfcBorrar(${f.id})">
+          🗑️ Borrar etiqueta NFC
+        </button>` : ''}
       </div>
       <div class="form-actions"><button class="btn btn-secondary" onclick="closeModal()">Cerrar</button></div>`);
   }
-
-  window.invNFCWrite = async function (id, url) {
-    if (!('NDEFReader' in window)) { showToast('Web NFC no disponible — usa NFC Tools app', 'error'); return; }
-    try {
-      const ndef = new NDEFReader();
-      showToast('Acerca el tag NFC al teléfono…');
-      await ndef.write({ records: [{ recordType: 'url', data: url }] });
-      const serial = ndef.serialNumber || '';
-      await api('PUT', `/api/filaments/${id}`, { tiene_nfc: 1, uid_nfc: serial });
-      showToast('Tag NFC escrito y vinculado ✓');
-      await refreshFilaments(); closeModal();
-    } catch (e) {
-      showToast('Error NFC: ' + e.message + (e.message.includes('secure') ? ' — necesitas HTTPS' : ''), 'error');
-    }
-  };
-
-  window.invNFCRead = async function () {
-    if (!('NDEFReader' in window)) { showToast('Web NFC no disponible', 'error'); return; }
-    try {
-      const ndef = new NDEFReader();
-      showToast('Acerca el tag al teléfono…');
-      await ndef.scan();
-      ndef.onreading = ({ serialNumber, message }) => {
-        let found = allFilaments.find(f => f.uid_nfc && f.uid_nfc.toLowerCase() === serialNumber.toLowerCase());
-        if (!found) {
-          for (const rec of (message?.records || [])) {
-            if (rec.recordType === 'url') {
-              const txt = new TextDecoder().decode(rec.data);
-              const m = txt.match(/\/nfc\/(\d+)/);
-              if (m) found = allFilaments.find(f => f.id === parseInt(m[1]));
-            }
-          }
-        }
-        if (found) { closeModal(); invViewFilament(found.id); }
-        else showToast('Tag no vinculado a ningún filamento', 'error');
-      };
-    } catch (e) { showToast('Error NFC: ' + e.message, 'error'); }
-  };
 
   // ---------- FORM ----------
   window.invOpenFilamentForm = async function (id) {
