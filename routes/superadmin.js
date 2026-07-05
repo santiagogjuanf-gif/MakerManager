@@ -139,15 +139,16 @@ async function resolvePlanId(plan_slug, custom_plan) {
 router.post('/tenants', requireSuperAdmin, async (req, res) => {
   try {
     await superadminDb.ready;
-    const { slug, nombre_negocio, email_contacto, plan_slug, custom_plan, estado: estadoReq,
-            trial_fin, admin_username, admin_password, notas_admin } = req.body;
+    const { slug, nombre_negocio, email_contacto, plan_slug, plan_id: plan_id_direct, custom_plan,
+            estado: estadoReq, trial_fin, admin_username, admin_password, notas_admin } = req.body;
     if (!slug || !nombre_negocio) return res.status(400).json({ error: 'slug y nombre_negocio requeridos' });
     if (!/^[a-z0-9-]+$/.test(slug)) return res.status(400).json({ error: 'Slug inválido (solo letras minúsculas, números y guiones)' });
 
     const existing = await superadminDb.getAsync('SELECT id FROM tenants WHERE slug=?', [slug]);
     if (existing) return res.status(400).json({ error: 'El slug ya existe' });
 
-    const plan_id = await resolvePlanId(plan_slug, custom_plan);
+    // Accept plan_id (integer) directly or resolve from plan_slug
+    const plan_id = plan_id_direct ? parseInt(plan_id_direct) : await resolvePlanId(plan_slug, custom_plan);
     const estado = estadoReq || 'trial';
     const now = new Date().toISOString();
     const trialFinDate = trial_fin || new Date(Date.now() + 14*24*60*60*1000).toISOString().slice(0,10);
@@ -185,8 +186,8 @@ router.get('/tenants/:id', requireSuperAdmin, async (req, res) => {
 router.put('/tenants/:id', requireSuperAdmin, async (req, res) => {
   try {
     await superadminDb.ready;
-    const { nombre_negocio, email_contacto, plan_slug, custom_plan, estado, notas_admin, fecha_vencimiento, trial_fin } = req.body;
-    const plan_id = await resolvePlanId(plan_slug, custom_plan);
+    const { nombre_negocio, email_contacto, plan_slug, plan_id: plan_id_direct, custom_plan, estado, notas_admin, fecha_vencimiento, trial_fin } = req.body;
+    const plan_id = plan_id_direct ? parseInt(plan_id_direct) : await resolvePlanId(plan_slug, custom_plan);
     await superadminDb.runAsync(
       `UPDATE tenants SET nombre_negocio=COALESCE(?,nombre_negocio), email_contacto=COALESCE(?,email_contacto),
        plan_id=COALESCE(?,plan_id), estado=COALESCE(?,estado), notas_admin=COALESCE(?,notas_admin),
