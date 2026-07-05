@@ -111,7 +111,7 @@ router.get('/tenants', requireSuperAdmin, async (req, res) => {
       FROM tenants t LEFT JOIN plans p ON t.plan_id = p.id
       ORDER BY t.created_at DESC
     `);
-    res.json({ tenants: rows });
+    res.json(rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
