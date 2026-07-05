@@ -193,6 +193,8 @@ async function init() {
     "tipo_bobina TEXT DEFAULT 'Bobina completa'",
     'color_hex TEXT',
     "estado TEXT DEFAULT 'En uso'",
+    'tiene_nfc INTEGER DEFAULT 0',
+    'uid_nfc TEXT',
   ];
   for (const colDef of filColumns) {
     try { await db.runAsync(`ALTER TABLE filaments ADD COLUMN ${colDef}`); } catch (e) { /* column already exists */ }

@@ -28,7 +28,7 @@
 
     const tipos = new Set(printers.map(p => p.tipo));
     const tabs = [
-      { id: 'filamentos', label: '🧵 Filamentos', show: tipos.has('FDM') || filaments.length > 0 },
+      { id: 'filamentos', label: '🧵 Filamentos', always: true },
       { id: 'externos', label: '📦 Externos', always: true },
       { id: 'internos', label: '🧴 Internos', always: true },
       { id: 'resinas',    label: '🫙 Resinas',    show: tipos.has('Resina') || resinas.length > 0 },
@@ -766,7 +766,7 @@
 
   window.invSearchLaser = function (q) { laserSearch = q; laserPage = 1; renderLaser(); restoreFocus('inv-laser-search', q); };
 
-  function consumibleForm(data, submitFn) {
+  function consumibleFormHtml(data, submitFn) {
     const c = data || {};
     return `
       <div class="form-grid">
@@ -792,7 +792,7 @@
   window.invOpenLaserForm = function (id) {
     const c = id ? (allLaser.find(x => x.id === id) || {}) : {};
     openModal(id ? 'Editar Consumible Láser' : 'Nuevo Consumible Láser',
-      `<form onsubmit="invSaveLaser(event, ${id || 'null'})">${consumibleForm(c)}</form>`);
+      `<form onsubmit="invSaveLaser(event, ${id || 'null'})">${consumibleFormHtml(c)}</form>`);
   };
 
   window.invSaveLaser = async function (e, id) {
@@ -864,7 +864,7 @@
   window.invOpenCNCForm = function (id) {
     const c = id ? (allCNC.find(x => x.id === id) || {}) : {};
     openModal(id ? 'Editar Consumible CNC' : 'Nuevo Consumible CNC',
-      `<form onsubmit="invSaveCNC(event, ${id || 'null'})">${consumibleForm(c)}</form>`);
+      `<form onsubmit="invSaveCNC(event, ${id || 'null'})">${consumibleFormHtml(c)}</form>`);
   };
 
   window.invSaveCNC = async function (e, id) {
