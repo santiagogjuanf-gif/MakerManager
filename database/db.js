@@ -199,7 +199,7 @@ async function init() {
   }
 
   // Migrate print_jobs with levantamiento and cotizacion link columns
-  const jobLevColumns = ['levantamiento_datos TEXT', 'cotizacion_id INTEGER', 'archivado INTEGER DEFAULT 0', 'archivado_at TEXT', 'canal_venta TEXT', 'orden_id TEXT'];
+  const jobLevColumns = ['levantamiento_datos TEXT', 'cotizacion_id INTEGER', 'archivado INTEGER DEFAULT 0', 'archivado_at TEXT', 'canal_venta TEXT', 'orden_id TEXT', 'cobrado INTEGER DEFAULT 1'];
   for (const colDef of jobLevColumns) {
     try { await db.runAsync(`ALTER TABLE print_jobs ADD COLUMN ${colDef}`); } catch (e) { /* exists */ }
   }

@@ -45,6 +45,22 @@ router.delete('/gastos/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Closed jobs list for the cobrado manager
+router.get('/trabajos-cerrados', async (req, res) => {
+  try {
+    const { mes } = req.query;
+    let sql = `SELECT pj.id, pj.nombre_proyecto, pj.fecha, pj.precio_final, pj.cobrado,
+                      c.nombre as cliente_nombre, pj.canal_venta
+               FROM print_jobs pj LEFT JOIN clients c ON pj.cliente_id=c.id
+               WHERE pj.estado='Cierre' AND pj.fallo=0 AND (pj.archivado IS NULL OR pj.archivado=0)`;
+    const params = [];
+    if (mes) { sql += ` AND strftime('%Y-%m', pj.fecha)=?`; params.push(mes); }
+    sql += ' ORDER BY pj.fecha DESC';
+    const rows = await db.allAsync(sql, params);
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Main summary: ingresos + gastos + charts data
 router.get('/resumen', async (req, res) => {
   try {
@@ -54,10 +70,10 @@ router.get('/resumen', async (req, res) => {
 
     const mes = req.query.mes || new Date().toISOString().slice(0,7);
 
-    // Month ingresos (closed jobs)
+    // Month ingresos (closed + cobrado jobs only)
     const ingMes = await db.getAsync(
       `SELECT COALESCE(SUM(precio_final),0) as total, COUNT(*) as cnt
-       FROM print_jobs WHERE strftime('%Y-%m', fecha)=? AND estado='Cierre' AND fallo=0`,
+       FROM print_jobs WHERE strftime('%Y-%m', fecha)=? AND estado='Cierre' AND fallo=0 AND (cobrado IS NULL OR cobrado=1)`,
       [mes]
     );
 
@@ -84,7 +100,7 @@ router.get('/resumen', async (req, res) => {
       ) m
       LEFT JOIN (
         SELECT strftime('%Y-%m', fecha) as mes, SUM(precio_final) as ingresos
-        FROM print_jobs WHERE estado='Cierre' AND fallo=0
+        FROM print_jobs WHERE estado='Cierre' AND fallo=0 AND (cobrado IS NULL OR cobrado=1)
         GROUP BY mes
       ) i ON i.mes = m.mes
       LEFT JOIN (
@@ -107,7 +123,8 @@ router.get('/resumen', async (req, res) => {
 
     // Recent transactions (ingresos + gastos combined), current month
     const recentIng = await db.allAsync(
-      `SELECT 'ingreso' as tipo, fecha, nombre_proyecto as descripcion, precio_final as monto, 'Trabajo' as categoria
+      `SELECT 'ingreso' as tipo, fecha, nombre_proyecto as descripcion, precio_final as monto, 'Trabajo' as categoria,
+              (cobrado IS NULL OR cobrado=1) as cobrado
        FROM print_jobs WHERE strftime('%Y-%m', fecha)=? AND estado='Cierre' AND fallo=0 ORDER BY fecha DESC LIMIT 20`,
       [mes]
     );

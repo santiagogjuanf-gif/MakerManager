@@ -276,5 +276,16 @@ router.delete('/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Toggle cobrado flag (include/exclude from income in contabilidad)
+router.patch('/:id/cobrado', async (req, res) => {
+  try {
+    const job = await db.getAsync('SELECT cobrado FROM print_jobs WHERE id=?', [req.params.id]);
+    if (!job) return res.status(404).json({ error: 'Not found' });
+    const newVal = job.cobrado === 0 ? 1 : 0;
+    await db.runAsync('UPDATE print_jobs SET cobrado=? WHERE id=?', [newVal, req.params.id]);
+    res.json({ cobrado: newVal });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;
 module.exports.calcJobCost = calcJobCost;

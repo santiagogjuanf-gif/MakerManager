@@ -24,7 +24,7 @@ router.get('/', async (req, res) => {
        COALESCE((SELECT SUM(jf.gramos_pieza) FROM job_filaments jf
          JOIN print_jobs pj2 ON jf.print_job_id = pj2.id
          WHERE pj2.fecha >= ? AND pj2.fallo = 0 AND pj2.estado = 'Cierre'), 0) as total_gramos
-       FROM print_jobs WHERE fecha >= ? AND fallo = 0 AND estado = 'Cierre'`, [firstDay, firstDay]
+       FROM print_jobs WHERE fecha >= ? AND fallo = 0 AND estado = 'Cierre' AND (cobrado IS NULL OR cobrado=1)`, [firstDay, firstDay]
     );
     const counts = await db.getAsync(`
       SELECT
@@ -46,7 +46,7 @@ router.get('/', async (req, res) => {
              COUNT(*) as pedidos
       FROM print_jobs
       WHERE fecha >= date('now', '-5 months', 'start of month')
-        AND fallo = 0 AND estado = 'Cierre'
+        AND fallo = 0 AND estado = 'Cierre' AND (cobrado IS NULL OR cobrado=1)
       GROUP BY mes ORDER BY mes ASC
     `);
 
