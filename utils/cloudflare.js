@@ -3,7 +3,7 @@ async function createSubdomainDNS(slug) {
     const resp = await fetch(`https://api.cloudflare.com/client/v4/zones/${process.env.CLOUDFLARE_ZONE_ID}/dns_records`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${process.env.CLOUDFLARE_API_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'CNAME', name: `${slug}.makermanager.cerberusdev.pro`, content: 'tunnel', proxied: true, ttl: 1 })
+      body: JSON.stringify({ type: 'CNAME', name: `${slug}.makermanager.cerberusdev.pro`, content: `${process.env.CLOUDFLARE_TUNNEL_ID}.cfargotunnel.com`, proxied: true, ttl: 1 })
     });
     const data = await resp.json();
     if (!data.success) throw new Error(JSON.stringify(data.errors));
