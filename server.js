@@ -11,7 +11,15 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res, filePath) {
+    // JS and CSS: always revalidate — prevents Cloudflare and browsers from
+    // serving stale bundles after a deploy.
+    if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 app.use('/api/dashboard', require('./routes/dashboard'));
