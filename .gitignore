@@ -1,5 +1,7 @@
 node_modules/
 database/makermanager.db
+database/superadmin.db
+database/tenants/*.db
 *.db-shm
 *.db-wal
 .env
