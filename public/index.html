@@ -49,6 +49,10 @@
           <span class="nav-icon">💰</span>
           <span>Contabilidad</span>
         </a>
+        <a href="#ayuda" class="nav-item" data-page="ayuda">
+          <span class="nav-icon">📖</span>
+          <span>Ayuda</span>
+        </a>
         <a href="#config" class="nav-item" data-page="config" data-admin-only>
           <span class="nav-icon">⚙️</span>
           <span>Configuración</span>
@@ -69,6 +73,7 @@
       <div id="page-jobs" class="page hidden"></div>
       <div id="page-config" class="page hidden"></div>
       <div id="page-contabilidad" class="page hidden"></div>
+      <div id="page-ayuda" class="page hidden"></div>
     </main>
   </div>
 
@@ -116,6 +121,7 @@
   <script src="/js/catalog.js"></script>
   <script src="/js/calculator.js"></script>
   <script src="/js/contabilidad.js"></script>
+  <script src="/js/ayuda.js"></script>
   <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
   window.addEventListener('load', () => initBgAnim('bg-canvas'));</script>
 </body>
