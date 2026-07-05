@@ -7,6 +7,12 @@ const https = require('https');
 const http = require('http');
 const mqtt = require('mqtt');
 
+// Multi-tenant DB selector
+router.use((req, res, next) => {
+  req.db = (req.tenant && req.tenantDb) ? req.tenantDb : require('../database/db');
+  next();
+});
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, path.join(__dirname, '../public/uploads')),
   filename: (req, file, cb) => cb(null, `printer-${Date.now()}${path.extname(file.originalname)}`)
@@ -14,21 +20,19 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
 router.get('/', async (req, res) => {
-  try { res.json(await db.allAsync('SELECT * FROM printers ORDER BY created_at DESC')); }
+  try { res.json(await req.db.allAsync('SELECT * FROM printers ORDER BY created_at DESC')); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 router.get('/:id', async (req, res) => {
   try {
-    const r = await db.getAsync('SELECT * FROM printers WHERE id=?', [req.params.id]);
+    const r = await req.db.getAsync('SELECT * FROM printers WHERE id=?', [req.params.id]);
     if (!r) return res.status(404).json({ error: 'Not found' });
     res.json(r);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 function buildPrinterParams(d) {
-  // costo_por_hora = costo_compra / vida_util_horas (depreciación lineal)
-  // vida_util_horas default 3000h si no se especifica
   const vidaUtil = parseFloat(d.vida_util_horas) || 3000;
   const cph = d.costo_compra
     ? (parseFloat(d.costo_compra) / Math.max(1, vidaUtil))
@@ -49,7 +53,6 @@ function buildPrinterParams(d) {
   ];
 }
 
-// ── OctoPrint helper ──────────────────────────────────────────────────────────
 function fetchOctoPrint(baseUrl, apiKey) {
   const fetchOne = (urlPath) => new Promise((resolve, reject) => {
     const url = new URL(baseUrl.replace(/\/$/, '') + urlPath);
@@ -103,7 +106,6 @@ function fetchOctoPrint(baseUrl, apiKey) {
   });
 }
 
-// ── Bambu Lab MQTT helper ─────────────────────────────────────────────────────
 function fetchBambu(ip, serial, accessCode) {
   return new Promise((resolve) => {
     const TIMEOUT = 8000;
@@ -114,7 +116,7 @@ function fetchBambu(ip, serial, accessCode) {
       username: 'bblp',
       password: accessCode,
       clientId: `mm_${Date.now()}`,
-      rejectUnauthorized: false, // Bambu uses self-signed cert on LAN
+      rejectUnauthorized: false,
       connectTimeout: 5000,
       reconnectPeriod: 0,
     });
@@ -129,7 +131,6 @@ function fetchBambu(ip, serial, accessCode) {
     client.on('connect', () => {
       client.subscribe(`device/${serial}/report`, (err) => {
         if (err) { clearTimeout(timer); return finish({ configured: true, source: 'bambu', online: false, error: 'subscribe failed' }); }
-        // Request full status push
         client.publish(`device/${serial}/request`, JSON.stringify({ pushing: { sequence_id: '0', command: 'pushall' } }));
       });
     });
@@ -145,7 +146,6 @@ function fetchBambu(ip, serial, accessCode) {
         const stateMap = { IDLE: 'Libre', RUNNING: 'Imprimiendo', PAUSE: 'Pausado', FINISH: 'Terminado', FAILED: 'Error', PREPARE: 'Preparando' };
         const gcodeState = p.gcode_state || 'IDLE';
 
-        // AMS slots
         let ams = null;
         if (p.ams && p.ams.ams && p.ams.ams.length > 0) {
           ams = p.ams.ams[0].tray?.map(t => ({
@@ -168,7 +168,7 @@ function fetchBambu(ip, serial, accessCode) {
           job: {
             file:          p.subtask_name || p.task_name || null,
             progress:      p.mc_percent   || 0,
-            printTimeLeft: p.mc_remaining_time != null ? p.mc_remaining_time * 60 : null, // convert min→sec
+            printTimeLeft: p.mc_remaining_time != null ? p.mc_remaining_time * 60 : null,
             state:         stateMap[gcodeState] || gcodeState,
           },
           ams,
@@ -178,10 +178,9 @@ function fetchBambu(ip, serial, accessCode) {
   });
 }
 
-// ── Live status proxy endpoint ────────────────────────────────────────────────
 router.get('/:id/live', async (req, res) => {
   try {
-    const printer = await db.getAsync('SELECT * FROM printers WHERE id=?', [req.params.id]);
+    const printer = await req.db.getAsync('SELECT * FROM printers WHERE id=?', [req.params.id]);
     if (!printer) return res.status(404).json({ error: 'Not found' });
 
     const type = printer.monitor_type || 'none';
@@ -204,10 +203,15 @@ router.get('/:id/live', async (req, res) => {
 
 router.post('/', upload.single('foto'), async (req, res) => {
   try {
+    // Plan limit check
+    if (req.tenant?.plan) {
+      const count = await req.db.getAsync('SELECT COUNT(*) as cnt FROM printers');
+      if (count.cnt >= req.tenant.plan.max_impresoras) return res.status(400).json({ error: `Límite de ${req.tenant.plan.max_impresoras} impresoras alcanzado para tu plan` });
+    }
     const d = req.body;
     if (req.file) d.foto_path = `/uploads/${req.file.filename}`;
     const params = buildPrinterParams(d);
-    const r = await db.runAsync(
+    const r = await req.db.runAsync(
       `INSERT INTO printers (nombre,marca,modelo,tipo,costo_compra,fecha_compra,consumo_promedio_watts,costo_por_hora,tiene_ams,ubicacion,estado,horas_acumuladas,foto_path,area_trabajo,potencia_laser_w,tipo_laser,tipo_resina,fuente_luz,velocidad_max_mm,husillo_w,materiales_compatibles,notas,octoprint_url,octoprint_apikey,monitor_type,bambu_ip,bambu_serial,bambu_access_code,vida_util_horas)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, params
     );
@@ -220,11 +224,11 @@ router.put('/:id', upload.single('foto'), async (req, res) => {
     const d = req.body;
     if (req.file) d.foto_path = `/uploads/${req.file.filename}`;
     else {
-      const existing = await db.getAsync('SELECT foto_path FROM printers WHERE id=?', [req.params.id]);
+      const existing = await req.db.getAsync('SELECT foto_path FROM printers WHERE id=?', [req.params.id]);
       d.foto_path = existing?.foto_path || null;
     }
     const params = [...buildPrinterParams(d), req.params.id];
-    await db.runAsync(
+    await req.db.runAsync(
       `UPDATE printers SET nombre=?,marca=?,modelo=?,tipo=?,costo_compra=?,fecha_compra=?,consumo_promedio_watts=?,costo_por_hora=?,tiene_ams=?,ubicacion=?,estado=?,horas_acumuladas=?,foto_path=?,area_trabajo=?,potencia_laser_w=?,tipo_laser=?,tipo_resina=?,fuente_luz=?,velocidad_max_mm=?,husillo_w=?,materiales_compatibles=?,notas=?,octoprint_url=?,octoprint_apikey=?,monitor_type=?,bambu_ip=?,bambu_serial=?,bambu_access_code=?,vida_util_horas=? WHERE id=?`, params
     );
     res.json({ success: true });
@@ -233,15 +237,15 @@ router.put('/:id', upload.single('foto'), async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
-    const printer = await db.getAsync('SELECT tipo FROM printers WHERE id=?', [req.params.id]);
+    const printer = await req.db.getAsync('SELECT tipo FROM printers WHERE id=?', [req.params.id]);
     if (!printer) return res.status(404).json({ error: 'Not found' });
     if (req.query.delete_inventory === 'true') {
-      if (printer.tipo === 'FDM') await db.runAsync('DELETE FROM filaments');
-      else if (printer.tipo === 'Resina') await db.runAsync('DELETE FROM resinas');
-      else if (printer.tipo === 'Laser') await db.runAsync('DELETE FROM consumibles_laser');
-      else if (printer.tipo === 'CNC') await db.runAsync('DELETE FROM consumibles_cnc');
+      if (printer.tipo === 'FDM') await req.db.runAsync('DELETE FROM filaments');
+      else if (printer.tipo === 'Resina') await req.db.runAsync('DELETE FROM resinas');
+      else if (printer.tipo === 'Laser') await req.db.runAsync('DELETE FROM consumibles_laser');
+      else if (printer.tipo === 'CNC') await req.db.runAsync('DELETE FROM consumibles_cnc');
     }
-    await db.runAsync('DELETE FROM printers WHERE id=?', [req.params.id]);
+    await req.db.runAsync('DELETE FROM printers WHERE id=?', [req.params.id]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
