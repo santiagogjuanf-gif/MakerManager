@@ -4,6 +4,8 @@
   let _gastos = [];
   let _trabajosCerrados = [];
   let _editGasto = null;
+  const PAGE_SIZE = 8;
+  let _pgMov = 1, _pgGast = 1, _pgTC = 1;
 
   const CATS = ['Filamento', 'Resina', 'Impresora', 'Mantenimiento', 'Consumible', 'Electricidad', 'General'];
   const CAT_COLORS = {
@@ -18,6 +20,26 @@
     return `${sym}${parseFloat(v).toFixed(2)} ${cur}`.trim();
   }
   function fmtDate(d) { return d ? d.substring(0, 10) : '-'; }
+
+  function paginate(items, page) {
+    const total = items.length;
+    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const p = Math.min(Math.max(1, page), pages);
+    const slice = items.slice((p-1)*PAGE_SIZE, p*PAGE_SIZE);
+    return { slice, p, pages, total };
+  }
+
+  function pagerHtml(p, pages, total, fnName) {
+    if (pages <= 1) return '';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:12px;color:var(--text-muted)">
+      <span>${total} registros</span>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button class="btn btn-secondary btn-sm" style="padding:2px 8px" ${p<=1?'disabled':''} onclick="${fnName}(${p-1})">‹</button>
+        <span>${p} / ${pages}</span>
+        <button class="btn btn-secondary btn-sm" style="padding:2px 8px" ${p>=pages?'disabled':''} onclick="${fnName}(${p+1})">›</button>
+      </div>
+    </div>`;
+  }
   function mesLabel(ym) {
     if (!ym) return '';
     const [y, m] = ym.split('-');
@@ -235,8 +257,10 @@
       <!-- Movimientos del mes -->
       <div class="card">
         <div style="font-size:13px;font-weight:700;margin-bottom:12px">📋 Movimientos del mes</div>
-        <div style="max-height:320px;overflow-y:auto">
-          ${_data.movimientos?.length ? _data.movimientos.map(m=>`
+        ${(()=>{
+          const all=_data.movimientos||[];
+          const {slice,p,pages,total}=paginate(all,_pgMov);
+          return `${slice.length ? slice.map(m=>`
             <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
               <span style="font-size:16px">${m.tipo==='ingreso'?'💚':'🔴'}</span>
               <div style="flex:1;min-width:0">
@@ -246,7 +270,8 @@
               <strong style="font-size:12px;color:${m.tipo==='ingreso'?'var(--accent)':'#ef4444'};white-space:nowrap">${m.tipo==='ingreso'?'+':'−'}${fmtM(m.monto)}</strong>
             </div>`).join('')
           : '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px">Sin movimientos</div>'}
-        </div>
+          ${pagerHtml(p,pages,total,'contabPgMov')}`;
+        })()}
       </div>
 
       <!-- Gastos registrados -->
@@ -254,8 +279,9 @@
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div style="font-size:13px;font-weight:700">🧾 Gastos registrados</div>
         </div>
-        <div style="max-height:320px;overflow-y:auto">
-          ${_gastos.length ? _gastos.map(g=>`
+        ${(()=>{
+          const {slice,p,pages,total}=paginate(_gastos,_pgGast);
+          return `${slice.length ? slice.map(g=>`
             <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
               <div style="width:8px;height:8px;border-radius:50%;background:${CAT_COLORS[g.categoria]||'#8b5cf6'};flex-shrink:0"></div>
               <div style="flex:1;min-width:0">
@@ -269,7 +295,8 @@
               </div>
             </div>`).join('')
           : '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px">Sin gastos registrados</div>'}
-        </div>
+          ${pagerHtml(p,pages,total,'contabPgGast')}`;
+        })()}
       </div>
     </div>
 
@@ -280,45 +307,48 @@
           <div style="font-size:13px;font-weight:700">📋 Historial de trabajos · ${mesLabel(_mes)}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Desactiva la palomita para excluir el trabajo de tus ingresos (sin eliminarlo)</div>
         </div>
-        <div style="font-size:11px;color:var(--text-muted)">${_trabajosCerrados.length} trabajos</div>
       </div>
-      ${_trabajosCerrados.length ? `
-      <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <thead>
-            <tr style="color:var(--text-muted);border-bottom:1px solid var(--border)">
-              <th style="text-align:left;padding:6px 8px;font-weight:600">Cobrado</th>
-              <th style="text-align:left;padding:6px 8px;font-weight:600">Proyecto</th>
-              <th style="text-align:left;padding:6px 8px;font-weight:600">Cliente</th>
-              <th style="text-align:left;padding:6px 8px;font-weight:600">Fecha</th>
-              <th style="text-align:right;padding:6px 8px;font-weight:600">Precio</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${_trabajosCerrados.map(t => {
-              const cobrado = t.cobrado === null || t.cobrado === undefined || t.cobrado == 1;
-              return `<tr style="border-bottom:1px solid var(--border);opacity:${cobrado?'1':'0.5'};transition:opacity .2s"
-                         id="tc-row-${t.id}">
-                <td style="padding:8px 8px">
-                  <button onclick="contabToggleCobrado(${t.id})" title="${cobrado?'Marcar como no cobrado':'Marcar como cobrado'}"
-                    style="background:none;border:none;cursor:pointer;font-size:18px;line-height:1">
-                    ${cobrado ? '✅' : '⬜'}
-                  </button>
-                </td>
-                <td style="padding:8px 8px;${cobrado?'':'text-decoration:line-through;color:var(--text-muted)'}">
-                  <strong>${t.nombre_proyecto || '-'}</strong>
-                  ${t.canal_venta ? `<div style="font-size:10px;color:var(--text-muted)">${t.canal_venta}</div>` : ''}
-                </td>
-                <td style="padding:8px 8px;color:var(--text-muted)">${t.cliente_nombre || '-'}</td>
-                <td style="padding:8px 8px;color:var(--text-muted)">${fmtDate(t.fecha)}</td>
-                <td style="padding:8px 8px;text-align:right;font-weight:700;color:${cobrado?'var(--accent)':'#ef4444'};${cobrado?'':'text-decoration:line-through'}">
-                  ${fmtM(t.precio_final)}
-                </td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>` : '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px">Sin trabajos cerrados este mes</div>'}
+      ${(()=>{
+        const {slice,p,pages,total}=paginate(_trabajosCerrados,_pgTC);
+        return `${total ? `
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="color:var(--text-muted);border-bottom:1px solid var(--border)">
+                <th style="text-align:left;padding:6px 8px;font-weight:600">Cobrado</th>
+                <th style="text-align:left;padding:6px 8px;font-weight:600">Proyecto</th>
+                <th style="text-align:left;padding:6px 8px;font-weight:600">Cliente</th>
+                <th style="text-align:left;padding:6px 8px;font-weight:600">Fecha</th>
+                <th style="text-align:right;padding:6px 8px;font-weight:600">Precio</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${slice.map(t=>{
+                const cobrado=t.cobrado===null||t.cobrado===undefined||t.cobrado==1;
+                return `<tr style="border-bottom:1px solid var(--border);opacity:${cobrado?'1':'0.5'}">
+                  <td style="padding:8px 8px">
+                    <button onclick="contabToggleCobrado(${t.id})" title="${cobrado?'Marcar como no cobrado':'Marcar como cobrado'}"
+                      style="background:none;border:none;cursor:pointer;font-size:18px;line-height:1">
+                      ${cobrado?'✅':'⬜'}
+                    </button>
+                  </td>
+                  <td style="padding:8px 8px;${cobrado?'':'text-decoration:line-through;color:var(--text-muted)'}">
+                    <strong>${t.nombre_proyecto||'-'}</strong>
+                    ${t.canal_venta?`<div style="font-size:10px;color:var(--text-muted)">${t.canal_venta}</div>`:''}
+                  </td>
+                  <td style="padding:8px 8px;color:var(--text-muted)">${t.cliente_nombre||'-'}</td>
+                  <td style="padding:8px 8px;color:var(--text-muted)">${fmtDate(t.fecha)}</td>
+                  <td style="padding:8px 8px;text-align:right;font-weight:700;color:${cobrado?'var(--accent)':'#ef4444'};${cobrado?'':'text-decoration:line-through'}">
+                    ${fmtM(t.precio_final)}
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`
+        : '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px">Sin trabajos cerrados este mes</div>'}
+        ${pagerHtml(p,pages,total,'contabPgTC')}`;
+      })()}
     </div>
 
     <!-- All-time by category -->
@@ -389,10 +419,10 @@
     </form>`;
   }
 
-  window.contabSetMes = function(mes) {
-    _mes = mes;
-    render();
-  };
+  window.contabSetMes = function(mes) { _mes = mes; _pgMov=1; _pgGast=1; _pgTC=1; render(); };
+  window.contabPgMov  = function(p) { _pgMov=p;  render(); };
+  window.contabPgGast = function(p) { _pgGast=p; render(); };
+  window.contabPgTC   = function(p) { _pgTC=p;   render(); };
 
   window.contabNewGasto = function() {
     _editGasto = null;

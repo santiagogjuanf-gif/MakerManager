@@ -163,8 +163,8 @@ const pageLoaders = {};
 
 function navigate(page) {
   if (!pages.includes(page)) page = 'dashboard';
-  // Workers can't access config
-  if (page === 'config' && currentUser?.role === 'worker') { page = 'dashboard'; }
+  // Workers can't access config or contabilidad
+  if ((page === 'config' || page === 'contabilidad') && currentUser?.role === 'worker') { page = 'dashboard'; }
   // Stop printer live polling when leaving printers page
   if (page !== 'printers' && window.prStopLive) window.prStopLive();
   pages.forEach(p => {
