@@ -220,7 +220,7 @@
         </div>
         <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
           <button class="btn btn-secondary btn-sm" onclick="invToggleFilFilter()" id="fil-filter-btn">🔍 Filtrar</button>
-          ${'NDEFReader' in window ? `<button class="btn btn-secondary btn-sm" onclick="nfcLeer()" title="Leer etiqueta NFC">📡 NFC</button>` : ''}
+          ${('NDEFReader' in window) ? '<button class="btn btn-secondary btn-sm" onclick="nfcLeer()" title="Leer etiqueta NFC">📡 NFC</button>' : ''}
           <button class="btn btn-primary btn-sm" onclick="invOpenFilamentForm()">＋ Agregar</button>
         </div>
       </div>
