@@ -6,86 +6,127 @@
 <title>MakerManager — Superadmin</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#0f1117;--surface:#1a1d27;--card:#1e2130;--accent:#6c63ff;--accent-light:#8b84ff;--border:#2d3148;--text:#e2e8f0;--text-muted:#8892a4}
+:root{
+  --bg:#080b14;--surface:#0f1322;--card:#141828;--card2:#1a1f35;
+  --accent:#6c63ff;--accent2:#8b84ff;--accent-glow:rgba(108,99,255,.25);
+  --border:#1e2540;--border2:#252d4a;
+  --text:#e8eaf6;--text-muted:#6b7599;--text-sub:#9ba3c4;
+  --green:#22c55e;--blue:#3b82f6;--orange:#f97316;--red:#ef4444;
+}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
 a{color:var(--accent);text-decoration:none}
-input,select,textarea{background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 12px;font-size:14px;width:100%;outline:none}
-input:focus,select:focus,textarea:focus{border-color:var(--accent)}
-button{cursor:pointer;border:none;border-radius:6px;padding:8px 16px;font-size:14px;font-weight:600;transition:.15s}
-.btn-primary{background:var(--accent);color:#fff}
-.btn-primary:hover{background:var(--accent-light)}
-.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border)}
-.btn-secondary:hover{background:var(--card)}
-.btn-danger{background:#ef4444;color:#fff}
-.btn-danger:hover{background:#dc2626}
-.btn-warning{background:#f97316;color:#fff}
-.btn-warning:hover{background:#ea6e00}
-.btn-success{background:#22c55e;color:#fff}
-.btn-success:hover{background:#16a34a}
-.btn-sm{padding:4px 10px;font-size:12px}
+input,select,textarea{background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:9px 13px;font-size:14px;width:100%;outline:none;transition:.15s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+button{cursor:pointer;border:none;border-radius:8px;padding:9px 18px;font-size:14px;font-weight:600;transition:.15s}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#5548e8);color:#fff;box-shadow:0 4px 14px var(--accent-glow)}
+.btn-primary:hover{background:linear-gradient(135deg,var(--accent2),var(--accent));transform:translateY(-1px)}
+.btn-secondary{background:var(--card2);color:var(--text-sub);border:1px solid var(--border2)}
+.btn-secondary:hover{background:var(--border2);color:var(--text)}
+.btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
+.btn-danger:hover{transform:translateY(-1px)}
+.btn-warning{background:linear-gradient(135deg,#f97316,#ea6e00);color:#fff}
+.btn-success{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff}
+.btn-sm{padding:4px 11px;font-size:12px;border-radius:6px}
+
 /* Login */
-#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh}
-.login-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:40px;width:380px;max-width:95vw}
-.login-box h1{font-size:22px;margin-bottom:4px;color:var(--accent)}
-.login-box p{color:var(--text-muted);font-size:13px;margin-bottom:24px}
-.form-group{margin-bottom:16px}
-.form-group label{display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
-/* Main app */
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;
+  background:radial-gradient(ellipse at 50% 0%,rgba(108,99,255,.12) 0%,transparent 60%)}
+.login-box{background:var(--card);border:1px solid var(--border2);border-radius:16px;padding:44px;width:400px;max-width:95vw;
+  box-shadow:0 24px 64px rgba(0,0,0,.5),0 0 0 1px rgba(108,99,255,.1)}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo .icon{font-size:40px;display:block;margin-bottom:10px}
+.login-logo h1{font-size:24px;font-weight:800;background:linear-gradient(135deg,var(--accent2),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.login-logo p{color:var(--text-muted);font-size:13px;margin-top:4px}
+.form-group{margin-bottom:18px}
+.form-group label{display:block;font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:7px;text-transform:uppercase;letter-spacing:.8px}
+
+/* Layout */
 #app{display:none;flex-direction:row;min-height:100vh}
-.sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 0;flex-shrink:0}
-.sidebar-logo{padding:0 20px 24px;font-size:16px;font-weight:700;color:var(--accent)}
-.sidebar-logo span{color:var(--text-muted);font-size:12px;display:block;font-weight:400;margin-top:2px}
-.nav-item{padding:10px 20px;cursor:pointer;border-left:3px solid transparent;color:var(--text-muted);font-size:14px;font-weight:500;transition:.15s}
-.nav-item:hover{color:var(--text);background:rgba(108,99,255,.08)}
-.nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(108,99,255,.1)}
-.sidebar-footer{margin-top:auto;padding:16px 20px}
-.sidebar-footer button{width:100%;font-size:12px}
-.main{flex:1;overflow-y:auto;padding:32px}
-.section{display:none}
-.section.active{display:block}
-h2{font-size:22px;font-weight:700;margin-bottom:24px}
-/* Cards */
-.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;margin-bottom:32px}
-.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}
-.kpi-card .label{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
-.kpi-card .value{font-size:28px;font-weight:700;color:var(--accent)}
+.sidebar{width:240px;background:linear-gradient(180deg,var(--surface) 0%,#0c1020 100%);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-header{padding:24px 20px 20px}
+.sidebar-brand{font-size:17px;font-weight:800;background:linear-gradient(135deg,var(--accent2),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sidebar-tag{display:inline-block;background:rgba(108,99,255,.15);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.5px;margin-top:4px}
+.sidebar-divider{height:1px;background:var(--border);margin:4px 20px 12px}
+.nav-item{padding:10px 20px;cursor:pointer;border-left:3px solid transparent;color:var(--text-muted);font-size:14px;font-weight:500;display:flex;align-items:center;gap:10px;transition:.15s;border-radius:0 8px 8px 0;margin:2px 8px 2px 0}
+.nav-item:hover{color:var(--text);background:rgba(108,99,255,.07);border-left-color:var(--border2)}
+.nav-item.active{color:var(--accent2);border-left-color:var(--accent);background:rgba(108,99,255,.12);font-weight:600}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+.sidebar-footer{margin-top:auto;padding:16px 12px;border-top:1px solid var(--border)}
+.sidebar-footer button{width:100%;font-size:12px;background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.2)}
+.sidebar-footer button:hover{background:rgba(239,68,68,.15)}
+
+.main{flex:1;overflow-y:auto;padding:32px 36px;background:var(--bg)}
+.section{display:none}.section.active{display:block}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+.page-header h2{font-size:22px;font-weight:800;color:var(--text)}
+.page-subtitle{font-size:13px;color:var(--text-muted);margin-top:2px}
+
+/* KPI Cards */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:28px}
+.kpi-card{background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:22px;position:relative;overflow:hidden;transition:.2s}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.kpi-card.blue::before{background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.kpi-card.green::before{background:linear-gradient(90deg,var(--green),#4ade80)}
+.kpi-card.orange::before{background:linear-gradient(90deg,var(--orange),#fb923c)}
+.kpi-card.red::before{background:linear-gradient(90deg,var(--red),#f87171)}
+.kpi-card.purple::before{background:linear-gradient(90deg,#a855f7,#c084fc)}
+.kpi-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.kpi-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:10px}
+.kpi-value{font-size:32px;font-weight:800;line-height:1}
+.kpi-card.blue .kpi-value{color:var(--accent2)}
+.kpi-card.green .kpi-value{color:var(--green)}
+.kpi-card.orange .kpi-value{color:var(--orange)}
+.kpi-card.red .kpi-value{color:var(--red)}
+.kpi-card.purple .kpi-value{color:#c084fc}
+
 /* Table */
-.table-wrap{overflow-x:auto}
+.table-wrap{background:var(--card);border:1px solid var(--border2);border-radius:12px;overflow:hidden}
 table{width:100%;border-collapse:collapse;font-size:14px}
-th{text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);border-bottom:1px solid var(--border)}
-td{padding:10px 12px;border-bottom:1px solid var(--border)}
-tr:hover td{background:rgba(255,255,255,.03)}
+thead{background:var(--card2)}
+th{text-align:left;padding:13px 16px;font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted);font-weight:700}
+td{padding:13px 16px;border-top:1px solid var(--border)}
+tr:hover td{background:rgba(108,99,255,.04)}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+
 /* Badges */
-.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}
-.badge-activo{background:#22c55e22;color:#22c55e}
-.badge-trial{background:#3b82f622;color:#3b82f6}
-.badge-suspendido{background:#f9731622;color:#f97316}
-.badge-cancelado{background:#ef444422;color:#ef4444}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.3px}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;display:inline-block}
+.badge-activo{background:#22c55e18;color:var(--green);border:1px solid #22c55e30}.badge-activo::before{background:var(--green)}
+.badge-trial{background:#3b82f618;color:var(--blue);border:1px solid #3b82f630}.badge-trial::before{background:var(--blue)}
+.badge-suspendido{background:#f9731618;color:var(--orange);border:1px solid #f9731630}.badge-suspendido::before{background:var(--orange)}
+.badge-cancelado{background:#ef444418;color:var(--red);border:1px solid #ef444430}.badge-cancelado::before{background:var(--red)}
+
 /* Modal */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
 .modal-overlay.hidden{display:none}
-.modal-box{background:var(--card);border:1px solid var(--border);border-radius:12px;width:560px;max-width:100%;max-height:90vh;overflow-y:auto}
+.modal-box{background:var(--card);border:1px solid var(--border2);border-radius:16px;width:560px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.6)}
 .modal-box.wide{width:720px}
-.modal-header{padding:20px 24px 0;display:flex;justify-content:space-between;align-items:center}
-.modal-header h3{font-size:18px;font-weight:700}
-.modal-close{background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:4px}
-.modal-close:hover{color:var(--text)}
+.modal-header{padding:24px 24px 0;display:flex;justify-content:space-between;align-items:center}
+.modal-header h3{font-size:18px;font-weight:800}
+.modal-close{background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;padding:2px 6px;border-radius:6px;line-height:1}
+.modal-close:hover{color:var(--text);background:var(--border2)}
 .modal-body{padding:20px 24px 24px}
 .modal-footer{padding:0 24px 20px;display:flex;gap:10px;justify-content:flex-end}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .form-row.cols-3{grid-template-columns:1fr 1fr 1fr}
+
+/* Slug pill */
+.slug-pill{display:inline-block;background:rgba(108,99,255,.12);color:var(--accent2);font-family:monospace;font-size:12px;padding:2px 8px;border-radius:6px;border:1px solid rgba(108,99,255,.2)}
+
 /* Toast */
-.toast{position:fixed;bottom:24px;right:24px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 20px;font-size:14px;z-index:9999;animation:slideIn .2s ease}
-.toast.success{border-color:#22c55e;color:#22c55e}
-.toast.error{border-color:#ef4444;color:#ef4444}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:14px 20px;font-size:14px;z-index:9999;animation:slideIn .25s ease;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.toast.success{border-color:#22c55e50;color:var(--green)}
+.toast.error{border-color:#ef444450;color:var(--red)}
 .toast.hidden{display:none}
 @keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
 .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
 .section-header h2{margin:0}
-.error-msg{color:#ef4444;font-size:13px;margin-top:8px}
-.success-creds{background:var(--surface);border:1px solid var(--accent);border-radius:8px;padding:16px;margin-bottom:16px}
-.success-creds p{font-size:13px;margin-bottom:6px}
-.success-creds code{background:rgba(108,99,255,.15);padding:2px 6px;border-radius:4px;font-family:monospace}
+.error-msg{color:var(--red);font-size:13px;margin-top:8px}
+.success-creds{background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.25);border-radius:10px;padding:18px;margin-bottom:16px}
+.success-creds p{font-size:13px;margin-bottom:6px;color:var(--text-sub)}
+.success-creds code{background:rgba(108,99,255,.15);padding:2px 7px;border-radius:5px;font-family:monospace;color:var(--accent2)}
+.empty-state{text-align:center;padding:48px 20px;color:var(--text-muted)}
+.empty-state .icon{font-size:40px;margin-bottom:12px}
 </style>
 </head>
 <body>
@@ -93,8 +134,11 @@ tr:hover td{background:rgba(255,255,255,.03)}
 <!-- Login -->
 <div id="login-screen">
   <div class="login-box">
-    <h1>&#9881; Superadmin</h1>
-    <p>MakerManager SaaS Control Panel</p>
+    <div class="login-logo">
+      <span class="icon">⚙️</span>
+      <h1>MakerManager</h1>
+      <p>Panel de Control — Superadmin</p>
+    </div>
     <div class="form-group">
       <label>Usuario</label>
       <input type="text" id="sa-username" placeholder="admin" autocomplete="username">
@@ -104,31 +148,35 @@ tr:hover td{background:rgba(255,255,255,.03)}
       <input type="password" id="sa-password" placeholder="••••••••" autocomplete="current-password">
     </div>
     <div id="login-error" class="error-msg"></div>
-    <button class="btn-primary" style="width:100%;margin-top:12px" onclick="doLogin()">Iniciar sesión</button>
+    <button class="btn-primary" style="width:100%;margin-top:8px" onclick="doLogin()">Iniciar sesión</button>
   </div>
 </div>
 
 <!-- Main App -->
 <div id="app">
   <div class="sidebar">
-    <div class="sidebar-logo">MakerManager<span>Superadmin Panel</span></div>
-    <div class="nav-item active" data-section="dashboard" onclick="switchSection('dashboard')">&#128200; Dashboard</div>
-    <div class="nav-item" data-section="tenants" onclick="switchSection('tenants')">&#127970; Tenants</div>
-    <div class="nav-item" data-section="plans" onclick="switchSection('plans')">&#128181; Planes</div>
+    <div class="sidebar-header">
+      <div class="sidebar-brand">MakerManager</div>
+      <div class="sidebar-tag">SUPERADMIN</div>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="nav-item active" data-section="dashboard" onclick="switchSection('dashboard')"><span class="nav-icon">📊</span> Dashboard</div>
+    <div class="nav-item" data-section="tenants" onclick="switchSection('tenants')"><span class="nav-icon">🏢</span> Tenants</div>
+    <div class="nav-item" data-section="plans" onclick="switchSection('plans')"><span class="nav-icon">💳</span> Planes</div>
     <div class="sidebar-footer">
-      <button class="btn-secondary" onclick="doLogout()">&#128274; Cerrar sesión</button>
+      <button onclick="doLogout()">🔓 Cerrar sesión</button>
     </div>
   </div>
   <div class="main">
     <!-- Dashboard -->
     <div class="section active" id="section-dashboard">
-      <h2>Dashboard</h2>
+      <div class="page-header"><div><h2>Dashboard</h2><div class="page-subtitle">Resumen general de la plataforma</div></div></div>
       <div class="kpi-grid" id="kpi-grid">
-        <div class="kpi-card"><div class="label">Total Tenants</div><div class="value" id="kpi-total">—</div></div>
-        <div class="kpi-card"><div class="label">Activos</div><div class="value" style="color:#22c55e" id="kpi-activos">—</div></div>
-        <div class="kpi-card"><div class="label">Trials</div><div class="value" style="color:#3b82f6" id="kpi-trials">—</div></div>
-        <div class="kpi-card"><div class="label">Suspendidos</div><div class="value" style="color:#f97316" id="kpi-suspendidos">—</div></div>
-        <div class="kpi-card"><div class="label">Ingresos Est./mes</div><div class="value" style="color:#22c55e" id="kpi-ingresos">—</div></div>
+        <div class="kpi-card blue"><div class="kpi-label">Total Tenants</div><div class="kpi-value" id="kpi-total">—</div></div>
+        <div class="kpi-card green"><div class="kpi-label">Activos</div><div class="kpi-value" id="kpi-activos">—</div></div>
+        <div class="kpi-card blue"><div class="kpi-label">Trials</div><div class="kpi-value" id="kpi-trials">—</div></div>
+        <div class="kpi-card orange"><div class="kpi-label">Suspendidos</div><div class="kpi-value" id="kpi-suspendidos">—</div></div>
+        <div class="kpi-card purple"><div class="kpi-label">Ingresos Est./mes</div><div class="kpi-value" id="kpi-ingresos">—</div></div>
       </div>
     </div>
     <!-- Tenants -->
@@ -388,7 +436,7 @@ async function openTenantDetail(id) {
       <div class="form-group"><label>Notas internas</label><textarea id="td-notas" rows="3">${esc(t.notas_admin||'')}</textarea></div>
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn-secondary btn-sm" onclick="extendTrial(${t.id})">&#128336; Extender trial</button>
-        <a href="https://${esc(t.slug)}.makermanager.cerberusdev.pro" target="_blank" class="btn-secondary btn-sm" style="display:inline-block;padding:4px 10px">&#127758; Abrir URL</a>
+        <a href="https://makermanager.cerberusdev.pro/app/${esc(t.slug)}" target="_blank" class="btn-secondary btn-sm" style="display:inline-block;padding:4px 10px">&#127758; Abrir URL</a>
       </div>
       <div id="td-error" class="error-msg" style="margin-top:8px"></div>
     `, [
