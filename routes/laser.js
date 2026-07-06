@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
+const { requireAuth } = require('./auth');
 
 // Multi-tenant DB selector
-router.use((req, res, next) => {
+router.use(requireAuth, (req, res, next) => {
   req.db = (req.tenant && req.tenantDb) ? req.tenantDb : require('../database/db');
   next();
 });

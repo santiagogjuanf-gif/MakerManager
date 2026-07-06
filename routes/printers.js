@@ -6,9 +6,10 @@ const db = require('../database/db');
 const https = require('https');
 const http = require('http');
 const mqtt = require('mqtt');
+const { requireAuth } = require('./auth');
 
 // Multi-tenant DB selector
-router.use((req, res, next) => {
+router.use(requireAuth, (req, res, next) => {
   req.db = (req.tenant && req.tenantDb) ? req.tenantDb : require('../database/db');
   next();
 });
