@@ -256,32 +256,29 @@ const SSE_SECTION_PAGE = {
 
 function startSSE() {
   const slug = getTenantSlug();
-  if (!slug || !window.EventSource) return;
+  if (!slug) return;
 
-  const es = new EventSource(`/app/${slug}/api/events`);
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(`${proto}//${location.host}/app/${slug}/api/events`);
 
-  es.addEventListener('data-changed', (e) => {
+  ws.addEventListener('message', (e) => {
     try {
-      const { section } = JSON.parse(e.data);
-      const affectedPage = SSE_SECTION_PAGE[section];
+      const { event, data } = JSON.parse(e.data);
+      if (event !== 'data-changed') return;
+      const affectedPage = SSE_SECTION_PAGE[data.section];
       const currentPage = window.location.hash.replace('#', '') || 'dashboard';
 
-      // Recargar siempre el dashboard (muestra totales de todo)
       if (pageLoaders['dashboard'] && currentPage !== 'dashboard') {
         pageLoaders['dashboard']();
       }
-      // Recargar la página afectada si el usuario la está viendo
       if (affectedPage && affectedPage !== 'dashboard' && affectedPage === currentPage && pageLoaders[affectedPage]) {
         pageLoaders[affectedPage]();
       }
     } catch(_) {}
   });
 
-  es.addEventListener('error', () => {
-    es.close();
-    // Reconectar tras 8s si la conexión se cae
-    setTimeout(startSSE, 8000);
-  });
+  ws.addEventListener('close', () => setTimeout(startSSE, 5000));
+  ws.addEventListener('error', () => ws.close());
 }
 
 window.addEventListener('hashchange', () => { if (currentUser) handleRoute(); });

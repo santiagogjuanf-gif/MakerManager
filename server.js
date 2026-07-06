@@ -56,25 +56,10 @@ app.use('/superadmin/api', require('./routes/superadmin'));
 const tenantMiddleware = require('./middleware/tenant');
 app.use(tenantMiddleware);
 
-// SSE — tiempo real entre dispositivos del mismo taller
+// WebSocket — tiempo real entre dispositivos del mismo taller
+// (SSE era cortado por Cloudflare Tunnel; WebSocket funciona correctamente)
 const sse = require('./utils/sse');
-
-app.get('/app/:slug/api/events', (req, res) => {
-  const { slug } = req.params;
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no'); // evita buffering en nginx/cloudflare
-  res.flushHeaders();
-  res.write('event: connected\ndata: {}\n\n');
-
-  sse.subscribe(slug, res);
-  const ping = setInterval(() => {
-    try { res.write(': ping\n\n'); } catch(_) { clearInterval(ping); }
-  }, 15000);
-
-  req.on('close', () => { clearInterval(ping); sse.unsubscribe(slug, res); });
-});
+const { WebSocketServer } = require('ws');
 
 // Broadcast automático tras escrituras exitosas en rutas de tenant
 app.use('/app/:slug/api', (req, res, next) => {
@@ -232,5 +217,18 @@ app.get('*', (req, res) => {
 
 const superadminDb = require('./database/superadmin-db');
 Promise.all([db.ready, superadminDb.ready]).then(() => {
-  app.listen(PORT, () => console.log(`MakerManager v2.0 → http://localhost:${PORT}`));
+  const server = app.listen(PORT, () => console.log(`MakerManager v2.0 → http://localhost:${PORT}`));
+
+  // WebSocket server — comparte el mismo puerto HTTP
+  const wss = new WebSocketServer({ noServer: true });
+  server.on('upgrade', (req, socket, head) => {
+    const m = req.url.match(/^\/app\/([a-z0-9-]+)\/api\/events$/);
+    if (!m) { socket.destroy(); return; }
+    const slug = m[1];
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      sse.subscribe(slug, ws);
+      ws.on('close', () => sse.unsubscribe(slug, ws));
+      ws.on('error', () => sse.unsubscribe(slug, ws));
+    });
+  });
 }).catch(e => { console.error('DB init failed:', e); process.exit(1); });
