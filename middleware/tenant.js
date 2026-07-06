@@ -10,14 +10,20 @@ async function getTenantDb(slug) {
   return db;
 }
 
-// Detecta slug desde /app/:slug/... o /app/:slug
 function extractSlugFromPath(path) {
   const match = path.match(/^\/app\/([a-z0-9-]+)(\/|$)/);
   return match ? match[1] : null;
 }
 
+function getSlugFromCookie(req) {
+  const cookie = req.headers.cookie || '';
+  const match = cookie.match(/mm_tenant=([a-z0-9-]+)/);
+  return match ? match[1] : null;
+}
+
 async function tenantMiddleware(req, res, next) {
-  const slug = extractSlugFromPath(req.path);
+  // Slug desde la URL /app/:slug tiene prioridad, luego desde cookie
+  const slug = extractSlugFromPath(req.path) || getSlugFromCookie(req);
   if (!slug) return next();
 
   try {

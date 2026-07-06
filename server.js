@@ -53,9 +53,17 @@ app.get('/app/:slug/api/plan', (req, res) => {
   res.json(req.tenant?.plan || { max_admins:99, max_workers:99, max_filamentos:9999, max_resinas:9999, max_clientes:9999, max_impresoras:9999, max_trabajos_activos:9999, feature_contabilidad:true, feature_pdf:true, feature_nfc:true });
 });
 
-// Servir la SPA del tenant en /app/:slug
-app.get('/app/:slug', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.get('/app/:slug/*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+// Entrada del tenant: guarda la cookie y sirve la SPA normal
+app.get('/app/:slug', (req, res) => {
+  const slug = req.params.slug;
+  res.cookie('mm_tenant', slug, { httpOnly: false, sameSite: 'Lax', maxAge: 7 * 24 * 60 * 60 * 1000 });
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+app.get('/app/:slug/*', (req, res) => {
+  const slug = req.params.slug;
+  res.cookie('mm_tenant', slug, { httpOnly: false, sameSite: 'Lax', maxAge: 7 * 24 * 60 * 60 * 1000 });
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Rutas API para uso propio (sin tenant)
 app.use('/api/dashboard', require('./routes/dashboard'));
