@@ -78,11 +78,12 @@ async function init() {
     );
   }
 
-  // Seed superadmin user
+  // Seed superadmin user — solo en primera instalación
   const existing = await db.getAsync('SELECT id FROM superadmin_users WHERE username=?', ['admin']);
   if (!existing) {
     const hash = await bcrypt.hash('admin', 10);
     await db.runAsync('INSERT OR IGNORE INTO superadmin_users (username, password_hash) VALUES (?,?)', ['admin', hash]);
+    console.warn('[SECURITY] Se creó el usuario superadmin con contraseña por defecto "admin". Cámbiala inmediatamente en /superadmin → Cuenta.');
   }
 }
 

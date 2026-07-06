@@ -9,9 +9,13 @@ const { evictTenantCache } = require('../middleware/tenant');
 const fs = require('fs');
 const path = require('path');
 
-const SA_JWT_SECRET = process.env.SUPERADMIN_JWT_SECRET || 'superadmin-secret-change-me';
+const SA_JWT_SECRET = process.env.SUPERADMIN_JWT_SECRET;
+if (!SA_JWT_SECRET) {
+  console.error('[SECURITY] SUPERADMIN_JWT_SECRET no está definido en .env — el panel superadmin está deshabilitado');
+}
 
 function requireSuperAdmin(req, res, next) {
+  if (!SA_JWT_SECRET) return res.status(503).json({ error: 'Panel superadmin no disponible: configura SUPERADMIN_JWT_SECRET en .env' });
   const h = req.headers.authorization;
   if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'No autenticado' });
   try { req.saUser = jwt.verify(h.slice(7), SA_JWT_SECRET); next(); }
@@ -20,6 +24,7 @@ function requireSuperAdmin(req, res, next) {
 
 // POST /superadmin/api/login
 router.post('/login', async (req, res) => {
+  if (!SA_JWT_SECRET) return res.status(503).json({ error: 'Panel superadmin no disponible: configura SUPERADMIN_JWT_SECRET en .env' });
   try {
     await superadminDb.ready;
     const { username, password } = req.body;
@@ -154,18 +159,29 @@ router.post('/tenants', requireSuperAdmin, async (req, res) => {
     const now = new Date().toISOString();
     const trialFinDate = trial_fin || new Date(Date.now() + 14*24*60*60*1000).toISOString().slice(0,10);
 
-    const r = await superadminDb.runAsync(
-      `INSERT INTO tenants (slug, nombre_negocio, email_contacto, plan_id, estado, trial_inicio, trial_fin, fecha_activacion, notas_admin)
-       VALUES (?,?,?,?,?,?,?,?,?)`,
-      [slug, nombre_negocio, email_contacto||'', plan_id, estado, now, trialFinDate, estado==='activo'?now:null, notas_admin||'']
-    );
-
     const adminUser = admin_username || 'admin';
     const adminPass = admin_password || Math.random().toString(36).slice(-8);
+
+    // Primero crear la base de datos del tenant — si falla, no insertamos en superadmin
     await initTenantDb(slug, adminUser, adminPass, nombre_negocio);
 
+    let tenantId;
+    try {
+      const r = await superadminDb.runAsync(
+        `INSERT INTO tenants (slug, nombre_negocio, email_contacto, plan_id, estado, trial_inicio, trial_fin, fecha_activacion, notas_admin)
+         VALUES (?,?,?,?,?,?,?,?,?)`,
+        [slug, nombre_negocio, email_contacto||'', plan_id, estado, now, trialFinDate, estado==='activo'?now:null, notas_admin||'']
+      );
+      tenantId = r.lastID;
+    } catch(insertErr) {
+      // Rollback: borrar la DB recién creada si el INSERT falla
+      const dbPath = path.join(__dirname, '../database/tenants', `${slug}.db`);
+      try { if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath); } catch(_) {}
+      throw insertErr;
+    }
+
     const url = `https://makermanager.cerberusdev.pro/app/${slug}`;
-    res.json({ success: true, id: r.lastID, slug, admin_username: adminUser, admin_password: adminPass, url });
+    res.json({ success: true, id: tenantId, slug, admin_username: adminUser, admin_password: adminPass, url });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

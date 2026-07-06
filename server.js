@@ -11,7 +11,18 @@ fs.mkdirSync(path.join(__dirname, 'database/tenants'), { recursive: true });
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+const ALLOWED_ORIGINS = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
+  : ['https://makermanager.cerberusdev.pro'];
+app.use(cors({
+  origin: (origin, cb) => {
+    // Permitir peticiones sin origin (apps móviles, curl, mismo servidor)
+    if (!origin) return cb(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    cb(new Error(`Origen no permitido: ${origin}`));
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res, filePath) {
@@ -71,6 +82,14 @@ function serveTenantApp(req, res) {
         }
         return _fetch.call(this, url, opts);
       };
+      // Interceptar XMLHttpRequest también (compatibilidad con librerías legacy)
+      var _open = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function(method, url, async, user, pass) {
+        if (typeof url === 'string' && url.startsWith('/api/')) {
+          url = '/app/' + slug + url;
+        }
+        return _open.call(this, method, url, async !== undefined ? async : true, user, pass);
+      };
     })();
   </script>`;
   html = html.replace('<head>', '<head>' + inject);
@@ -108,22 +127,25 @@ app.get('/api/plan', (req, res) => {
   }
 });
 
-app.post('/api/seed', async (req, res) => {
-  try {
-    delete require.cache[require.resolve('./database/seed')];
-    await require('./database/seed')();
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
+// Rutas de utilidad solo disponibles fuera de producción
+if (process.env.NODE_ENV !== 'production') {
+  app.post('/api/seed', async (req, res) => {
+    try {
+      delete require.cache[require.resolve('./database/seed')];
+      await require('./database/seed')();
+      res.json({ success: true });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+  });
 
-app.delete('/api/reset', async (req, res) => {
-  try {
-    const tables = ['job_extras','job_products','job_filaments','print_jobs','filaments','resinas','consumibles_laser','consumibles_cnc','printers','clients'];
-    for (const t of tables) await db.runAsync(`DELETE FROM ${t}`);
-    await db.runAsync(`DELETE FROM sqlite_sequence WHERE name IN (${tables.map(()=>'?').join(',')})`, tables);
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
+  app.delete('/api/reset', async (req, res) => {
+    try {
+      const tables = ['job_extras','job_products','job_filaments','print_jobs','filaments','resinas','consumibles_laser','consumibles_cnc','printers','clients'];
+      for (const t of tables) await db.runAsync(`DELETE FROM ${t}`);
+      await db.runAsync(`DELETE FROM sqlite_sequence WHERE name IN (${tables.map(()=>'?').join(',')})`, tables);
+      res.json({ success: true });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+  });
+}
 
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 

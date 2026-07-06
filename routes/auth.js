@@ -22,7 +22,13 @@ router.post('/login', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
-    const token = jwt.sign({ id: user.id, username: user.username, role: user.role, display_name: user.display_name }, JWT_SECRET, { expiresIn: '30d' });
+    // Incluir tenantSlug en el token para validar que el token solo sea válido en su propio taller
+    const tenantSlug = req.tenantSlug || null;
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role, display_name: user.display_name, tenantSlug },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
     res.json({ token, user: { id: user.id, username: user.username, display_name: user.display_name, role: user.role } });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -104,8 +110,16 @@ router.delete('/users/:id', requireAuth, requireAdmin, async (req, res) => {
 function requireAuth(req, res, next) {
   const h = req.headers.authorization;
   if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'No autenticado' });
-  try { req.user = jwt.verify(h.slice(7), JWT_SECRET); next(); }
-  catch { res.status(401).json({ error: 'Token inválido o expirado' }); }
+  try {
+    const decoded = jwt.verify(h.slice(7), JWT_SECRET);
+    // Validar que el token pertenece a este taller — evita acceso cruzado entre tenants
+    const currentSlug = req.tenantSlug || null;
+    if (decoded.tenantSlug !== currentSlug) {
+      return res.status(401).json({ error: 'Token no válido para este taller' });
+    }
+    req.user = decoded;
+    next();
+  } catch { res.status(401).json({ error: 'Token inválido o expirado' }); }
 }
 
 function requireAdmin(req, res, next) {

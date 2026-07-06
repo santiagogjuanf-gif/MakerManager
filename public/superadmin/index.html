@@ -434,9 +434,18 @@ async function openTenantDetail(id) {
       </div>
       <div class="form-group"><label>Vencimiento</label><input id="td-venc" type="date" value="${t.fecha_vencimiento||''}"></div>
       <div class="form-group"><label>Notas internas</label><textarea id="td-notas" rows="3">${esc(t.notas_admin||'')}</textarea></div>
-      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      <div class="form-group" style="margin-top:4px">
+        <label>URL del taller</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input readonly value="https://makermanager.cerberusdev.pro/app/${esc(t.slug)}" id="td-url"
+            style="flex:1;cursor:pointer;color:var(--accent2);font-size:13px"
+            onclick="this.select()" title="Haz clic para seleccionar">
+          <button class="btn-secondary btn-sm" onclick="navigator.clipboard.writeText('https://makermanager.cerberusdev.pro/app/${esc(t.slug)}').then(()=>showToast('URL copiada','success'))" style="white-space:nowrap">&#128203; Copiar</button>
+          <a href="https://makermanager.cerberusdev.pro/app/${esc(t.slug)}" target="_blank" class="btn-secondary btn-sm" style="display:inline-flex;align-items:center;padding:6px 11px;white-space:nowrap">&#127758; Abrir</a>
+        </div>
+      </div>
+      <div style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn-secondary btn-sm" onclick="extendTrial(${t.id})">&#128336; Extender trial</button>
-        <a href="https://makermanager.cerberusdev.pro/app/${esc(t.slug)}" target="_blank" class="btn-secondary btn-sm" style="display:inline-block;padding:4px 10px">&#127758; Abrir URL</a>
       </div>
       <div id="td-error" class="error-msg" style="margin-top:8px"></div>
     `, [
