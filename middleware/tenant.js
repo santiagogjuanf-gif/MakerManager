@@ -1,12 +1,16 @@
 const superadminDb = require('../database/superadmin-db');
 const { initTenantDb } = require('../database/tenant-init');
-
-const tenantDbCache = new Map();
+const cache = require('./tenant-cache');
+const fs = require('fs');
+const path = require('path');
 
 async function getTenantDb(slug) {
-  if (tenantDbCache.has(slug)) return tenantDbCache.get(slug);
+  if (cache.has(slug)) return cache.get(slug);
+  const dbPath = path.join(__dirname, '../database/tenants', `${slug}.db`);
+  // Solo abre la DB si el archivo ya existe — no la crea automáticamente
+  if (!fs.existsSync(dbPath)) return null;
   const db = await initTenantDb(slug, 'admin', 'admin', 'Administrador');
-  tenantDbCache.set(slug, db);
+  cache.set(slug, db);
   return db;
 }
 
@@ -60,9 +64,14 @@ async function tenantMiddleware(req, res, next) {
       feature_nfc: !!tenant.feature_nfc,
     } : null;
 
+    const tenantDb = await getTenantDb(slug);
+    if (!tenantDb) {
+      return res.status(404).send(errorPage('Taller no disponible', `La base de datos del taller "${slug}" no existe.`));
+    }
+
     req.tenantSlug = slug;
     req.tenant = { id: tenant.id, slug, nombre_negocio: tenant.nombre_negocio, estado: tenant.estado, plan };
-    req.tenantDb = await getTenantDb(slug);
+    req.tenantDb = tenantDb;
     next();
   } catch(e) {
     console.error('Tenant middleware error:', e);
@@ -79,3 +88,4 @@ function errorPage(title, msg) {
 }
 
 module.exports = tenantMiddleware;
+module.exports.evictTenantCache = cache.evict;

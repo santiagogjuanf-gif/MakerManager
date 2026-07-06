@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const superadminDb = require('../database/superadmin-db');
 const { initTenantDb } = require('../database/tenant-init');
 const { createSubdomainDNS, deleteSubdomainDNS } = require('../utils/cloudflare');
+const { evictTenantCache } = require('../middleware/tenant');
 const fs = require('fs');
 const path = require('path');
 
@@ -208,8 +209,16 @@ router.delete('/tenants/:id', requireSuperAdmin, async (req, res) => {
 
     try { await deleteSubdomainDNS(tenant.slug); } catch(e) { console.error('DNS delete failed:', e.message); }
 
+    // Limpiar caché en memoria antes de borrar el archivo
+    evictTenantCache(tenant.slug);
+
     const dbPath = path.join(__dirname, '../database/tenants', `${tenant.slug}.db`);
-    try { if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath); } catch(e) { console.error('DB delete failed:', e.message); }
+    try {
+      if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+      // Borrar también archivos WAL y SHM si existen
+      if (fs.existsSync(dbPath + '-wal')) fs.unlinkSync(dbPath + '-wal');
+      if (fs.existsSync(dbPath + '-shm')) fs.unlinkSync(dbPath + '-shm');
+    } catch(e) { console.error('DB delete failed:', e.message); }
 
     await superadminDb.runAsync('DELETE FROM tenants WHERE id=?', [req.params.id]);
     res.json({ success: true });
