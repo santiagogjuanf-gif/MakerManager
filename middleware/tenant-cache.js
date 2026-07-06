@@ -19,6 +19,11 @@ module.exports = {
     cache.set(slug, { db, expiresAt: Date.now() + TTL_MS });
   },
   evict(slug) {
+    const entry = cache.get(slug);
+    if (entry && entry.db) {
+      // Cerrar la conexión SQLite explícitamente para que el archivo se pueda borrar
+      try { entry.db.close(); } catch(_) {}
+    }
     cache.delete(slug);
   },
 };

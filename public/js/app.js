@@ -17,9 +17,8 @@ function clearAuth() {
 }
 
 function loginRedirect() {
-  const slug = sessionStorage.getItem('mm_tenant');
-  // Si estamos en un taller, redirigir al mismo taller (el inject mostrará el login)
-  window.location.href = slug ? `/app/${slug}` : '/login';
+  // Siempre ir a /login — sessionStorage mantiene el slug para redirigir de regreso después
+  window.location.href = '/login';
 }
 
 async function checkAuth() {
@@ -38,7 +37,7 @@ async function checkAuth() {
     const userEl = document.getElementById('sidebar-user');
     if (userEl) userEl.innerHTML = `<div style="font-size:12px;font-weight:600;color:var(--text)">${currentUser.display_name || currentUser.username}</div><div style="font-size:10px;color:var(--text-muted);margin-top:1px">${currentUser.role === 'admin' ? '👑 Admin' : '👷 Worker'}</div>`;
     return true;
-  } catch { window.location.href = '/login'; return false; }
+  } catch { clearAuth(); loginRedirect(); return false; }
 }
 
 function logout() {
