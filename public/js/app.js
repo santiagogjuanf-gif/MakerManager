@@ -75,13 +75,20 @@ function applyTheme(t) {
 // Global config store
 let appConfig = {};
 
+// Construye la URL correcta según el tenant activo
+function apiUrl(url) {
+  const slug = sessionStorage.getItem('mm_tenant');
+  if (slug && url.startsWith('/api/')) return `/app/${slug}${url}`;
+  return url;
+}
+
 // Global API helper — includes auth header, handles 401
 async function api(method, url, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   const token = getToken();
   if (token) opts.headers['Authorization'] = 'Bearer ' + token;
   if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(url, opts);
+  const res = await fetch(apiUrl(url), opts);
   if (res.status === 401) { clearAuth(); loginRedirect(); throw new Error('No autenticado'); }
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `HTTP ${res.status}`); }
   return res.json();

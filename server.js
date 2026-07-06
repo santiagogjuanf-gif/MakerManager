@@ -70,28 +70,9 @@ function serveTenantApp(req, res) {
   // Leer index.html e inyectar script antes de que cargue la app
   const indexPath = path.join(__dirname, 'public', 'index.html');
   let html = fs.readFileSync(indexPath, 'utf8');
-  const inject = `<script>
-    (function(){
-      var slug = ${JSON.stringify(slug)};
-      sessionStorage.setItem('mm_tenant', slug);
-      // Interceptar fetch para redirigir /api/* → /app/slug/api/*
-      var _fetch = window.fetch;
-      window.fetch = function(url, opts) {
-        if (typeof url === 'string' && url.startsWith('/api/')) {
-          url = '/app/' + slug + url;
-        }
-        return _fetch.call(this, url, opts);
-      };
-      // Interceptar XMLHttpRequest también (compatibilidad con librerías legacy)
-      var _open = XMLHttpRequest.prototype.open;
-      XMLHttpRequest.prototype.open = function(method, url, async, user, pass) {
-        if (typeof url === 'string' && url.startsWith('/api/')) {
-          url = '/app/' + slug + url;
-        }
-        return _open.call(this, method, url, async !== undefined ? async : true, user, pass);
-      };
-    })();
-  </script>`;
+  // Solo inyectar el slug en sessionStorage — la función api() en app.js
+  // se encarga de construir las URLs correctas sin necesitar interceptar fetch
+  const inject = `<script>(function(){ sessionStorage.setItem('mm_tenant', ${JSON.stringify(slug)}); })();</script>`;
   html = html.replace('<head>', '<head>' + inject);
   res.setHeader('Content-Type', 'text/html');
   res.setHeader('Cache-Control', 'no-cache');
