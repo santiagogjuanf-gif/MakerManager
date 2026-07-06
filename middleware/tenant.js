@@ -15,15 +15,8 @@ function extractSlugFromPath(path) {
   return match ? match[1] : null;
 }
 
-function getSlugFromCookie(req) {
-  const cookie = req.headers.cookie || '';
-  const match = cookie.match(/mm_tenant=([a-z0-9-]+)/);
-  return match ? match[1] : null;
-}
-
 async function tenantMiddleware(req, res, next) {
-  // Slug desde la URL /app/:slug tiene prioridad, luego desde cookie
-  const slug = extractSlugFromPath(req.path) || getSlugFromCookie(req);
+  const slug = extractSlugFromPath(req.path);
   if (!slug) return next();
 
   try {
