@@ -130,6 +130,39 @@ if (process.env.NODE_ENV !== 'production') {
 
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 
+// Página de emergencia — limpia todo el storage del navegador y rompe cualquier loop
+app.get('/reset-browser', (req, res) => {
+  const slug = req.query.slug || '';
+  const redirect = slug ? `/app/${slug}` : '/login';
+  res.setHeader('Content-Type', 'text/html');
+  res.setHeader('Cache-Control', 'no-store');
+  res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Limpiando...</title></head>
+  <body style="background:#0f1117;color:#e2e8f0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px">
+  <h2>Limpiando sesión...</h2><p id="st" style="color:#8892a4">Iniciando...</p>
+  <script>
+    (async function(){
+      const st = document.getElementById('st');
+      st.textContent = 'Borrando localStorage...';
+      localStorage.clear();
+      st.textContent = 'Borrando sessionStorage...';
+      sessionStorage.clear();
+      st.textContent = 'Desregistrando service workers...';
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const r of regs) await r.unregister();
+      }
+      st.textContent = 'Borrando caché del navegador...';
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        for (const k of keys) await caches.delete(k);
+      }
+      st.textContent = 'Listo. Redirigiendo...';
+      setTimeout(() => { window.location.href = ${JSON.stringify(redirect)}; }, 800);
+    })();
+  </script>
+  </body></html>`);
+});
+
 // NFC tag tap → redirect to app with filament highlighted
 app.get('/nfc/:id', (req, res) => {
   res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8">
