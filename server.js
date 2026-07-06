@@ -5,6 +5,19 @@ const path = require('path');
 const fs = require('fs');
 const db = require('./database/db');
 
+// Ensure JWT_SECRET is stable across restarts.
+// If not set in .env, generate once and persist to .jwt_secret so tokens survive PM2 restarts.
+if (!process.env.JWT_SECRET) {
+  const secretFile = path.join(__dirname, '.jwt_secret');
+  if (fs.existsSync(secretFile)) {
+    process.env.JWT_SECRET = fs.readFileSync(secretFile, 'utf8').trim();
+  } else {
+    process.env.JWT_SECRET = require('crypto').randomBytes(32).toString('hex');
+    try { fs.writeFileSync(secretFile, process.env.JWT_SECRET, { mode: 0o600 }); } catch(_) {}
+    console.warn('[WARN] JWT_SECRET not in .env — generated persistent secret in .jwt_secret');
+  }
+}
+
 fs.mkdirSync(path.join(__dirname, 'public/uploads'), { recursive: true });
 fs.mkdirSync(path.join(__dirname, 'database/tenants'), { recursive: true });
 

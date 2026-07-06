@@ -5,6 +5,7 @@ database/tenants/*.db
 *.db-shm
 *.db-wal
 .env
+.jwt_secret
 public/uploads/*
 !public/uploads/.gitkeep
 .claude/

@@ -16,9 +16,7 @@ function loginRedirect() {
 async function checkAuth() {
   const token = getToken();
   if (!token) { loginRedirect(); return false; }
-  // Esperar a que el slug esté en sessionStorage (lo pone el script inyectado en <head>)
-  // Si no está disponible, no podemos validar el token con el tenant correcto
-  const slug = sessionStorage.getItem('mm_tenant');
+  const slug = getTenantSlug();
   if (!slug) {
     // Estamos en la app global sin tenant — validar sin slug
     try {
@@ -67,9 +65,20 @@ function applyTheme(t) {
 // Global config store
 let appConfig = {};
 
+// Lee el slug del tenant desde sessionStorage; si está vacío (SW sirvió HTML cacheado sin la
+// inyección del servidor), lo extrae de la URL y lo repopula en sessionStorage.
+function getTenantSlug() {
+  let slug = sessionStorage.getItem('mm_tenant');
+  if (!slug) {
+    const m = window.location.pathname.match(/^\/app\/([^/]+)/);
+    if (m) { slug = m[1]; sessionStorage.setItem('mm_tenant', slug); }
+  }
+  return slug || null;
+}
+
 // Construye la URL correcta según el tenant activo
 function apiUrl(url) {
-  const slug = sessionStorage.getItem('mm_tenant');
+  const slug = getTenantSlug();
   if (slug && url.startsWith('/api/')) return `/app/${slug}${url}`;
   return url;
 }
