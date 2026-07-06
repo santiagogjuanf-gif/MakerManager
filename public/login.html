@@ -53,12 +53,8 @@
     window.addEventListener('load', () => initBgAnim('bg-canvas'));
     // Clave de token y prefijo de API por taller
     const slug = sessionStorage.getItem('mm_tenant');
-    const tokenKey = slug ? 'mm_token_' + slug : 'mm_token';
     const apiBase = slug ? '/app/' + slug + '/api' : '/api';
     const redirectAfterLogin = slug ? '/app/' + slug : '/';
-
-    // Limpiar tokens viejos genéricos para evitar confusión
-    if (slug) localStorage.removeItem('mm_token');
 
     // Cargar config del taller correcto (no la global)
     fetch(apiBase + '/config').then(r=>r.json()).then(cfg=>{
@@ -70,14 +66,13 @@
     const expired = new URLSearchParams(location.search).get('expired');
     if (expired) {
       // Llegamos aquí porque el token falló — borrarlo y mostrar el formulario limpio
-      localStorage.removeItem(tokenKey);
       localStorage.removeItem('mm_token');
     } else {
       // Solo auto-redirigir si el usuario llegó directamente (no por un fallo de auth)
-      const tok = localStorage.getItem(tokenKey);
+      const tok = localStorage.getItem('mm_token');
       if (tok) {
         fetch(apiBase + '/auth/me', {headers:{Authorization:'Bearer '+tok}})
-          .then(r => { if(r.ok) window.location.href = redirectAfterLogin; else localStorage.removeItem(tokenKey); })
+          .then(r => { if(r.ok) window.location.href = redirectAfterLogin; else localStorage.removeItem('mm_token'); })
           .catch(() => {});
       }
     }
@@ -89,7 +84,7 @@
         const res=await fetch(apiBase+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:document.getElementById('lu').value,password:document.getElementById('lp').value})});
         const data=await res.json();
         if(!res.ok) throw new Error(data.error||'Error al iniciar sesión');
-        localStorage.setItem(tokenKey, data.token);
+        localStorage.setItem('mm_token', data.token);
         localStorage.setItem('mm_user', JSON.stringify(data.user));
         window.location.href = redirectAfterLogin;
       }catch(ex){err.textContent=ex.message;err.style.display='block';btn.textContent='Iniciar Sesión';btn.disabled=false;}

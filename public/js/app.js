@@ -1,17 +1,9 @@
 // Auth
 let currentUser = null;
 
-// Clave de token por taller para aislar sesiones
-function tokenKey() {
-  const slug = sessionStorage.getItem('mm_tenant');
-  return slug ? `mm_token_${slug}` : 'mm_token';
-}
-
-function getToken() { return localStorage.getItem(tokenKey()); }
+function getToken() { return localStorage.getItem('mm_token'); }
 
 function clearAuth() {
-  // Borrar token del taller actual y el token genérico por si quedó uno viejo
-  localStorage.removeItem(tokenKey());
   localStorage.removeItem('mm_token');
   localStorage.removeItem('mm_user');
 }

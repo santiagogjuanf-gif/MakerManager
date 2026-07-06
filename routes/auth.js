@@ -125,7 +125,7 @@ function requireAuth(req, res, next) {
     const decoded = jwt.verify(h.slice(7), JWT_SECRET);
     // Validar que el token pertenece a este taller — evita acceso cruzado entre tenants
     const currentSlug = req.tenantSlug || null;
-    if (decoded.tenantSlug !== currentSlug) {
+    if (currentSlug && decoded.tenantSlug && decoded.tenantSlug !== currentSlug) {
       return res.status(401).json({ error: 'Token no válido para este taller' });
     }
     req.user = decoded;
