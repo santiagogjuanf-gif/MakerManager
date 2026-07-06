@@ -493,8 +493,8 @@ async function openTenantDetail(id) {
       {text:'Guardar cambios', cls:'btn-primary', fn:`saveTenantDetail(${t.id})`},
     ], true);
     // Cargar usuarios y logs automáticamente al abrir
-    loadTenantUsers(${t.id});
-    loadTenantLogs(${t.id});
+    loadTenantUsers(t.id);
+    loadTenantLogs(t.id);
   } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
 
