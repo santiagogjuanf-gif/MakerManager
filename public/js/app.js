@@ -238,6 +238,50 @@ async function startup() {
     window.tenantPlan = await api('GET', '/api/plan');
   } catch(e) { window.tenantPlan = null; }
   handleRoute();
+  startSSE();
+}
+
+// Mapa de sección API → clave de página
+const SSE_SECTION_PAGE = {
+  filaments: 'inventory', resinas: 'inventory', laser: 'inventory',
+  cnc: 'inventory', consumibles: 'inventory',
+  printers: 'printers',
+  clients: 'clients',
+  jobs: 'jobs', extras: 'jobs',
+  productos: 'catalog', cotizaciones: 'catalog',
+  contabilidad: 'contabilidad',
+  config: 'config',
+  dashboard: 'dashboard',
+};
+
+function startSSE() {
+  const slug = getTenantSlug();
+  if (!slug || !window.EventSource) return;
+
+  const es = new EventSource(`/app/${slug}/api/events`);
+
+  es.addEventListener('data-changed', (e) => {
+    try {
+      const { section } = JSON.parse(e.data);
+      const affectedPage = SSE_SECTION_PAGE[section];
+      const currentPage = window.location.hash.replace('#', '') || 'dashboard';
+
+      // Recargar siempre el dashboard (muestra totales de todo)
+      if (pageLoaders['dashboard'] && currentPage !== 'dashboard') {
+        pageLoaders['dashboard']();
+      }
+      // Recargar la página afectada si el usuario la está viendo
+      if (affectedPage && affectedPage !== 'dashboard' && affectedPage === currentPage && pageLoaders[affectedPage]) {
+        pageLoaders[affectedPage]();
+      }
+    } catch(_) {}
+  });
+
+  es.addEventListener('error', () => {
+    es.close();
+    // Reconectar tras 8s si la conexión se cae
+    setTimeout(startSSE, 8000);
+  });
 }
 
 window.addEventListener('hashchange', () => { if (currentUser) handleRoute(); });

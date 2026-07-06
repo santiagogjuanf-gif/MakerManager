@@ -56,6 +56,43 @@ app.use('/superadmin/api', require('./routes/superadmin'));
 const tenantMiddleware = require('./middleware/tenant');
 app.use(tenantMiddleware);
 
+// SSE — tiempo real entre dispositivos del mismo taller
+const sse = require('./utils/sse');
+
+app.get('/app/:slug/api/events', (req, res) => {
+  const { slug } = req.params;
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // evita buffering en nginx/cloudflare
+  res.flushHeaders();
+  res.write('event: connected\ndata: {}\n\n');
+
+  sse.subscribe(slug, res);
+  const ping = setInterval(() => {
+    try { res.write(': ping\n\n'); } catch(_) { clearInterval(ping); }
+  }, 25000);
+
+  req.on('close', () => { clearInterval(ping); sse.unsubscribe(slug, res); });
+});
+
+// Broadcast automático tras escrituras exitosas en rutas de tenant
+app.use('/app/:slug/api', (req, res, next) => {
+  if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) return next();
+  const slug = req.params.slug;
+  const origJson = res.json.bind(res);
+  res.json = function(body) {
+    const result = origJson(body);
+    if (res.statusCode >= 200 && res.statusCode < 300 && slug) {
+      const m = req.path.match(/^\/([^/]+)/);
+      const section = m ? m[1] : 'data';
+      sse.broadcast(slug, 'data-changed', { section, method: req.method });
+    }
+    return result;
+  };
+  next();
+});
+
 // Rutas API del tenant (con prefijo /app/:slug)
 app.use('/app/:slug/api/dashboard', require('./routes/dashboard'));
 app.use('/app/:slug/api/filaments', require('./routes/filaments'));
