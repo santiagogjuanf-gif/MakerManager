@@ -241,6 +241,57 @@ router.delete('/tenants/:id', requireSuperAdmin, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /superadmin/api/tenants/:id/users — lista usuarios del tenant
+router.get('/tenants/:id/users', requireSuperAdmin, async (req, res) => {
+  try {
+    await superadminDb.ready;
+    const tenant = await superadminDb.getAsync('SELECT slug FROM tenants WHERE id=?', [req.params.id]);
+    if (!tenant) return res.status(404).json({ error: 'No encontrado' });
+    const { initTenantDb } = require('../database/tenant-init');
+    const tdb = await initTenantDb(tenant.slug, 'admin', 'admin', tenant.slug);
+    const users = await tdb.allAsync('SELECT id, username, display_name, role, created_at FROM users ORDER BY role DESC, created_at ASC');
+    res.json(users);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /superadmin/api/tenants/:id/reset-password — resetea contraseña de un usuario del tenant
+router.post('/tenants/:id/reset-password', requireSuperAdmin, async (req, res) => {
+  try {
+    await superadminDb.ready;
+    const { username, new_password } = req.body;
+    if (!username || !new_password) return res.status(400).json({ error: 'username y new_password requeridos' });
+    if (new_password.length < 4) return res.status(400).json({ error: 'Mínimo 4 caracteres' });
+    const tenant = await superadminDb.getAsync('SELECT slug FROM tenants WHERE id=?', [req.params.id]);
+    if (!tenant) return res.status(404).json({ error: 'No encontrado' });
+    const { initTenantDb } = require('../database/tenant-init');
+    const tdb = await initTenantDb(tenant.slug, 'admin', 'admin', tenant.slug);
+    const user = await tdb.getAsync('SELECT id FROM users WHERE username=?', [username.toLowerCase().trim()]);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const hash = await bcrypt.hash(new_password, 10);
+    await tdb.runAsync('UPDATE users SET password_hash=? WHERE id=?', [hash, user.id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /superadmin/api/tenants/:id/logs — últimas 50 entradas del log de acceso
+router.get('/tenants/:id/logs', requireSuperAdmin, async (req, res) => {
+  try {
+    await superadminDb.ready;
+    const tenant = await superadminDb.getAsync('SELECT slug FROM tenants WHERE id=?', [req.params.id]);
+    if (!tenant) return res.status(404).json({ error: 'No encontrado' });
+    const { initTenantDb } = require('../database/tenant-init');
+    const tdb = await initTenantDb(tenant.slug, 'admin', 'admin', tenant.slug);
+    // Crear tabla si no existe
+    await tdb.runAsync(`CREATE TABLE IF NOT EXISTS access_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT, role TEXT, ip TEXT, accion TEXT DEFAULT 'login',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )`);
+    const logs = await tdb.allAsync('SELECT * FROM access_log ORDER BY created_at DESC LIMIT 50');
+    res.json(logs);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // POST /superadmin/api/tenants/:id/suspend
 router.post('/tenants/:id/suspend', requireSuperAdmin, async (req, res) => {
   try {

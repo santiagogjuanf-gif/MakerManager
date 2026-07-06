@@ -29,6 +29,17 @@ router.post('/login', async (req, res) => {
       JWT_SECRET,
       { expiresIn: '30d' }
     );
+    // Registrar acceso en log
+    try {
+      await req.db.runAsync(`CREATE TABLE IF NOT EXISTS access_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT, role TEXT, ip TEXT, accion TEXT DEFAULT 'login',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )`);
+      const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'desconocida';
+      await req.db.runAsync('INSERT INTO access_log (username, role, ip, accion) VALUES (?,?,?,?)',
+        [user.username, user.role, ip, 'login']);
+    } catch(_) {}
     res.json({ token, user: { id: user.id, username: user.username, display_name: user.display_name, role: user.role } });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

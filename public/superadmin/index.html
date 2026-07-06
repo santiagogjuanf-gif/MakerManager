@@ -95,6 +95,8 @@ tr:hover td{background:rgba(108,99,255,.04)}
 .badge-trial{background:#3b82f618;color:var(--blue);border:1px solid #3b82f630}.badge-trial::before{background:var(--blue)}
 .badge-suspendido{background:#f9731618;color:var(--orange);border:1px solid #f9731630}.badge-suspendido::before{background:var(--orange)}
 .badge-cancelado{background:#ef444418;color:var(--red);border:1px solid #ef444430}.badge-cancelado::before{background:var(--red)}
+.badge-blue{background:#3b82f618;color:var(--blue);border:1px solid #3b82f630}.badge-blue::before{background:var(--blue)}
+.badge-gray{background:#6b759918;color:var(--text-muted);border:1px solid #6b759930}.badge-gray::before{background:var(--text-muted)}
 
 /* Modal */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
@@ -447,11 +449,52 @@ async function openTenantDetail(id) {
       <div style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn-secondary btn-sm" onclick="extendTrial(${t.id})">&#128336; Extender trial</button>
       </div>
+
+      <hr style="border:none;border-top:1px solid var(--border2);margin:16px 0">
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px">&#128100; Usuarios del taller</span>
+        <button class="btn-secondary btn-sm" onclick="loadTenantUsers(${t.id})">&#8635; Actualizar</button>
+      </div>
+      <div id="td-users" style="background:var(--surface);border-radius:8px;padding:10px;font-size:13px;min-height:40px">
+        <span style="color:var(--text-muted)">Cargando...</span>
+      </div>
+
+      <hr style="border:none;border-top:1px solid var(--border2);margin:16px 0">
+
+      <div style="margin-bottom:10px">
+        <span style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px">&#128274; Resetear contraseña</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div style="flex:1;min-width:120px">
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:5px">Usuario</label>
+          <input id="td-reset-user" placeholder="username" style="width:100%">
+        </div>
+        <div style="flex:1;min-width:140px">
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:5px">Nueva contraseña</label>
+          <input id="td-reset-pass" type="password" placeholder="mínimo 4 caracteres" style="width:100%">
+        </div>
+        <button class="btn-warning btn-sm" style="padding:9px 14px;white-space:nowrap" onclick="resetTenantPassword(${t.id})">&#128274; Resetear</button>
+      </div>
+
+      <hr style="border:none;border-top:1px solid var(--border2);margin:16px 0">
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px">&#128196; Log de accesos</span>
+        <button class="btn-secondary btn-sm" onclick="loadTenantLogs(${t.id})">&#8635; Actualizar</button>
+      </div>
+      <div id="td-logs" style="background:var(--surface);border-radius:8px;padding:10px;font-size:12px;min-height:40px;max-height:180px;overflow-y:auto;font-family:monospace">
+        <span style="color:var(--text-muted)">Cargando...</span>
+      </div>
+
       <div id="td-error" class="error-msg" style="margin-top:8px"></div>
     `, [
       {text:'Cancelar', cls:'btn-secondary', fn:'closeModal()'},
       {text:'Guardar cambios', cls:'btn-primary', fn:`saveTenantDetail(${t.id})`},
     ], true);
+    // Cargar usuarios y logs automáticamente al abrir
+    loadTenantUsers(${t.id});
+    loadTenantLogs(${t.id});
   } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
 
@@ -470,6 +513,56 @@ async function saveTenantDetail(id) {
     closeModal();
     showToast('Tenant actualizado', 'success');
     loadTenants();
+  } catch(e) { if(errEl) errEl.textContent = e.message; }
+}
+
+async function loadTenantUsers(id) {
+  const el = document.getElementById('td-users');
+  if (!el) return;
+  try {
+    const users = await saApi('GET', `/tenants/${id}/users`);
+    if (!users.length) { el.innerHTML = '<span style="color:var(--text-muted)">Sin usuarios</span>'; return; }
+    el.innerHTML = users.map(u => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 4px;border-bottom:1px solid var(--border)">
+        <div>
+          <span style="font-weight:600">${esc(u.username)}</span>
+          <span style="color:var(--text-muted);margin-left:6px">${esc(u.display_name||'')}</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="badge ${u.role==='admin'?'badge-blue':'badge-gray'}">${u.role}</span>
+          <span style="color:var(--text-muted);font-size:11px">${(u.created_at||'').slice(0,10)}</span>
+        </div>
+      </div>`).join('');
+  } catch(e) { el.innerHTML = `<span style="color:var(--red)">${e.message}</span>`; }
+}
+
+async function loadTenantLogs(id) {
+  const el = document.getElementById('td-logs');
+  if (!el) return;
+  try {
+    const logs = await saApi('GET', `/tenants/${id}/logs`);
+    if (!logs.length) { el.innerHTML = '<span style="color:var(--text-muted)">Sin registros de acceso</span>'; return; }
+    el.innerHTML = logs.map(l =>
+      `<div style="padding:3px 0;border-bottom:1px solid var(--border);color:var(--text-sub)">
+        <span style="color:var(--text-muted)">${(l.created_at||'').replace('T',' ').slice(0,16)}</span>
+        <span style="color:var(--green);margin:0 6px">${esc(l.accion||'login')}</span>
+        <span style="color:var(--text)">${esc(l.username||'')}</span>
+        <span style="color:var(--text-muted)">[${esc(l.role||'')}]</span>
+        <span style="color:var(--text-muted);font-size:11px;float:right">${esc(l.ip||'')}</span>
+      </div>`).join('');
+  } catch(e) { el.innerHTML = `<span style="color:var(--red)">${e.message}</span>`; }
+}
+
+async function resetTenantPassword(id) {
+  const username = document.getElementById('td-reset-user')?.value?.trim();
+  const newPass = document.getElementById('td-reset-pass')?.value;
+  const errEl = document.getElementById('td-error');
+  if (!username || !newPass) { if(errEl) errEl.textContent = 'Completa usuario y nueva contraseña'; return; }
+  try {
+    await saApi('POST', `/tenants/${id}/reset-password`, { username, new_password: newPass });
+    if(errEl) errEl.textContent = '';
+    document.getElementById('td-reset-pass').value = '';
+    showToast(`Contraseña de "${username}" actualizada`, 'success');
   } catch(e) { if(errEl) errEl.textContent = e.message; }
 }
 
