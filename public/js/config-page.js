@@ -187,7 +187,8 @@
     const fd = new FormData();
     fd.append('logo', input.files[0]);
     try {
-      const res = await fetch('/api/config/logo', { method: 'POST', body: fd });
+      const token = getToken();
+      const res = await fetch(apiUrl('/api/config/logo'), { method: 'POST', body: fd, headers: token ? { Authorization: 'Bearer ' + token } : {} });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const prev = document.getElementById('cfg-logo-img');
@@ -334,7 +335,7 @@
       return;
     }
     try {
-      const res = await fetch('/api/reset', { method: 'DELETE' });
+      const res = await fetch(apiUrl('/api/reset'), { method: 'DELETE', headers: { Authorization: 'Bearer ' + getToken() } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       closeModal();
       showToast('Base de datos reseteada');
