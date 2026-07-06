@@ -1,14 +1,33 @@
 // Auth
 let currentUser = null;
 
-function getToken() { return localStorage.getItem('mm_token'); }
+// Clave de token por taller para aislar sesiones
+function tokenKey() {
+  const slug = sessionStorage.getItem('mm_tenant');
+  return slug ? `mm_token_${slug}` : 'mm_token';
+}
+
+function getToken() { return localStorage.getItem(tokenKey()); }
+
+function clearAuth() {
+  // Borrar token del taller actual y el token genérico por si quedó uno viejo
+  localStorage.removeItem(tokenKey());
+  localStorage.removeItem('mm_token');
+  localStorage.removeItem('mm_user');
+}
+
+function loginRedirect() {
+  const slug = sessionStorage.getItem('mm_tenant');
+  // Si estamos en un taller, redirigir al mismo taller (el inject mostrará el login)
+  window.location.href = slug ? `/app/${slug}` : '/login';
+}
 
 async function checkAuth() {
   const token = getToken();
-  if (!token) { window.location.href = '/login'; return false; }
+  if (!token) { loginRedirect(); return false; }
   try {
     const res = await fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + token } });
-    if (!res.ok) { localStorage.removeItem('mm_token'); localStorage.removeItem('mm_user'); window.location.href = '/login'; return false; }
+    if (!res.ok) { clearAuth(); loginRedirect(); return false; }
     currentUser = await res.json();
     if (currentUser.is_default_password) {
       setTimeout(() => showToast('⚠️ Credenciales por defecto. Cámbialas en Configuración.', 'error'), 1500);
@@ -23,9 +42,8 @@ async function checkAuth() {
 }
 
 function logout() {
-  localStorage.removeItem('mm_token');
-  localStorage.removeItem('mm_user');
-  window.location.href = '/login';
+  clearAuth();
+  loginRedirect();
 }
 
 // Themes
@@ -52,7 +70,7 @@ async function api(method, url, body) {
   if (token) opts.headers['Authorization'] = 'Bearer ' + token;
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(url, opts);
-  if (res.status === 401) { localStorage.removeItem('mm_token'); window.location.href = '/login'; throw new Error('No autenticado'); }
+  if (res.status === 401) { clearAuth(); loginRedirect(); throw new Error('No autenticado'); }
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `HTTP ${res.status}`); }
   return res.json();
 }

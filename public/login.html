@@ -56,8 +56,20 @@
       if(cfg.logo_path) document.getElementById('ll').innerHTML=`<img src="${cfg.logo_path}" alt="Logo">`;
       if(cfg.theme_color) applyTheme(cfg.theme_color);
     }).catch(()=>{});
-    const tok=localStorage.getItem('mm_token');
-    if(tok){fetch('/api/auth/me',{headers:{Authorization:'Bearer '+tok}}).then(r=>{if(r.ok)window.location.href='/';}).catch(()=>{});}
+    // Clave de token por taller para aislar sesiones
+    const slug = sessionStorage.getItem('mm_tenant');
+    const tokenKey = slug ? 'mm_token_' + slug : 'mm_token';
+    const redirectAfterLogin = slug ? '/app/' + slug : '/';
+
+    // Limpiar tokens viejos genéricos para evitar confusión
+    if (slug) localStorage.removeItem('mm_token');
+
+    const tok = localStorage.getItem(tokenKey);
+    if (tok) {
+      fetch('/api/auth/me', {headers:{Authorization:'Bearer '+tok}})
+        .then(r => { if(r.ok) window.location.href = redirectAfterLogin; else localStorage.removeItem(tokenKey); })
+        .catch(() => {});
+    }
     async function doLogin(e){
       e.preventDefault();
       const btn=document.getElementById('lb'),err=document.getElementById('le');
@@ -66,9 +78,9 @@
         const res=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:document.getElementById('lu').value,password:document.getElementById('lp').value})});
         const data=await res.json();
         if(!res.ok) throw new Error(data.error||'Error al iniciar sesión');
-        localStorage.setItem('mm_token',data.token);
-        localStorage.setItem('mm_user',JSON.stringify(data.user));
-        window.location.href='/';
+        localStorage.setItem(tokenKey, data.token);
+        localStorage.setItem('mm_user', JSON.stringify(data.user));
+        window.location.href = redirectAfterLogin;
       }catch(ex){err.textContent=ex.message;err.style.display='block';btn.textContent='Iniciar Sesión';btn.disabled=false;}
     }
   </script>
