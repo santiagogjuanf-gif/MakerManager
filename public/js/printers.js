@@ -440,10 +440,13 @@
     }
 
     try {
-      const url = id ? `/api/printers/${id}` : '/api/printers';
+      const url = apiUrl(id ? `/api/printers/${id}` : '/api/printers');
       const method = id ? 'PUT' : 'POST';
-      const res = await fetch(url, { method, body: fd });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const token = getToken();
+      const headers = token ? { Authorization: 'Bearer ' + token } : {};
+      const res = await fetch(url, { method, body: fd, headers });
+      if (res.status === 401) { clearAuth(); loginRedirect(); return; }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `HTTP ${res.status}`); }
       closeModal();
       showToast(id ? 'Impresora actualizada' : 'Impresora agregada');
       await refreshPrinters();
@@ -469,7 +472,7 @@
 
   window.prDoDelete = async function(id, deleteInventory) {
     try {
-      const res = await fetch(`/api/printers/${id}?delete_inventory=${deleteInventory}`, {
+      const res = await fetch(apiUrl(`/api/printers/${id}`) + `?delete_inventory=${deleteInventory}`, {
         method: 'DELETE',
         headers: { Authorization: 'Bearer ' + getToken() }
       });

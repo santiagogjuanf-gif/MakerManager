@@ -190,7 +190,7 @@
         const fd = new FormData();
         fd.append('foto', fotoInput.files[0]);
         const token = typeof getToken === 'function' ? getToken() : localStorage.getItem('mm_token');
-        await fetch(`/api/productos/${id}/foto`, { method:'POST', headers: token?{Authorization:'Bearer '+token}:{}, body: fd });
+        await fetch(apiUrl(`/api/productos/${id}/foto`), { method:'POST', headers: token?{Authorization:'Bearer '+token}:{}, body: fd });
       }
       showToast('Producto actualizado');
       closeModal();

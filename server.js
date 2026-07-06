@@ -71,7 +71,7 @@ app.get('/app/:slug/api/events', (req, res) => {
   sse.subscribe(slug, res);
   const ping = setInterval(() => {
     try { res.write(': ping\n\n'); } catch(_) { clearInterval(ping); }
-  }, 25000);
+  }, 15000);
 
   req.on('close', () => { clearInterval(ping); sse.unsubscribe(slug, res); });
 });
