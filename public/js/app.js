@@ -24,20 +24,33 @@ function loginRedirect() {
 async function checkAuth() {
   const token = getToken();
   if (!token) { loginRedirect(); return false; }
-  try {
-    const res = await fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + token } });
-    if (!res.ok) { clearAuth(); loginRedirect(); return false; }
-    currentUser = await res.json();
-    if (currentUser.is_default_password) {
-      setTimeout(() => showToast('⚠️ Credenciales por defecto. Cámbialas en Configuración.', 'error'), 1500);
-    }
-    if (currentUser.role === 'worker') {
-      document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'none');
-    }
-    const userEl = document.getElementById('sidebar-user');
-    if (userEl) userEl.innerHTML = `<div style="font-size:12px;font-weight:600;color:var(--text)">${currentUser.display_name || currentUser.username}</div><div style="font-size:10px;color:var(--text-muted);margin-top:1px">${currentUser.role === 'admin' ? '👑 Admin' : '👷 Worker'}</div>`;
-    return true;
-  } catch { clearAuth(); loginRedirect(); return false; }
+  // Esperar a que el slug esté en sessionStorage (lo pone el script inyectado en <head>)
+  // Si no está disponible, no podemos validar el token con el tenant correcto
+  const slug = sessionStorage.getItem('mm_tenant');
+  if (!slug) {
+    // Estamos en la app global sin tenant — validar sin slug
+    try {
+      const res = await fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + token } });
+      if (!res.ok) { clearAuth(); loginRedirect(); return false; }
+      currentUser = await res.json();
+    } catch { clearAuth(); loginRedirect(); return false; }
+  } else {
+    try {
+      // Usar la URL con slug explícito — no depender del interceptor
+      const res = await fetch(`/app/${slug}/api/auth/me`, { headers: { Authorization: 'Bearer ' + token } });
+      if (!res.ok) { clearAuth(); loginRedirect(); return false; }
+      currentUser = await res.json();
+    } catch { clearAuth(); loginRedirect(); return false; }
+  }
+  if (currentUser.is_default_password) {
+    setTimeout(() => showToast('⚠️ Credenciales por defecto. Cámbialas en Configuración.', 'error'), 1500);
+  }
+  if (currentUser.role === 'worker') {
+    document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'none');
+  }
+  const userEl = document.getElementById('sidebar-user');
+  if (userEl) userEl.innerHTML = `<div style="font-size:12px;font-weight:600;color:var(--text)">${currentUser.display_name || currentUser.username}</div><div style="font-size:10px;color:var(--text-muted);margin-top:1px">${currentUser.role === 'admin' ? '👑 Admin' : '👷 Worker'}</div>`;
+  return true;
 }
 
 function logout() {
@@ -171,7 +184,7 @@ async function loadConfig() {
   try {
     const cfg = await api('GET', '/api/config');
     appConfig = Array.isArray(cfg) ? cfg.reduce((a, r) => ({ ...a, [r.key]: r.value }), {}) : cfg;
-  } catch(e) { console.warn('Config load failed:', e.message); }
+  } catch(e) { console.warn('Config load failed:', e.message); appConfig = {}; }
 }
 
 // Router
