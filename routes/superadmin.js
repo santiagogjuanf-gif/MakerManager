@@ -163,9 +163,8 @@ router.post('/tenants', requireSuperAdmin, async (req, res) => {
     const adminPass = admin_password || Math.random().toString(36).slice(-8);
     await initTenantDb(slug, adminUser, adminPass, nombre_negocio);
 
-    try { await createSubdomainDNS(slug); } catch(e) { console.error('DNS creation failed:', e.message); }
-
-    res.json({ success: true, id: r.lastID, slug, admin_username: adminUser, admin_password: adminPass, url: `https://${slug}.makermanager.cerberusdev.pro` });
+    const url = `https://makermanager.cerberusdev.pro/app/${slug}`;
+    res.json({ success: true, id: r.lastID, slug, admin_username: adminUser, admin_password: adminPass, url });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

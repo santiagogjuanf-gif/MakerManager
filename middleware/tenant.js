@@ -1,7 +1,6 @@
 const superadminDb = require('../database/superadmin-db');
 const { initTenantDb } = require('../database/tenant-init');
 
-// Cache: slug -> db instance
 const tenantDbCache = new Map();
 
 async function getTenantDb(slug) {
@@ -11,22 +10,15 @@ async function getTenantDb(slug) {
   return db;
 }
 
+// Detecta slug desde /app/:slug/... o /app/:slug
+function extractSlugFromPath(path) {
+  const match = path.match(/^\/app\/([a-z0-9-]+)(\/|$)/);
+  return match ? match[1] : null;
+}
+
 async function tenantMiddleware(req, res, next) {
-  let slug = null;
-  const hostname = req.hostname || '';
-
-  // Production: slug.makermanager.cerberusdev.pro (4+ parts)
-  const parts = hostname.split('.');
-  if (parts.length >= 4) {
-    slug = parts[0];
-  }
-
-  // Development fallbacks
-  if (!slug) {
-    slug = req.headers['x-tenant-slug'] || req.query.tenant || null;
-  }
-
-  if (!slug) return next(); // no tenant context, continue normally
+  const slug = extractSlugFromPath(req.path);
+  if (!slug) return next();
 
   try {
     await superadminDb.ready;
@@ -39,31 +31,24 @@ async function tenantMiddleware(req, res, next) {
     );
 
     if (!tenant) {
-      return res.status(404).send(`<!DOCTYPE html><html><head><title>No encontrado</title><meta charset="UTF-8"></head><body style="background:#0f1117;color:#e2e8f0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column"><h1>404</h1><p>Tenant no encontrado: ${slug}</p></body></html>`);
+      return res.status(404).send(errorPage('Taller no encontrado', `No existe ningún taller con el nombre "${slug}".`));
     }
-
     if (tenant.estado === 'cancelado') {
-      return res.status(404).send(`<!DOCTYPE html><html><head><title>No encontrado</title><meta charset="UTF-8"></head><body style="background:#0f1117;color:#e2e8f0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column"><h1>Cuenta cancelada</h1><p>Esta cuenta ha sido cancelada.</p></body></html>`);
+      return res.status(404).send(errorPage('Cuenta cancelada', 'Esta cuenta ha sido cancelada.'));
     }
-
     if (tenant.estado === 'suspendido') {
-      return res.status(402).send(`<!DOCTYPE html><html><head><title>Cuenta suspendida</title><meta charset="UTF-8"></head><body style="background:#0f1117;color:#e2e8f0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column"><h1 style="color:#f97316">&#9888;&#65039; Cuenta suspendida</h1><p>Tu cuenta ha sido suspendida. Contacta soporte.</p></body></html>`);
+      return res.status(402).send(errorPage('Cuenta suspendida', 'Tu cuenta está suspendida. Contacta a soporte.'));
     }
-
     if (tenant.estado === 'trial' && tenant.trial_fin) {
-      const now = new Date();
-      const trialEnd = new Date(tenant.trial_fin);
-      if (now > trialEnd) {
+      if (new Date() > new Date(tenant.trial_fin)) {
         await superadminDb.runAsync("UPDATE tenants SET estado='suspendido', updated_at=CURRENT_TIMESTAMP WHERE slug=?", [slug]);
-        return res.status(402).send(`<!DOCTYPE html><html><head><title>Trial expirado</title><meta charset="UTF-8"></head><body style="background:#0f1117;color:#e2e8f0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column"><h1 style="color:#f97316">&#9200;&#65039; Trial expirado</h1><p>Tu período de prueba ha terminado. Contacta soporte para activar tu cuenta.</p></body></html>`);
+        return res.status(402).send(errorPage('Trial expirado', 'Tu período de prueba terminó. Contacta a soporte para activar tu cuenta.'));
       }
     }
 
-    // Build plan object
     const plan = tenant.plan_id ? {
       nombre: tenant.plan_nombre,
       slug: tenant.plan_slug,
-      precio_mensual: tenant.precio_mensual,
       max_admins: tenant.max_admins,
       max_workers: tenant.max_workers,
       max_filamentos: tenant.max_filamentos,
@@ -76,6 +61,7 @@ async function tenantMiddleware(req, res, next) {
       feature_nfc: !!tenant.feature_nfc,
     } : null;
 
+    req.tenantSlug = slug;
     req.tenant = { id: tenant.id, slug, nombre_negocio: tenant.nombre_negocio, estado: tenant.estado, plan };
     req.tenantDb = await getTenantDb(slug);
     next();
@@ -83,6 +69,14 @@ async function tenantMiddleware(req, res, next) {
     console.error('Tenant middleware error:', e);
     next(e);
   }
+}
+
+function errorPage(title, msg) {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title></head>
+  <body style="background:#0f1117;color:#e2e8f0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px">
+  <h1>${title}</h1><p style="color:#94a3b8">${msg}</p>
+  <a href="/app" style="color:#7c3aed;margin-top:8px">← Volver</a>
+  </body></html>`;
 }
 
 module.exports = tenantMiddleware;

@@ -28,13 +28,36 @@ app.use('/superadmin', express.static(path.join(__dirname, 'public/superadmin'))
 // Superadmin API routes
 app.use('/superadmin/api', require('./routes/superadmin'));
 
-// Tenant middleware (skip for superadmin routes)
+// Tenant middleware — actúa solo en rutas /app/:slug/...
 const tenantMiddleware = require('./middleware/tenant');
-app.use((req, res, next) => {
-  if (req.path.startsWith('/superadmin')) return next();
-  tenantMiddleware(req, res, next);
+app.use(tenantMiddleware);
+
+// Rutas API del tenant (con prefijo /app/:slug)
+app.use('/app/:slug/api/dashboard', require('./routes/dashboard'));
+app.use('/app/:slug/api/filaments', require('./routes/filaments'));
+app.use('/app/:slug/api/resinas', require('./routes/resinas'));
+app.use('/app/:slug/api/laser', require('./routes/laser'));
+app.use('/app/:slug/api/cnc', require('./routes/cnc'));
+app.use('/app/:slug/api/printers', require('./routes/printers'));
+app.use('/app/:slug/api/clients', require('./routes/clients'));
+app.use('/app/:slug/api/jobs', require('./routes/jobs'));
+app.use('/app/:slug/api/extras', require('./routes/extras'));
+app.use('/app/:slug/api/config', require('./routes/config'));
+app.use('/app/:slug/api/pdf', require('./routes/pdf'));
+app.use('/app/:slug/api/auth', require('./routes/auth'));
+app.use('/app/:slug/api/consumibles', require('./routes/consumibles'));
+app.use('/app/:slug/api/cotizaciones', require('./routes/cotizaciones'));
+app.use('/app/:slug/api/productos', require('./routes/productos'));
+app.use('/app/:slug/api/contabilidad', require('./routes/contabilidad'));
+app.get('/app/:slug/api/plan', (req, res) => {
+  res.json(req.tenant?.plan || { max_admins:99, max_workers:99, max_filamentos:9999, max_resinas:9999, max_clientes:9999, max_impresoras:9999, max_trabajos_activos:9999, feature_contabilidad:true, feature_pdf:true, feature_nfc:true });
 });
 
+// Servir la SPA del tenant en /app/:slug
+app.get('/app/:slug', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/app/:slug/*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
+// Rutas API para uso propio (sin tenant)
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/filaments', require('./routes/filaments'));
 app.use('/api/resinas', require('./routes/resinas'));
