@@ -67,11 +67,19 @@
       if(cfg.theme_color) applyTheme(cfg.theme_color);
     }).catch(()=>{});
 
-    const tok = localStorage.getItem(tokenKey);
-    if (tok) {
-      fetch(apiBase + '/auth/me', {headers:{Authorization:'Bearer '+tok}})
-        .then(r => { if(r.ok) window.location.href = redirectAfterLogin; else localStorage.removeItem(tokenKey); })
-        .catch(() => {});
+    const expired = new URLSearchParams(location.search).get('expired');
+    if (expired) {
+      // Llegamos aquí porque el token falló — borrarlo y mostrar el formulario limpio
+      localStorage.removeItem(tokenKey);
+      localStorage.removeItem('mm_token');
+    } else {
+      // Solo auto-redirigir si el usuario llegó directamente (no por un fallo de auth)
+      const tok = localStorage.getItem(tokenKey);
+      if (tok) {
+        fetch(apiBase + '/auth/me', {headers:{Authorization:'Bearer '+tok}})
+          .then(r => { if(r.ok) window.location.href = redirectAfterLogin; else localStorage.removeItem(tokenKey); })
+          .catch(() => {});
+      }
     }
     async function doLogin(e){
       e.preventDefault();

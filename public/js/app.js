@@ -17,8 +17,8 @@ function clearAuth() {
 }
 
 function loginRedirect() {
-  // Siempre ir a /login — sessionStorage mantiene el slug para redirigir de regreso después
-  window.location.href = '/login';
+  // ?expired=1 indica que venimos de un fallo de auth — login.html no debe auto-redirigir
+  window.location.href = '/login?expired=1';
 }
 
 async function checkAuth() {
