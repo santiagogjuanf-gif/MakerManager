@@ -328,7 +328,7 @@ function openCreateTenantModal() {
   setModal('Crear Tenant', `
     <div class="form-row">
       <div class="form-group"><label>Nombre del negocio</label><input id="t-nombre" oninput="autoSlug()" placeholder="Mi Taller 3D"></div>
-      <div class="form-group"><label>Slug (URL)</label><input id="t-slug" placeholder="mi-taller-3d"></div>
+      <div class="form-group"><label>Slug (URL)</label><input id="t-slug" placeholder="mi-taller-3d" oninput="this.dataset.manual='1'"></div>
     </div>
     <div class="form-group"><label>Email de contacto</label><input id="t-email" type="email" placeholder="contacto@negocio.com"></div>
     <div class="form-group"><label>Plan</label><select id="t-plan">${planOptions}</select></div>
@@ -364,10 +364,11 @@ function toggleTrialDays() {
 }
 
 function autoSlug() {
-  const nombre = document.getElementById('t-nombre')?.value || '';
-  const slug = nombre.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'').replace(/-+/g,'-').replace(/^-|-$/g,'');
   const slugEl = document.getElementById('t-slug');
-  if (slugEl) slugEl.value = slug;
+  // No sobreescribir si el usuario ya editó el slug manualmente
+  if (!slugEl || slugEl.dataset.manual) return;
+  const nombre = document.getElementById('t-nombre')?.value || '';
+  slugEl.value = nombre.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'').replace(/-+/g,'-').replace(/^-|-$/g,'');
 }
 
 function genPass() {
