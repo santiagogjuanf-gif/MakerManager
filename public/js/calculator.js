@@ -218,12 +218,28 @@
 
   // ── Filament rows ─────────────────────────────────────────────────────────────
   function filRowHtml(i) {
-    // Use costo_por_gramo directly (already calculated and stored in DB)
-    const opts = _allFils.map(f => {
-      const cg = parseFloat(f.costo_por_gramo || 0);
-      const acabado = f.acabado && f.acabado !== 'Estándar' ? ` ${f.acabado}` : '';
-      const label = `${f.marca||'-'} ${f.material}${acabado} ${f.color}`.trim();
-      return `<option value="${cg}" data-id="${f.id}" data-nombre="${label}">${label}</option>`;
+    const grouped = {};
+    for (const f of _allFils) {
+      const mat = f.material || 'Otro';
+      if (!grouped[mat]) grouped[mat] = [];
+      grouped[mat].push(f);
+    }
+    const sortedMats = Object.keys(grouped).sort();
+    for (const mat of sortedMats) {
+      grouped[mat].sort((a, b) => {
+        const la = `${a.marca||''} ${a.color||''}`.toLowerCase();
+        const lb = `${b.marca||''} ${b.color||''}`.toLowerCase();
+        return la < lb ? -1 : la > lb ? 1 : 0;
+      });
+    }
+    const opts = sortedMats.map(mat => {
+      const options = grouped[mat].map(f => {
+        const cg = parseFloat(f.costo_por_gramo || 0);
+        const acabado = f.acabado && f.acabado !== 'Estándar' ? ` ${f.acabado}` : '';
+        const label = `${f.marca||'-'} ${f.material}${acabado} ${f.color}`.trim();
+        return `<option value="${cg}" data-id="${f.id}" data-nombre="${label}">${label}</option>`;
+      }).join('');
+      return `<optgroup label="${mat}">${options}</optgroup>`;
     }).join('');
     return `<div class="calc-fil-row" id="calc-fil-row-${i}" style="margin-bottom:10px">
       <div style="display:grid;grid-template-columns:1fr 100px;gap:8px;align-items:flex-end">

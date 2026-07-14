@@ -755,6 +755,20 @@ select.form-control option { background: var(--card); }
   margin-bottom: 20px; padding: 14px 16px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
 }
+.fil-material-section { margin-bottom: 12px; }
+.fil-material-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; margin-bottom: 10px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; cursor: pointer; user-select: none;
+}
+.fil-material-header:hover { border-color: var(--accent); }
+.fil-material-title { font-weight: 700; font-size: 13px; color: var(--text); }
+.fil-material-count {
+  font-size: 11px; background: var(--accent); color: #fff;
+  border-radius: 20px; padding: 1px 7px; font-weight: 600;
+}
+.fil-material-chevron { margin-left: auto; color: var(--text-muted); font-size: 14px; }
 .fil-cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));

@@ -175,38 +175,65 @@
         && (!filFilterAcabado || f.acabado  === filFilterAcabado)
         && (!filFilterMarca   || f.marca    === filFilterMarca);
     });
-    const { items, totalPages, page } = paginate(filtered, filPage, 12);
-    filPage = page;
-
     const matOpts   = FIL_MATERIALES.map(m => `<option value="${m}" ${filFilterMat===m?'selected':''}>${m}</option>`).join('');
     const acabOpts  = FIL_ACABADOS.map(a => `<option value="${a}" ${filFilterAcabado===a?'selected':''}>${a}</option>`).join('');
     const marcaOpts = marcas.map(m => `<option value="${m}" ${filFilterMarca===m?'selected':''}>${m}</option>`).join('');
 
-    const cardsHTML = items.length
-      ? `<div class="fil-cards-grid">${items.map(f => {
-          const pct   = f.peso_inicial_g > 0 ? f.peso_actual_g / f.peso_inicial_g : 0;
-          const isLow = pct < 0.10;
-          const barClr = isLow ? 'var(--danger)' : (f.color_hex || colorHex(f.color));
-          const gLbl  = isLow
-            ? `<span style="color:var(--danger)">${fmtNum(f.peso_actual_g,0)}g</span>`
-            : `${fmtNum(f.peso_actual_g,0)}g`;
-          const estadoBadge = (f.estado||'En uso') === 'En stock'
-            ? '<span class="fil-estado-badge stock">📦 En stock</span>'
-            : '';
-          return `<div class="fil-card${isLow?' fil-card-low':''}" onclick="invViewFilament(${f.id})">
-            ${isLow ? '<span class="fil-alert-badge">⚠️ BAJO</span>' : ''}
-            ${f.tiene_nfc ? '<span class="fil-nfc-badge" title="NFC vinculado">📡</span>' : ''}
-            ${estadoBadge}
-            ${makeSpool(f, 110)}
-            <div class="fil-card-name">${f.marca||'-'} — ${f.material} ${f.acabado||''}</div>
-            <div class="fil-card-sub">${f.color||'-'}</div>
-            <div class="weight-wrap" style="width:100%">
-              <div class="weight-label"><span>${gLbl} restantes</span><span>${fmtNum(f.peso_inicial_g,0)}g</span></div>
-              <div class="weight-bar-bg"><div class="weight-bar-fill" style="width:${Math.round(pct*100)}%;background:${barClr}"></div></div>
+    function filCardHtml(f) {
+      const pct   = f.peso_inicial_g > 0 ? f.peso_actual_g / f.peso_inicial_g : 0;
+      const isLow = pct < 0.10;
+      const barClr = isLow ? 'var(--danger)' : (f.color_hex || colorHex(f.color));
+      const gLbl  = isLow
+        ? `<span style="color:var(--danger)">${fmtNum(f.peso_actual_g,0)}g</span>`
+        : `${fmtNum(f.peso_actual_g,0)}g`;
+      return `<div class="fil-card${isLow?' fil-card-low':''}" onclick="invViewFilament(${f.id})">
+        ${isLow ? '<span class="fil-alert-badge">⚠️ BAJO</span>' : ''}
+        ${f.tiene_nfc ? '<span class="fil-nfc-badge" title="NFC vinculado">📡</span>' : ''}
+        ${(f.estado||'En uso') === 'En stock' ? '<span class="fil-estado-badge stock">📦 En stock</span>' : ''}
+        ${makeSpool(f, 110)}
+        <div class="fil-card-name">${f.marca||'-'} — ${f.material} ${f.acabado||''}</div>
+        <div class="fil-card-sub">${f.color||'-'}</div>
+        <div class="weight-wrap" style="width:100%">
+          <div class="weight-label"><span>${gLbl} restantes</span><span>${fmtNum(f.peso_inicial_g,0)}g</span></div>
+          <div class="weight-bar-bg"><div class="weight-bar-fill" style="width:${Math.round(pct*100)}%;background:${barClr}"></div></div>
+        </div>
+        <span class="fil-estado-inline ${(f.estado||'En uso')==='En uso'?'uso':'stock'}" style="font-size:10px;padding:2px 7px">${(f.estado||'En uso')==='En uso'?'🟢 En uso':'📦 En stock'}</span>
+      </div>`;
+    }
+
+    // Group by material, sorted alphabetically
+    const grouped = {};
+    for (const f of filtered) {
+      const mat = f.material || 'Otro';
+      if (!grouped[mat]) grouped[mat] = [];
+      grouped[mat].push(f);
+    }
+    const sortedMats = Object.keys(grouped).sort();
+    for (const mat of sortedMats) {
+      grouped[mat].sort((a, b) => {
+        const ma = (a.marca||'').toLowerCase(), mb = (b.marca||'').toLowerCase();
+        if (ma !== mb) return ma < mb ? -1 : 1;
+        return (a.color||'').toLowerCase().localeCompare((b.color||'').toLowerCase());
+      });
+    }
+
+    if (!window._filSecCollapsed) window._filSecCollapsed = {};
+
+    const cardsHTML = sortedMats.length
+      ? sortedMats.map(mat => {
+          const collapsed = !!window._filSecCollapsed[mat];
+          const cards = grouped[mat].map(filCardHtml).join('');
+          return `<div class="fil-material-section">
+            <div class="fil-material-header" onclick="invToggleMatSection('${mat}')">
+              <span class="fil-material-title">${mat}</span>
+              <span class="fil-material-count">${grouped[mat].length}</span>
+              <span class="fil-material-chevron" id="fil-chev-${mat}">${collapsed ? '›' : '▾'}</span>
             </div>
-            <span class="fil-estado-inline ${(f.estado||'En uso')==='En uso'?'uso':'stock'}" style="font-size:10px;padding:2px 7px">${(f.estado||'En uso')==='En uso'?'🟢 En uso':'📦 En stock'}</span>
+            <div class="fil-cards-grid" id="fil-sec-${mat}" style="${collapsed ? 'display:none' : ''}">
+              ${cards}
+            </div>
           </div>`;
-        }).join('')}</div>`
+        }).join('')
       : `<div class="empty-state"><div class="empty-state-icon">🧵</div>Sin filamentos que coincidan</div>`;
 
     const cActivos = allFilaments.filter(f => (f.estado||'En uso')==='En uso').length;
@@ -238,11 +265,17 @@
           <option value="">Marca</option>${marcaOpts}
         </select>
       </div>
-      ${cardsHTML}
-      <div class="pagination" id="fil-pagination"></div>`;
-
-    if (totalPages > 1) renderPaginationInline('fil-pagination', filPage, totalPages, p => { filPage = p; renderFilaments(); });
+      ${cardsHTML}`;
   }
+
+  window.invToggleMatSection = function(mat) {
+    if (!window._filSecCollapsed) window._filSecCollapsed = {};
+    window._filSecCollapsed[mat] = !window._filSecCollapsed[mat];
+    const sec = document.getElementById(`fil-sec-${mat}`);
+    const chev = document.getElementById(`fil-chev-${mat}`);
+    if (sec) sec.style.display = window._filSecCollapsed[mat] ? 'none' : '';
+    if (chev) chev.textContent = window._filSecCollapsed[mat] ? '›' : '▾';
+  };
 
   window.invToggleFilFilter = function () {
     const panel = document.getElementById('fil-filter-panel');
@@ -496,10 +529,38 @@
       <div class="form-actions"><button class="btn btn-secondary" onclick="closeModal()">Cerrar</button></div>`);
   }
 
+  function getMarcas() {
+    const custom = JSON.parse(localStorage.getItem('mm_marcas_custom') || '[]');
+    return [...new Set([...FIL_MARCAS_CONOCIDAS, ...custom])].sort();
+  }
+
+  window.invGuardarMarca = function() {
+    const input = document.getElementById('fil-marca-custom');
+    if (!input || !input.value.trim()) return;
+    const marca = input.value.trim();
+    const existing = JSON.parse(localStorage.getItem('mm_marcas_custom') || '[]');
+    if (!FIL_MARCAS_CONOCIDAS.includes(marca) && !existing.includes(marca)) {
+      existing.push(marca);
+      localStorage.setItem('mm_marcas_custom', JSON.stringify(existing));
+    }
+    // Add to selector and select it
+    const sel = document.getElementById('fil-marca-sel');
+    if (sel && !Array.from(sel.options).some(o => o.value === marca)) {
+      const opt = document.createElement('option');
+      opt.value = marca; opt.textContent = marca;
+      sel.insertBefore(opt, sel.querySelector('option[value="__otra__"]'));
+    }
+    if (sel) sel.value = marca;
+    invMarcaChange(sel);
+    showToast(`Marca "${marca}" guardada`, 'success');
+  };
+
   // ---------- FORM ----------
   window.invOpenFilamentForm = async function (id) {
     let f = {};
     if (id) { try { f = allFilaments.find(x => x.id === id) || {}; } catch (e) {} }
+    const allMarcas = getMarcas();
+    const isCustom = f.marca && !allMarcas.includes(f.marca);
     const matOpts  = FIL_MATERIALES.map(m => `<option ${f.material===m?'selected':''}>${m}</option>`).join('');
     const acabOpts = FIL_ACABADOS.map(a => `<option ${f.acabado===a?'selected':''}>${a}</option>`).join('');
     openModal(id ? 'Editar Filamento' : 'Nuevo Filamento', `
@@ -508,12 +569,14 @@
           <div class="form-group"><label>Marca *</label>
             <select class="form-control" id="fil-marca-sel" onchange="invMarcaChange(this)" required>
               <option value="">— Selecciona marca —</option>
-              ${FIL_MARCAS_CONOCIDAS.map(m=>`<option value="${m}" ${f.marca===m?'selected':''}>${m}</option>`).join('')}
-              <option value="__otra__" ${f.marca && !FIL_MARCAS_CONOCIDAS.includes(f.marca)?'selected':''}>＋ Otra marca...</option>
+              ${allMarcas.map(m=>`<option value="${m}" ${f.marca===m?'selected':''}>${m}</option>`).join('')}
+              <option value="__otra__" ${isCustom?'selected':''}>＋ Otra marca...</option>
             </select>
-            <input class="form-control" name="marca" id="fil-marca-custom" placeholder="Escribe la marca"
-              style="margin-top:6px;${f.marca && !FIL_MARCAS_CONOCIDAS.includes(f.marca)?'':'display:none'}"
-              value="${f.marca && !FIL_MARCAS_CONOCIDAS.includes(f.marca)?f.marca:''}" autocomplete="off"></div>
+            <div style="display:${(isCustom)?'flex':'none'};gap:6px;margin-top:6px;align-items:center" id="fil-marca-custom-wrap">
+              <input class="form-control" name="marca" id="fil-marca-custom" placeholder="Escribe la marca"
+                value="${isCustom?f.marca:''}" autocomplete="off" style="flex:1">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="invGuardarMarca()" title="Guardar marca">💾</button>
+            </div></div>
           <div class="form-group"><label>Nombre comercial</label>
             <input class="form-control" name="nombre_comercial" value="${f.nombre_comercial||''}" autocomplete="off"></div>
           <div class="form-group"><label>Material</label>
@@ -584,14 +647,15 @@
 
   window.invMarcaChange = function(sel) {
     const custom = document.getElementById('fil-marca-custom');
+    const wrap = document.getElementById('fil-marca-custom-wrap');
     if (!custom) return;
     if (sel.value === '__otra__') {
-      custom.style.display = '';
+      if (wrap) wrap.style.display = 'flex';
       custom.value = '';
       custom.focus();
     } else {
-      custom.style.display = 'none';
-      custom.value = sel.value; // sync so FormData picks it up
+      if (wrap) wrap.style.display = 'none';
+      custom.value = sel.value;
     }
   };
 
