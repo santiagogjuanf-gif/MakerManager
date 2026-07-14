@@ -7,7 +7,7 @@
     });
   }
   let allFilaments = [], allResinas = [], allLaser = [], allCNC = [];
-  let allExternos = [], allInternos = [];
+  let allExternos = [], allInternos = [], allEmbalaje = [];
   let filPage = 1, resinPage = 1, laserPage = 1, cncPage = 1, extPage = 1, intPage = 1;
   let filSearch = '', resinSearch = '', laserSearch = '', cncSearch = '', extSearch = '', intSearch = '';
   let activeTab = 'filamentos';
@@ -17,20 +17,22 @@
     el.innerHTML = `<div class="page-header"><div><div class="page-title">Inventario</div><div class="page-subtitle">Consumibles y materiales</div></div></div><div id="inv-tabs-wrap"><p style="color:var(--text-muted)">Cargando...</p></div>`;
 
     // Determine which tabs to show
-    const [printers, filaments, resinas, laser, cnc] = await Promise.all([
+    const [printers, filaments, resinas, laser, cnc, embalaje] = await Promise.all([
       api('GET', '/api/printers').catch(() => []),
       api('GET', '/api/filaments').catch(() => []),
       api('GET', '/api/resinas').catch(() => []),
       api('GET', '/api/laser').catch(() => []),
       api('GET', '/api/cnc').catch(() => []),
+      api('GET', '/api/embalaje').catch(() => []),
     ]);
-    allFilaments = filaments; allResinas = resinas; allLaser = laser; allCNC = cnc;
+    allFilaments = filaments; allResinas = resinas; allLaser = laser; allCNC = cnc; allEmbalaje = embalaje;
 
     const tipos = new Set(printers.map(p => p.tipo));
     const tabs = [
       { id: 'filamentos', label: '🧵 Filamentos', always: true },
       { id: 'externos', label: '📦 Externos', always: true },
       { id: 'internos', label: '🧴 Internos', always: true },
+      { id: 'embalaje',   label: '🎁 Embalaje',   always: true },
       { id: 'resinas',    label: '🫙 Resinas',    show: tipos.has('Resina') || resinas.length > 0 },
       { id: 'laser',      label: '🔥 Láser',      show: tipos.has('Laser') || laser.length > 0 },
       { id: 'cnc',        label: '🔩 CNC',        show: tipos.has('CNC') || cnc.length > 0 },
@@ -58,6 +60,7 @@
     await Promise.all([
       refreshExternos(),
       refreshInternos(),
+      refreshEmbalaje(),
       tabs.find(t=>t.id==='filamentos') ? renderFilaments() : Promise.resolve(),
       tabs.find(t=>t.id==='resinas') ? refreshResinas() : Promise.resolve(),
       tabs.find(t=>t.id==='laser') ? refreshLaser() : Promise.resolve(),
@@ -88,6 +91,23 @@
       if (filament) setTimeout(() => invViewFilament(dashFil), 100);
     }
   };
+
+  // ===================== PROVEEDORES (autocomplete localStorage) =====================
+  function getProveedores() {
+    return JSON.parse(localStorage.getItem('mm_proveedores') || '[]');
+  }
+  function saveProveedor(val) {
+    if (!val || !val.trim()) return;
+    const v = val.trim();
+    const list = getProveedores();
+    if (!list.includes(v)) { list.push(v); list.sort(); localStorage.setItem('mm_proveedores', JSON.stringify(list)); }
+  }
+  function proveedorField(value) {
+    const opts = getProveedores().map(p => `<option value="${p}">`).join('');
+    return `<div class="form-group"><label>Proveedor</label>
+      <input class="form-control" name="proveedor" value="${value||''}" autocomplete="off" list="prov-datalist">
+      <datalist id="prov-datalist">${opts}</datalist></div>`;
+  }
 
   // ===================== FILAMENTOS =====================
   let filFilterMat = '', filFilterAcabado = '', filFilterMarca = '', filFilterEstado = 'activos';
@@ -611,8 +631,7 @@
           <div class="form-group"><label>Costo/g (auto)</label>
             <div id="fil-cpg-label" style="padding:7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;color:var(--accent)">${f.costo_por_gramo ? (parseFloat(f.costo_por_gramo)<0.01?'$'+parseFloat(f.costo_por_gramo).toFixed(5):'$'+parseFloat(f.costo_por_gramo).toFixed(4))+'/g' : '—'}</div>
             <input type="hidden" name="costo_por_gramo" id="fil-cpg" value="${f.costo_por_gramo||''}"></div>
-          <div class="form-group"><label>Proveedor</label>
-            <input class="form-control" name="proveedor" value="${f.proveedor||''}" autocomplete="off"></div>
+          ${proveedorField(f.proveedor)}
           <div class="form-group"><label>Estado</label>
             <select class="form-control" name="estado">
               <option value="En uso" ${(f.estado||'En uso')==='En uso'?'selected':''}>🟢 En uso</option>
@@ -665,6 +684,7 @@
     try {
       if (id) await api('PUT', `/api/filaments/${id}`, body);
       else    await api('POST', '/api/filaments', body);
+      saveProveedor(body.proveedor);
       closeModal();
       showToast(id ? 'Filamento actualizado' : 'Filamento agregado');
       await refreshFilaments();
@@ -747,7 +767,7 @@
           <div class="form-group"><label>Volumen actual (ml)</label><input class="form-control" name="volumen_actual_ml" type="number" value="${r.volumen_actual_ml || 1000}" autocomplete="off"></div>
           <div class="form-group"><label>Costo total</label><input class="form-control" name="costo_total" type="number" step="0.01" value="${r.costo_total || ''}" id="resin-costo" oninput="invCalcCostMl()" autocomplete="off"></div>
           <div class="form-group"><label>Costo/ml (auto)</label><input class="form-control" name="costo_por_ml" type="number" step="0.0001" id="resin-cpm" value="${r.costo_por_ml || ''}" autocomplete="off"></div>
-          <div class="form-group"><label>Proveedor</label><input class="form-control" name="proveedor" value="${r.proveedor || ''}" autocomplete="off"></div>
+          ${proveedorField(r.proveedor)}
           <div class="form-group form-full"><label>Notas</label><textarea class="form-control" name="notas" rows="2" autocomplete="off">${r.notas || ''}</textarea></div>
         </div>
         <div class="form-actions">
@@ -770,6 +790,7 @@
     try {
       if (id) await api('PUT', `/api/resinas/${id}`, body);
       else await api('POST', '/api/resinas', body);
+      saveProveedor(body.proveedor);
       closeModal(); showToast(id ? 'Resina actualizada' : 'Resina agregada');
       await refreshResinas();
     } catch (err) { showToast('Error: ' + err.message, 'error'); }
@@ -844,7 +865,7 @@
           </select>
         </div>
         <div class="form-group"><label>Costo unitario</label><input class="form-control" name="costo_unitario" type="number" step="0.01" value="${c.costo_unitario || ''}" autocomplete="off"></div>
-        <div class="form-group"><label>Proveedor</label><input class="form-control" name="proveedor" value="${c.proveedor || ''}" autocomplete="off"></div>
+        ${proveedorField(c.proveedor)}
         <div class="form-group form-full"><label>Notas</label><textarea class="form-control" name="notas" rows="2" autocomplete="off">${c.notas || ''}</textarea></div>
       </div>
       <div class="form-actions">
@@ -1075,7 +1096,7 @@
           </div>
           <div class="form-group"><label>Costo unitario</label><input class="form-control" name="costo_unitario" type="number" step="0.01" value="${data.costo_unitario||0}" autocomplete="off"></div>
           <div class="form-group"><label>Stock mínimo</label><input class="form-control" name="stock_minimo" type="number" step="0.01" value="${data.stock_minimo||0}" autocomplete="off"></div>
-          <div class="form-group"><label>Proveedor</label><input class="form-control" name="proveedor" value="${data.proveedor||''}" autocomplete="off"></div>
+          ${proveedorField(data.proveedor)}
           <div class="form-group form-full"><label>Notas</label><input class="form-control" name="notas" value="${data.notas||''}" autocomplete="off"></div>
         </div>
         <div class="form-actions">
@@ -1166,6 +1187,100 @@
     }, '🗑️');
   };
 
+  // ===================== EMBALAJE =====================
+  async function refreshEmbalaje() {
+    try { allEmbalaje = await api('GET', '/api/embalaje'); } catch { allEmbalaje = []; }
+    renderEmbalaje();
+  }
+
+  function renderEmbalaje() {
+    const tab = document.getElementById('inv-tab-embalaje');
+    if (!tab) return;
+    const sorted = [...allEmbalaje].sort((a,b) => (a.nombre||'').localeCompare(b.nombre||''));
+    const TIPOS = ['Caja','Sobre','Bolsa','Tubo','Paleta','Otro'];
+    const cards = sorted.length
+      ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;padding:16px">
+          ${sorted.map(e => {
+            const dims = [e.largo_cm,e.ancho_cm,e.alto_cm].filter(Boolean);
+            const dimStr = dims.length ? dims.map(d=>d+'cm').join(' × ') : '';
+            return `<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px">
+              <div style="font-size:13px;font-weight:700;color:var(--text)">${e.nombre}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${e.tipo||'Caja'}${dimStr?' · '+dimStr:''}</div>
+              ${e.proveedor?`<div style="font-size:11px;color:var(--text-muted)">📍 ${e.proveedor}</div>`:''}
+              <div style="font-size:18px;font-weight:700;color:var(--accent)">${fmtMoney(e.costo)}</div>
+              ${e.stock>0?`<div style="font-size:11px;color:var(--text-muted)">Stock: ${e.stock} pcs</div>`:''}
+              ${e.notas?`<div style="font-size:11px;color:var(--text-muted);font-style:italic">${e.notas}</div>`:''}
+              <div style="display:flex;gap:6px;margin-top:auto">
+                <button class="btn btn-secondary btn-sm" style="flex:1" onclick="invEditEmbalaje(${e.id})">✏️ Editar</button>
+                <button class="btn btn-danger btn-sm" style="flex:1" onclick="invDeleteEmbalaje(${e.id})">🗑️</button>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>`
+      : `<div class="empty-state"><div class="empty-state-icon">🎁</div>Sin materiales de embalaje</div>`;
+
+    tab.innerHTML = `
+      <div class="fil-toolbar-top">
+        <div style="font-size:12px;color:var(--text-muted)">Cajas, sobres y empaques para calcular costos</div>
+        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="invOpenEmbalajeForm()">＋ Agregar</button>
+      </div>
+      ${cards}`;
+  }
+
+  window.invOpenEmbalajeForm = function(id) {
+    const e = id ? allEmbalaje.find(x=>x.id===id)||{} : {};
+    const TIPOS = ['Caja','Sobre','Bolsa','Tubo','Paleta','Otro'];
+    openModal(id ? 'Editar embalaje' : 'Nuevo embalaje', `
+      <form id="embalaje-form" onsubmit="invSaveEmbalaje(event,${id||'null'})">
+        <div class="form-grid">
+          <div class="form-group form-full"><label>Nombre *</label>
+            <input class="form-control" name="nombre" value="${e.nombre||''}" required autocomplete="off" placeholder="Ej. Caja 20×15×10 cm"></div>
+          <div class="form-group"><label>Tipo</label>
+            <select class="form-control" name="tipo">
+              ${TIPOS.map(t=>`<option ${(e.tipo||'Caja')===t?'selected':''}>${t}</option>`).join('')}
+            </select></div>
+          <div class="form-group"><label>Largo (cm)</label>
+            <input class="form-control" name="largo_cm" type="number" step="0.1" value="${e.largo_cm||''}" autocomplete="off"></div>
+          <div class="form-group"><label>Ancho (cm)</label>
+            <input class="form-control" name="ancho_cm" type="number" step="0.1" value="${e.ancho_cm||''}" autocomplete="off"></div>
+          <div class="form-group"><label>Alto (cm)</label>
+            <input class="form-control" name="alto_cm" type="number" step="0.1" value="${e.alto_cm||''}" autocomplete="off"></div>
+          <div class="form-group"><label>Costo unitario *</label>
+            <input class="form-control" name="costo" type="number" step="0.01" value="${e.costo||''}" required autocomplete="off" placeholder="0.00"></div>
+          <div class="form-group"><label>Stock (pcs)</label>
+            <input class="form-control" name="stock" type="number" value="${e.stock||0}" autocomplete="off"></div>
+          ${proveedorField(e.proveedor)}
+          <div class="form-group form-full"><label>Notas</label>
+            <input class="form-control" name="notas" value="${e.notas||''}" autocomplete="off"></div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>`);
+  };
+
+  window.invEditEmbalaje = function(id) { invOpenEmbalajeForm(id); };
+  window.invDeleteEmbalaje = function(id) {
+    const e = allEmbalaje.find(x=>x.id===id);
+    confirmModal(`¿Eliminar "${e?.nombre}"?`, async () => {
+      try { await api('DELETE', `/api/embalaje/${id}`); showToast('Eliminado'); await refreshEmbalaje(); }
+      catch(err) { showToast('Error: '+err.message,'error'); }
+    }, '🗑️');
+  };
+
+  window.invSaveEmbalaje = async function(ev, id) {
+    ev.preventDefault();
+    const body = Object.fromEntries(new FormData(ev.target).entries());
+    try {
+      if (id) await api('PUT', `/api/embalaje/${id}`, body);
+      else    await api('POST', '/api/embalaje', body);
+      saveProveedor(body.proveedor);
+      closeModal(); showToast(id ? 'Embalaje actualizado' : 'Embalaje agregado');
+      await refreshEmbalaje();
+    } catch(err) { showToast('Error: '+err.message,'error'); }
+  };
+
   window.invSaveConsumible = async function(e, tipo, id) {
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -1176,6 +1291,7 @@
     try {
       if (id) { await api('PUT', `/api/consumibles/${endpoint}/${id}`, body); }
       else { await api('POST', `/api/consumibles/${endpoint}`, body); }
+      saveProveedor(body.proveedor);
       closeModal();
       showToast(id ? 'Actualizado' : 'Agregado');
       await refresh();

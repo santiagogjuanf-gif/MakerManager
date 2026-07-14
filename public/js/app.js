@@ -244,7 +244,7 @@ async function startup() {
 // Mapa de sección API → clave de página
 const SSE_SECTION_PAGE = {
   filaments: 'inventory', resinas: 'inventory', laser: 'inventory',
-  cnc: 'inventory', consumibles: 'inventory',
+  cnc: 'inventory', consumibles: 'inventory', embalaje: 'inventory',
   printers: 'printers',
   clients: 'clients',
   jobs: 'jobs', extras: 'jobs',

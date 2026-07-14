@@ -95,6 +95,7 @@ app.use('/app/:slug/api/consumibles', require('./routes/consumibles'));
 app.use('/app/:slug/api/cotizaciones', require('./routes/cotizaciones'));
 app.use('/app/:slug/api/productos', require('./routes/productos'));
 app.use('/app/:slug/api/contabilidad', require('./routes/contabilidad'));
+app.use('/app/:slug/api/embalaje', require('./routes/embalaje'));
 app.get('/app/:slug/api/plan', (req, res) => {
   res.json(req.tenant?.plan || { max_admins:99, max_workers:99, max_filamentos:9999, max_resinas:9999, max_clientes:9999, max_impresoras:9999, max_trabajos_activos:9999, feature_contabilidad:true, feature_pdf:true, feature_nfc:true });
 });
@@ -133,6 +134,7 @@ app.use('/api/consumibles', require('./routes/consumibles'));
 app.use('/api/cotizaciones', require('./routes/cotizaciones'));
 app.use('/api/productos', require('./routes/productos'));
 app.use('/api/contabilidad', require('./routes/contabilidad'));
+app.use('/api/embalaje', require('./routes/embalaje'));
 
 // Plan endpoint
 app.get('/api/plan', (req, res) => {

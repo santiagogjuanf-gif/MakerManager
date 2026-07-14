@@ -4,6 +4,7 @@
   let hwCount  = 0;
   let _allFils = [];
   let _allPrinters = [];
+  let _allEmbalaje = [];
   let _editingCotizacionId = null;   // null = new cotización, number = editing existing
   let _editingProductoId   = null;   // null = new product, number = editing existing
   let _calcMode = 'cotizacion';      // 'cotizacion' | 'producto'
@@ -216,6 +217,13 @@
 
   window.calcRecalc = recalc;
 
+  window.calcEmbalajeSelect = function(sel) {
+    const cost = parseFloat(sel.value || 0);
+    const inp = document.getElementById('calc-embalaje');
+    if (inp) { inp.value = cost > 0 ? cost.toFixed(2) : ''; }
+    recalc();
+  };
+
   // ── Filament rows ─────────────────────────────────────────────────────────────
   function filRowHtml(i) {
     const grouped = {};
@@ -364,10 +372,11 @@
 
   // ── Load data from API ────────────────────────────────────────────────────────
   async function loadData() {
-    [_allFils, _allPrinters, _allInternos] = await Promise.all([
+    [_allFils, _allPrinters, _allInternos, _allEmbalaje] = await Promise.all([
       api('GET', '/api/filaments').catch(() => []),
       api('GET', '/api/printers').catch(() => []),
       api('GET', '/api/consumibles/internos').catch(() => []),
+      api('GET', '/api/embalaje').catch(() => []),
     ]);
   }
 
@@ -585,9 +594,19 @@
           <!-- Embalaje -->
           <div class="calc-section">
             <div class="calc-section-title">📦 Embalaje</div>
+            <div class="form-group" style="margin:0 0 8px">
+              <label>Seleccionar del catálogo</label>
+              <select id="calc-embalaje-sel" class="form-control" onchange="calcEmbalajeSelect(this)">
+                <option value="">— Seleccionar embalaje —</option>
+                ${_allEmbalaje.sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'')).map(e => {
+                  const dims = [e.largo_cm,e.ancho_cm,e.alto_cm].filter(Boolean).map(d=>d+'cm').join('×');
+                  return `<option value="${e.costo}" data-nombre="${e.nombre}">${e.nombre}${dims?' ('+dims+')':''} — ${fmtMoney(e.costo)}</option>`;
+                }).join('')}
+              </select>
+            </div>
             <div class="form-group" style="margin:0">
-              <label>Costo de empaque por pieza (caja, bolsa, etc.)</label>
-              <input id="calc-embalaje" class="form-control" type="number" step="0.01" min="0" value="" oninput="calcRecalc()">
+              <label>Costo por pieza (editable)</label>
+              <input id="calc-embalaje" class="form-control" type="number" step="0.01" min="0" value="" oninput="calcRecalc()" placeholder="0.00">
             </div>
           </div>
 
