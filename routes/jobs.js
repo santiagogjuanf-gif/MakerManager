@@ -3,6 +3,14 @@ const router = express.Router();
 const db = require('../database/db');
 const { requireAuth } = require('./auth');
 const { updateClassification } = require('./clients');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const uploadStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, path.join(__dirname, '../public/uploads')),
+  filename: (req, file, cb) => cb(null, `job-photo-${Date.now()}-${Math.random().toString(36).slice(2)}${path.extname(file.originalname)}`)
+});
+const uploadPhoto = multer({ storage: uploadStorage, limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Multi-tenant DB selector
 router.use(requireAuth, (req, res, next) => {
@@ -201,7 +209,7 @@ router.post('/', async (req, res) => {
     // Plan limit check for active jobs
     if (req.tenant?.plan) {
       const activeCount = await req.db.getAsync(
-        "SELECT COUNT(*) as cnt FROM print_jobs WHERE (estado != 'Cierre') AND fallo=0 AND (archivado IS NULL OR archivado=0)"
+        "SELECT COUNT(*) as cnt FROM print_jobs WHERE fallo=0 AND (archivado IS NULL OR archivado=0)"
       );
       if (activeCount.cnt >= req.tenant.plan.max_trabajos_activos) {
         return res.status(400).json({ error: `Límite de ${req.tenant.plan.max_trabajos_activos} trabajos activos alcanzado para tu plan` });
@@ -243,7 +251,7 @@ router.put('/:id', async (req, res) => {
     }
 
     await req.db.runAsync(
-      `UPDATE print_jobs SET nombre_proyecto=?,cliente_id=?,fecha=?,descripcion=?,estado=?,impresora_id=?,gramos_purga=?,gramos_perdidos=?,tiempo_impresion_min=?,tiempo_preparacion_min=?,tiempo_postproceso_min=?,tiempo_diseno_min=?,fallo=?,notas=?,notas_produccion=?,precio_unitario=?,precio_menudeo=?,precio_mayoreo=?,precio_final=?,tipo_precio=?,requiere_factura=?,levantamiento_datos=?,cotizacion_id=?,canal_venta=?,orden_id=? WHERE id=?`,
+      `UPDATE print_jobs SET nombre_proyecto=?,cliente_id=?,fecha=?,descripcion=?,estado=?,impresora_id=?,gramos_purga=?,gramos_perdidos=?,tiempo_impresion_min=?,tiempo_preparacion_min=?,tiempo_postproceso_min=?,tiempo_diseno_min=?,fallo=?,notas=?,notas_produccion=?,precio_unitario=?,precio_menudeo=?,precio_mayoreo=?,precio_final=?,tipo_precio=?,requiere_factura=?,levantamiento_datos=?,cotizacion_id=?,canal_venta=?,orden_id=?,tipo_entrega=?,ensamble_checklist=?,ensamble_notas=?,embalaje_caja_id=?,embalaje_proteccion=?,embalaje_etiqueta=?,envio_paqueteria=?,envio_guia=? WHERE id=?`,
       [merged.nombre_proyecto, merged.cliente_id||null, merged.fecha, merged.descripcion||null, merged.estado||'Solicitud', merged.impresora_id||null,
        merged.gramos_purga||0, merged.gramos_perdidos||0,
        merged.tiempo_impresion_min||0, merged.tiempo_preparacion_min||0,
@@ -254,8 +262,24 @@ router.put('/:id', async (req, res) => {
        d.levantamiento_datos !== undefined
          ? (d.levantamiento_datos ? JSON.stringify(d.levantamiento_datos) : null)
          : old.levantamiento_datos,
-       merged.cotizacion_id||null, merged.canal_venta||null, merged.orden_id||null, req.params.id]
+       merged.cotizacion_id||null, merged.canal_venta||null, merged.orden_id||null,
+       merged.tipo_entrega||null,
+       d.ensamble_checklist !== undefined ? d.ensamble_checklist : old.ensamble_checklist,
+       merged.ensamble_notas||null,
+       merged.embalaje_caja_id||null, merged.embalaje_proteccion||null,
+       merged.embalaje_etiqueta!=null ? (merged.embalaje_etiqueta?1:0) : (old.embalaje_etiqueta||0),
+       merged.envio_paqueteria||null, merged.envio_guia||null,
+       req.params.id]
     );
+    // Deduct embalaje stock when advancing from Embalaje → Preparando envío
+    if (old.estado === 'Embalaje' && merged.estado === 'Preparando envío' && merged.embalaje_caja_id) {
+      await req.db.runAsync('UPDATE embalaje SET stock = MAX(0, stock - 1) WHERE id=?', [merged.embalaje_caja_id]);
+    }
+    // Archive job when marking as Entregado
+    if (merged.estado === 'Entregado' && old.estado !== 'Entregado') {
+      await req.db.runAsync('UPDATE print_jobs SET archivado=1, archivado_at=? WHERE id=?',
+        [new Date().toISOString().slice(0,10), req.params.id]);
+    }
     if (d.filaments !== undefined || d.products !== undefined || d.extras !== undefined || d.camas !== undefined) {
       await saveJobData(req.params.id, d, req.db);
     }
@@ -296,6 +320,36 @@ router.patch('/:id/cobrado', async (req, res) => {
     const newVal = job.cobrado === 0 ? 1 : 0;
     await req.db.runAsync('UPDATE print_jobs SET cobrado=? WHERE id=?', [newVal, req.params.id]);
     res.json({ cobrado: newVal });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/:id/ensamble-foto', uploadPhoto.single('foto'), async (req, res) => {
+  try {
+    const job = await req.db.getAsync('SELECT ensamble_fotos FROM print_jobs WHERE id=?', [req.params.id]);
+    if (!job) return res.status(404).json({ error: 'Not found' });
+    const fotos = JSON.parse(job.ensamble_fotos || '[]');
+    if (fotos.length >= 6) return res.status(400).json({ error: 'Máximo 6 fotos' });
+    if (!req.file) return res.status(400).json({ error: 'No file' });
+    const foto_path = `/uploads/${req.file.filename}`;
+    fotos.push(foto_path);
+    await req.db.runAsync('UPDATE print_jobs SET ensamble_fotos=? WHERE id=?', [JSON.stringify(fotos), req.params.id]);
+    res.json({ foto_path, total: fotos.length });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/:id/ensamble-foto', async (req, res) => {
+  try {
+    const { foto_path } = req.body;
+    const job = await req.db.getAsync('SELECT ensamble_fotos FROM print_jobs WHERE id=?', [req.params.id]);
+    if (!job) return res.status(404).json({ error: 'Not found' });
+    let fotos = JSON.parse(job.ensamble_fotos || '[]');
+    fotos = fotos.filter(f => f !== foto_path);
+    await req.db.runAsync('UPDATE print_jobs SET ensamble_fotos=? WHERE id=?', [JSON.stringify(fotos), req.params.id]);
+    if (foto_path) {
+      const fullPath = path.join(__dirname, '../public', foto_path);
+      try { if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath); } catch(_) {}
+    }
+    res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

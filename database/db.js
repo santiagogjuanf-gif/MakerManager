@@ -219,6 +219,24 @@ async function init() {
     try { await db.runAsync(`ALTER TABLE print_jobs ADD COLUMN ${colDef}`); } catch (e) { /* exists */ }
   }
 
+  // New workflow columns for print_jobs
+  const jobWorkflowColumns = [
+    'tipo_entrega TEXT',
+    'ensamble_checklist TEXT',
+    'ensamble_notas TEXT',
+    'ensamble_fotos TEXT',
+    'embalaje_caja_id INTEGER',
+    'embalaje_proteccion TEXT',
+    'embalaje_etiqueta INTEGER DEFAULT 0',
+    'envio_paqueteria TEXT',
+    'envio_guia TEXT',
+  ];
+  for (const colDef of jobWorkflowColumns) {
+    try { await db.runAsync(`ALTER TABLE print_jobs ADD COLUMN ${colDef}`); } catch (e) { /* exists */ }
+  }
+  // Migrate old 'Cierre' state to 'Ensamble'
+  await db.runAsync(`UPDATE print_jobs SET estado='Ensamble' WHERE estado='Cierre'`);
+
   // Fix costo_por_gramo: recalculate using peso_inicial_g directly (not minus spool weight)
   await db.runAsync(`
     UPDATE filaments SET costo_por_gramo = costo_total / peso_inicial_g

@@ -1,17 +1,21 @@
 (function () {
-  let allJobs = [], allClients = [], allPrinters = [], allFilaments = [];
+  let allJobs = [], allClients = [], allPrinters = [], allFilaments = [], _allEmbalaje = [];
   let jobSearch = '', jobViewMode = 'kanban';
   let _appCfg = {};
 
   // Per-column pagination state
-  const colPage = { Solicitud:1, Levantamiento:1, Producción:1, Cierre:1 };
+  const colPage = { Solicitud:1, Levantamiento:1, Producción:1, Ensamble:1, Embalaje:1, 'Preparando envío':1, 'Pendiente de entrega':1 };
   const COL_PAGE_SIZE = 10;
 
   const STAGES = [
-    { key: 'Solicitud',     label: 'Solicitud',     color: 'badge-default',   next: 'Levantamiento' },
-    { key: 'Levantamiento', label: 'Levantamiento', color: 'badge-regular',   next: 'Producción' },
-    { key: 'Producción',    label: 'Producción',    color: 'badge-frecuente', next: 'Cierre' },
-    { key: 'Cierre',        label: 'Cierre',        color: 'badge-vip',       next: null },
+    { key: 'Solicitud',            label: 'Solicitud',            color: 'badge-default',   next: 'Levantamiento' },
+    { key: 'Levantamiento',        label: 'Levantamiento',        color: 'badge-regular',   next: 'Producción' },
+    { key: 'Producción',           label: 'Producción',           color: 'badge-frecuente', next: 'Ensamble' },
+    { key: 'Ensamble',             label: 'Ensamble',             color: 'badge-vip',       next: 'Embalaje' },
+    { key: 'Embalaje',             label: 'Embalaje',             color: 'badge-vip',       next: 'Preparando envío' },
+    { key: 'Preparando envío',     label: 'Preparando envío',     color: 'badge-vip',       next: 'Pendiente de entrega' },
+    { key: 'Pendiente de entrega', label: 'Pendiente de entrega', color: 'badge-vip',       next: 'Entregado' },
+    { key: 'Entregado',            label: 'Entregado',            color: 'badge-vip',       next: null },
   ];
   function stageIndex(e) { const i=STAGES.findIndex(s=>s.key===(e||'Solicitud')); return i===-1?0:i; }
   function stageBadge(e) { const s=STAGES[stageIndex(e)]; return `<span class="badge ${s.color}">${s.label}</span>`; }
@@ -22,7 +26,6 @@
   function tierBadge(tier) { const m={unitario:['badge-default','Unitario'],menudeo:['badge-regular','Menudeo'],mayoreo:['badge-frecuente','Mayoreo']}; const [c,l]=m[tier]||['badge-default',tier]; return `<span class="badge ${c}">${l}</span>`; }
   function spoolCard(f,size=60) {
     if (typeof makeSpool==='function'&&f.material) {
-      // Lookup real stock from allFilaments; fall back to full spool if not found
       const full=allFilaments.find(x=>x.id==(f.id||f.filamento_id))||{};
       return makeSpool({
         marca:f.marca||'',material:f.material||'',color:f.color||'',
@@ -34,7 +37,6 @@
     const hex=f.color_hex||colorHex(f.color||'');
     return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${hex};border:3px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*.18)}px;color:#fff;font-weight:700">${(f.material||'').substring(0,3)}</div>`;
   }
-  // Build a clean display name from filament data without duplicating parts
   function filName(f) {
     const parts=[];
     if (f.marca) parts.push(f.marca);
@@ -43,6 +45,14 @@
     if (f.color) parts.push(f.color);
     return parts.join(' ')||f.nombre||'—';
   }
+
+  const ENSAMBLE_CHECKLIST = [
+    'Piezas inspeccionadas y sin defectos',
+    'Soportes y material de soporte removidos',
+    'Superficie limpiada y acabado revisado',
+    'Funcionalidad probada',
+    'Revisión de calidad final completada',
+  ];
 
   // ─── PAGE LOADER ─────────────────────────────────────────────────────────────
 
@@ -69,11 +79,12 @@
 
   async function refreshJobs() {
     try {
-      [allJobs,allClients,allPrinters,allFilaments,_appCfg]=await Promise.all([
+      [allJobs,allClients,allPrinters,allFilaments,_appCfg,_allEmbalaje]=await Promise.all([
         api('GET','/api/jobs'), api('GET','/api/clients'), api('GET','/api/printers'),
         api('GET','/api/filaments'), api('GET','/api/config').catch(()=>({})),
+        api('GET','/api/embalaje').catch(()=>[]),
       ]);
-    } catch(e) { allJobs=[]; allClients=[]; allPrinters=[]; allFilaments=[]; }
+    } catch(e) { allJobs=[]; allClients=[]; allPrinters=[]; allFilaments=[]; _allEmbalaje=[]; }
     renderJobs();
   }
 
@@ -86,16 +97,19 @@
   // ─── TABLERO ─────────────────────────────────────────────────────────────────
 
   const BOARD_COLS=[
-    {key:'Solicitud',icon:'📥',color:'#6366f1'},
-    {key:'Levantamiento',icon:'📐',color:'#f59e0b'},
-    {key:'Producción',icon:'🖨️',color:'#3b82f6'},
-    {key:'Cierre',icon:'✅',color:'#22c55e'},
+    {key:'Solicitud',           icon:'📥',color:'#6366f1'},
+    {key:'Levantamiento',       icon:'📐',color:'#f59e0b'},
+    {key:'Producción',          icon:'🖨️',color:'#3b82f6'},
+    {key:'Ensamble',            icon:'🔧',color:'#8b5cf6'},
+    {key:'Embalaje',            icon:'📦',color:'#ec4899'},
+    {key:'Preparando envío',    icon:'🚚',color:'#f97316'},
+    {key:'Pendiente de entrega',icon:'⏳',color:'#22c55e'},
   ];
 
   function renderKanban(filtered) {
     const byStage={};
     BOARD_COLS.forEach(s=>byStage[s.key]=[]);
-    filtered.forEach(j=>{ const k=j.estado||'Solicitud'; (byStage[k]||byStage['Solicitud']).push(j); });
+    filtered.forEach(j=>{ const k=j.estado||'Solicitud'; if(byStage[k]) byStage[k].push(j); else byStage['Solicitud'].push(j); });
 
     const cols=BOARD_COLS.map(st=>{
       const all=byStage[st.key]||[];
@@ -129,7 +143,6 @@
           </div>`;
         }).join('');
 
-      // Column pagination
       let pagHtml='';
       if (totalPgs>1) {
         const prev=pg>1?`<button onclick="colPg('${st.key}',${pg-1})" style="background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;cursor:pointer;color:var(--text-muted);font-size:12px">‹</button>`:'<span style="width:26px"></span>';
@@ -139,7 +152,7 @@
         </div>`;
       }
 
-      return `<div style="flex:1 1 280px;min-width:260px;max-width:100%">
+      return `<div style="flex:1 1 240px;min-width:220px;max-width:100%">
         <div style="background:${st.color}22;border:1px solid ${st.color}44;border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:6px">
           <span>${st.icon}</span>
           <span style="font-size:13px;font-weight:700;color:${st.color}">${st.key}</span>
@@ -164,13 +177,11 @@
     if (!container) return;
 
     if (jobViewMode==='kanban') {
-      // Reset col pages on new search
       container.innerHTML=renderKanban(filtered);
       document.getElementById('job-pagination').innerHTML='';
       return;
     }
 
-    // List view with single pagination
     const perPage=12;
     const totalPgs=Math.max(1,Math.ceil(filtered.length/perPage));
     _listPage=Math.min(_listPage,totalPgs);
@@ -197,7 +208,6 @@
       </div>`;
     }).join('')}</div>`;
 
-    // Pagination
     const pg=document.getElementById('job-pagination'); pg.innerHTML='';
     if (totalPgs>1) {
       const mk=(l,p,d,a)=>{const b=document.createElement('button');b.className='page-btn'+(a?' active':'');b.textContent=l;b.disabled=d;if(!d)b.addEventListener('click',()=>{_listPage=p;renderJobs();});pg.appendChild(b);};
@@ -289,37 +299,70 @@
 
     if (idx>=2&&j.notas_produccion) html+=`<div class="alert alert-warning" style="margin-bottom:12px">${j.notas_produccion}</div>`;
 
+    // Ensamble info (idx>=3)
     if (idx>=3) {
-      const prods=(j.products||[]).map(p=>`<div class="cost-row"><span>${p.descripcion||'-'}</span><strong>×${p.cantidad}</strong></div>`).join('');
-      const exts=(j.extras||[]).map(x=>`<div class="cost-row"><span>${x.nombre_extra||'-'} ×${x.cantidad}</span><strong>${fmtMoney(x.costo_total)}</strong></div>`).join('');
-      if (prods||exts) html+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
-        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px">✅ CIERRE</div>
-        ${prods?`<div class="cost-breakdown">${prods}</div>`:''}
-        ${exts?`<div class="cost-breakdown" style="margin-top:8px">${exts}</div>`:''}
+      const checklist=parseJsonSafe(j.ensamble_checklist,[]);
+      const doneCount=checklist.filter(Boolean).length;
+      const fotos=parseJsonSafe(j.ensamble_fotos,[]);
+      html+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:10px">🔧 ENSAMBLE</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Checklist: ${doneCount}/${ENSAMBLE_CHECKLIST.length} completados</div>
+        ${ENSAMBLE_CHECKLIST.map((item,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px;${checklist[i]?'':'opacity:0.5'}">
+          <span>${checklist[i]?'✅':'⬜'}</span><span style="${checklist[i]?'':'color:var(--text-muted)'}">${item}</span>
+        </div>`).join('')}
+        ${j.ensamble_notas?`<div style="font-size:12px;color:var(--text-muted);margin-top:8px;padding:8px;background:var(--surface);border-radius:6px">${j.ensamble_notas}</div>`:''}
+        ${fotos.length?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">${fotos.map(f=>`<img src="${f}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">`).join('')}</div>`:''}
+        ${j.tipo_entrega?`<div style="margin-top:10px;font-size:12px"><strong>Tipo de entrega:</strong> ${j.tipo_entrega==='taller'?'🏪 Recoger en taller':'🚚 Envío por paquetería'}</div>`:''}
       </div>`;
-      if (j.requiere_factura) html+=`<div class="alert alert-warning">⚠️ Requiere factura</div>`;
+    }
+
+    // Embalaje info (idx>=4)
+    if (idx>=4) {
+      const caja=_allEmbalaje.find(e=>e.id===j.embalaje_caja_id);
+      html+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:10px">📦 EMBALAJE</div>
+        <div class="cost-breakdown">
+          ${caja?`<div class="cost-row"><span>📦 Caja</span><strong>${caja.nombre}</strong></div>`:''}
+          ${j.embalaje_proteccion?`<div class="cost-row"><span>🛡️ Protección</span><strong>${j.embalaje_proteccion}</strong></div>`:''}
+          ${j.embalaje_etiqueta?`<div class="cost-row"><span>🏷️ Etiqueta</span><strong>Sí</strong></div>`:''}
+        </div>
+      </div>`;
+    }
+
+    // Shipping info (idx>=5)
+    if (idx>=5&&j.tipo_entrega==='domicilio') {
+      html+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:10px">🚚 ENVÍO</div>
+        <div class="cost-breakdown">
+          ${j.envio_paqueteria?`<div class="cost-row"><span>Paquetería</span><strong>${j.envio_paqueteria}</strong></div>`:''}
+          ${j.envio_guia?`<div class="cost-row"><span>Guía</span><strong>${j.envio_guia}</strong></div>`:''}
+        </div>
+      </div>`;
     }
 
     const nextStage=STAGES[idx].next;
     const allCamasDone=camas.length>0&&camas.every(c=>c.completada);
+    const isProduccion=j.estado==='Producción';
 
     let advanceBtn='';
     if (nextStage==='Levantamiento') advanceBtn=`<button class="btn btn-primary" onclick="closeModal();jobGoToLevantamiento(${j.id})">📐 Levantamiento →</button>`;
     else if (nextStage==='Producción') advanceBtn=`<button class="btn btn-primary" onclick="closeModal();jobJustAdvance(${j.id},'Producción')">🖨️ Pasar a Producción</button>`;
+    else if (nextStage==='Entregado') advanceBtn=`<button class="btn btn-success" onclick="jobJustAdvance(${j.id},'Entregado')">✅ Marcar como Entregado</button>`;
 
-    // In production stage: Guardar always visible, Cerrar appears only when all camas done
-    const isProduccion=nextStage==='Cierre';
     const guardarBtn=isProduccion?`<button class="btn btn-primary" onclick="jobViewSave(${j.id})">💾 Guardar</button>`:'';
-    const cerrarBtn=isProduccion?`<button id="view-cerrar-btn" class="btn btn-success" onclick="jobJustAdvance(${j.id},'Cierre')" style="${allCamasDone?'':'display:none'}">✅ Cerrar trabajo</button>`:'';
+    const ensambleBtn=isProduccion&&allCamasDone?`<button id="view-ensamble-btn" class="btn btn-success" onclick="closeModal();jobJustAdvance(${j.id},'Ensamble')">🔧 Pasar a Ensamble</button>`:
+                      isProduccion?`<button id="view-ensamble-btn" class="btn btn-success" style="display:none" onclick="closeModal();jobJustAdvance(${j.id},'Ensamble')">🔧 Pasar a Ensamble</button>`:'';
 
     return `${html}<div class="form-actions">
       <button class="btn btn-secondary" onclick="closeModal();jobOpenForm(${j.id})">✏️ Editar</button>
       ${advanceBtn}
       ${guardarBtn}
-      ${cerrarBtn}
+      ${ensambleBtn}
       <button class="btn btn-danger" onclick="jobDelete(${j.id})">🗑️ Eliminar</button>
     </div>`;
   }
+
+  function parseJsonSafe(raw,def) { try { return typeof raw==='string'?JSON.parse(raw):(Array.isArray(raw)?raw:def); } catch { return def; } }
 
   function camasListHtml(camas, jobId, idx) {
     return camas.map(c=>`
@@ -331,7 +374,6 @@
       </div>`).join('');
   }
 
-  // Toggle cama — re-render modal body so Cerrar button appears instantly when all done
   window.jobToggleCama=async function(jobId, camaId) {
     try {
       await api('PATCH',`/api/jobs/${jobId}/camas/${camaId}`,{});
@@ -342,12 +384,10 @@
       const lev=parseLev(j.levantamiento_datos);
       const bodyEl=document.getElementById('modal-body');
       if (bodyEl) bodyEl.innerHTML=buildJobViewHtml(j,idx,clienteName,printerName,lev);
-      // Refresh tablero cards silently
       api('GET','/api/jobs').then(jobs=>{ allJobs=jobs; renderJobs(); }).catch(()=>{});
     } catch(e) { showToast('Error: '+e.message,'error'); }
   };
 
-  // Save from view modal (camas already persisted per-click); just close + refresh tablero
   window.jobViewSave=async function(id){
     closeModal();
     showToast('Guardado');
@@ -355,7 +395,7 @@
   };
 
   window.jobGoToLevantamiento=async function(id){ try { await api('PUT',`/api/jobs/${id}`,{estado:'Levantamiento'}); await jobOpenForm(id); } catch(e){showToast('Error: '+e.message,'error');} };
-  window.jobJustAdvance=async function(id,stage){ try { await api('PUT',`/api/jobs/${id}`,{estado:stage}); showToast(`Avanzado a ${stage}`); await refreshJobs(); } catch(e){showToast('Error: '+e.message,'error');} };
+  window.jobJustAdvance=async function(id,stage){ try { await api('PUT',`/api/jobs/${id}`,{estado:stage}); showToast(`Avanzado a ${stage}`); closeModal(); await refreshJobs(); } catch(e){showToast('Error: '+e.message,'error');} };
 
   // ─── SOLICITUD ───────────────────────────────────────────────────────────────
 
@@ -487,7 +527,6 @@
 
     return `<div style="font-weight:700;color:var(--accent-light);margin:4px 0 16px;font-size:13px">📐 Levantamiento</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-      <!-- COL 1 -->
       <div>
         <div class="form-group" style="margin-bottom:14px">
           <label>🖨️ Impresora *</label>
@@ -530,7 +569,6 @@
         </div>
         <div class="form-group"><label style="font-size:11px">📝 Notas</label><textarea class="form-control" name="notas" rows="2" autocomplete="off">${j.notas||''}</textarea></div>
       </div>
-      <!-- COL 2: Filamentos -->
       <div>
         <div style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;margin-bottom:10px">🧵 Filamentos</div>
         <div id="jlev-fils">${filRows}</div>
@@ -548,7 +586,6 @@
     const done=camas.filter(c=>c.completada).length;
     const pct=camas.length?Math.round(done/camas.length*100):0;
 
-    // Stock info from levantamiento filaments
     const fils=(lev.filamentos||j.filaments||[]).filter(f=>(f.gramos||f.gramos_pieza||0)>0);
     const stockInfo=fils.length?`<div style="background:var(--surface);border-radius:10px;padding:12px;margin-bottom:14px">
       <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px">🧵 Stock de filamentos</div>
@@ -582,7 +619,6 @@
           <textarea class="form-control" name="notas_produccion" rows="2" autocomplete="off">${j.notas_produccion||''}</textarea>
         </div>
       </div>
-      <!-- Camas editables -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase">🛏️ Camas de impresión</div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -605,23 +641,239 @@
       `:`<div style="color:var(--text-muted);font-size:12px;padding:8px 0">Guarda para generar las camas</div>`}`;
   }
 
-  // ─── CIERRE ──────────────────────────────────────────────────────────────────
+  // ─── ENSAMBLE ────────────────────────────────────────────────────────────────
 
-  function renderCierreFields(j) {
-    const prods=(j.products||[]).map(p=>`<div class="extra-item"><input class="form-control" name="prod_desc[]" value="${p.descripcion||''}" placeholder="Descripción" style="flex:2" autocomplete="off"><input class="form-control" name="prod_qty[]" type="number" min="1" value="${p.cantidad||1}" style="width:70px" autocomplete="off"><button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button></div>`).join('');
-    const exts=(j.extras||[]).map(x=>`<div class="extra-item"><input class="form-control" name="extra_nombre[]" value="${x.nombre_extra||''}" placeholder="Nombre" style="flex:2" autocomplete="off"><input class="form-control" name="extra_qty[]" type="number" value="${x.cantidad||1}" style="width:60px" autocomplete="off"><input class="form-control" name="extra_costo[]" type="number" step="any" value="${x.costo_unitario||''}" placeholder="$/u" style="width:80px" autocomplete="off"><button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button></div>`).join('');
-    return `<div style="font-weight:700;color:var(--accent-light);margin:4px 0 12px">✅ Cierre</div>
-      <div class="form-grid" style="margin-bottom:16px">
-        <div class="form-group"><label>Preparación</label><input class="form-control" name="tiempo_preparacion" placeholder="0:30h" value="${j.tiempo_preparacion_min?formatTime(j.tiempo_preparacion_min):''}" autocomplete="off"></div>
-        <div class="form-group"><label>Postproceso</label><input class="form-control" name="tiempo_postproceso" placeholder="0:15h" value="${j.tiempo_postproceso_min?formatTime(j.tiempo_postproceso_min):''}" autocomplete="off"></div>
+  function renderEnsambleFields(j, jobId) {
+    const checklist=parseJsonSafe(j.ensamble_checklist,[]);
+    const fotos=parseJsonSafe(j.ensamble_fotos,[]);
+    const allDone=ENSAMBLE_CHECKLIST.every((_,i)=>checklist[i]);
+
+    const checkItems=ENSAMBLE_CHECKLIST.map((item,i)=>`
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid ${checklist[i]?'var(--accent)':'var(--border)'};border-radius:8px;margin-bottom:6px;cursor:pointer">
+        <input type="checkbox" class="ensamble-check" id="enc-${i}" ${checklist[i]?'checked':''} onchange="ensambleChecklistChange()">
+        <span style="font-size:13px">${item}</span>
+      </label>`).join('');
+
+    const fotoSlots=fotos.map(f=>`
+      <div style="position:relative;width:90px;height:90px">
+        <img src="${f}" style="width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+        <button type="button" onclick="ensambleDeleteFoto('${f}',${jobId})" style="position:absolute;top:3px;right:3px;background:#ef4444;color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+      </div>`).join('');
+
+    const canAddMore=fotos.length<6;
+
+    return `<div style="font-weight:700;color:var(--accent-light);margin:4px 0 12px">🔧 Ensamble</div>
+      <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:10px">Lista de verificación (todos los puntos son obligatorios)</div>
+      <div id="ensamble-checklist">${checkItems}</div>
+      <div class="form-group" style="margin-top:14px">
+        <label>📝 Notas de ensamble (opcional)</label>
+        <textarea class="form-control" id="ensamble-notas" rows="2" autocomplete="off">${j.ensamble_notas||''}</textarea>
       </div>
-      <div style="font-weight:600;color:var(--accent-light);margin-bottom:6px">Productos</div>
-      <div id="products-list" style="margin-bottom:6px">${prods}</div>
-      <button type="button" class="btn btn-secondary btn-sm" onclick="jobAddProduct()" style="margin-bottom:14px">＋ Producto</button>
-      <div style="font-weight:600;color:var(--accent-light);margin-bottom:6px">Extras</div>
-      <div id="extras-list" style="margin-bottom:6px">${exts}</div>
-      <button type="button" class="btn btn-secondary btn-sm" onclick="jobAddExtra()" style="margin-bottom:14px">＋ Extra</button>
-      <div class="form-group"><label><input type="checkbox" name="requiere_factura" value="1" ${j.requiere_factura?'checked':''} autocomplete="off"> Requiere factura</label></div>`;
+      <div style="margin-top:14px">
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px">📸 Fotos de evidencia (máx. 6)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center" id="ensamble-fotos-wrap">
+          ${fotoSlots}
+          ${canAddMore?`<label style="width:90px;height:90px;border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:4px;color:var(--text-muted);font-size:11px">
+            <span style="font-size:24px">📷</span>Agregar
+            <input type="file" accept="image/*" style="display:none" onchange="ensambleUploadFoto(this,${jobId})">
+          </label>`:''}
+        </div>
+      </div>`;
+  }
+
+  window.ensambleChecklistChange=function(){
+    const checks=[...document.querySelectorAll('.ensamble-check')];
+    const allDone=checks.every(c=>c.checked);
+    const btn=document.getElementById('ensamble-continuar-btn');
+    if(btn) btn.disabled=!allDone;
+  };
+
+  window.ensambleUploadFoto=async function(input,jobId){
+    if(!input.files?.length) return;
+    const formData=new FormData();
+    formData.append('foto',input.files[0]);
+    try {
+      const base=typeof apiUrl==='function'?apiUrl(`/api/jobs/${jobId}/ensamble-foto`):`/api/jobs/${jobId}/ensamble-foto`;
+      const tok=sessionStorage.getItem('jwt');
+      const res=await fetch(base,{method:'POST',headers:tok?{Authorization:`Bearer ${tok}`}:{},body:formData});
+      if(!res.ok) throw new Error(await res.text());
+      await refreshEnsambleFotos(jobId);
+    } catch(e) { showToast('Error subiendo foto: '+e.message,'error'); }
+  };
+
+  window.ensambleDeleteFoto=async function(fotoPath,jobId){
+    try {
+      const base=typeof apiUrl==='function'?apiUrl(`/api/jobs/${jobId}/ensamble-foto`):`/api/jobs/${jobId}/ensamble-foto`;
+      const tok=sessionStorage.getItem('jwt');
+      const res=await fetch(base,{method:'DELETE',headers:{'Content-Type':'application/json',...(tok?{Authorization:`Bearer ${tok}`}:{})},body:JSON.stringify({foto_path:fotoPath})});
+      if(!res.ok) throw new Error(await res.text());
+      await refreshEnsambleFotos(jobId);
+    } catch(e) { showToast('Error eliminando foto: '+e.message,'error'); }
+  };
+
+  async function refreshEnsambleFotos(jobId) {
+    try {
+      const j=await api('GET',`/api/jobs/${jobId}`);
+      const fotos=parseJsonSafe(j.ensamble_fotos,[]);
+      const wrap=document.getElementById('ensamble-fotos-wrap');
+      if(!wrap) return;
+      const fotoSlots=fotos.map(f=>`
+        <div style="position:relative;width:90px;height:90px">
+          <img src="${f}" style="width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+          <button type="button" onclick="ensambleDeleteFoto('${f}',${jobId})" style="position:absolute;top:3px;right:3px;background:#ef4444;color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+        </div>`).join('');
+      const canAddMore=fotos.length<6;
+      wrap.innerHTML=fotoSlots+(canAddMore?`<label style="width:90px;height:90px;border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:4px;color:var(--text-muted);font-size:11px">
+        <span style="font-size:24px">📷</span>Agregar
+        <input type="file" accept="image/*" style="display:none" onchange="ensambleUploadFoto(this,${jobId})">
+      </label>`:'');
+    } catch(e) { /* silently ignore */ }
+  }
+
+  window.jobEnsambleContinuar=async function(jobId){
+    const checks=[...document.querySelectorAll('.ensamble-check')];
+    const allDone=checks.every(c=>c.checked);
+    if(!allDone){showToast('Completa todos los puntos del checklist','error');return;}
+    const checklist=checks.map(c=>c.checked);
+    const notas=document.getElementById('ensamble-notas')?.value||'';
+    try {
+      await api('PUT',`/api/jobs/${jobId}`,{ensamble_checklist:JSON.stringify(checklist),ensamble_notas:notas});
+    } catch(e) { showToast('Error guardando: '+e.message,'error'); return; }
+    // Show delivery method selection
+    openModal('📦 Tipo de entrega', `
+      <div style="text-align:center;padding:10px 0">
+        <p style="color:var(--text-muted);margin-bottom:20px">¿Cómo se entregará el pedido al cliente?</p>
+        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+          <button class="btn btn-primary" style="padding:16px 24px;font-size:15px" onclick="jobEntregaTaller(${jobId})">
+            🏪<br><strong>Recoger en taller</strong><br><span style="font-size:11px;font-weight:400">El cliente viene a recoger</span>
+          </button>
+          <button class="btn btn-primary" style="padding:16px 24px;font-size:15px" onclick="jobEntregaDomicilio(${jobId})">
+            🚚<br><strong>Envío por paquetería</strong><br><span style="font-size:11px;font-weight:400">Se envía al domicilio</span>
+          </button>
+        </div>
+      </div>
+      <div class="form-actions"><button class="btn btn-secondary" onclick="cancelModal()">Cancelar</button></div>`);
+  };
+
+  window.jobEntregaTaller=async function(jobId){
+    try {
+      await api('PUT',`/api/jobs/${jobId}`,{estado:'Pendiente de entrega',tipo_entrega:'taller'});
+      showToast('Avanzado a Pendiente de entrega');
+      closeModal();
+      await refreshJobs();
+    } catch(e) { showToast('Error: '+e.message,'error'); }
+  };
+
+  window.jobEntregaDomicilio=async function(jobId){
+    try {
+      await api('PUT',`/api/jobs/${jobId}`,{estado:'Embalaje',tipo_entrega:'domicilio'});
+      showToast('Avanzado a Embalaje');
+      closeModal();
+      await refreshJobs();
+    } catch(e) { showToast('Error: '+e.message,'error'); }
+  };
+
+  // ─── EMBALAJE ────────────────────────────────────────────────────────────────
+
+  const PROTECCION_OPTS = ['Burbuja plástica','Foam/Espuma','Papel kraft','Maní de unicel','Sin protección adicional'];
+
+  function renderEmbalajeFields(j) {
+    const cajaOpts=_allEmbalaje.map(e=>`<option value="${e.id}" ${j.embalaje_caja_id==e.id?'selected':''}>${e.nombre} (stock: ${e.stock})</option>`).join('');
+    const protOpts=PROTECCION_OPTS.map(p=>`<option value="${p}" ${j.embalaje_proteccion===p?'selected':''}>${p}</option>`).join('');
+    return `<div style="font-weight:700;color:var(--accent-light);margin:4px 0 12px">📦 Embalaje</div>
+      <div class="form-grid">
+        <div class="form-group form-full">
+          <label>📦 Caja de embalaje</label>
+          <select class="form-control" id="emb-caja">
+            <option value="">— Sin caja —</option>${cajaOpts}
+          </select>
+        </div>
+        <div class="form-group form-full">
+          <label>🛡️ Protección interior *</label>
+          <select class="form-control" id="emb-proteccion" required>
+            <option value="">— Seleccionar —</option>${protOpts}
+          </select>
+        </div>
+        <div class="form-group form-full">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+            <input type="checkbox" id="emb-etiqueta" ${j.embalaje_etiqueta?'checked':''} style="width:18px;height:18px">
+            <span>🏷️ Etiqueta de envío colocada</span>
+          </label>
+        </div>
+      </div>`;
+  }
+
+  window.embalajeValidate=async function(jobId){
+    const cajaId=document.getElementById('emb-caja')?.value||'';
+    const prot=document.getElementById('emb-proteccion')?.value||'';
+    const etiq=document.getElementById('emb-etiqueta')?.checked||false;
+    if(!prot){showToast('Selecciona el tipo de protección interior','error');return;}
+    if(!etiq){showToast('Confirma que se colocó la etiqueta de envío','error');return;}
+    try {
+      await api('PUT',`/api/jobs/${jobId}`,{
+        embalaje_caja_id:cajaId?parseInt(cajaId):null,
+        embalaje_proteccion:prot,
+        embalaje_etiqueta:1,
+        estado:'Preparando envío',
+      });
+      showToast('Avanzado a Preparando envío');
+      closeModal();
+      await refreshJobs();
+    } catch(e) { showToast('Error: '+e.message,'error'); }
+  };
+
+  // ─── PREPARANDO ENVÍO ────────────────────────────────────────────────────────
+
+  const PAQUETERIAS = ['DHL','FedEx','UPS','Estafeta','Correos de México','J&T Express','Redpack','Otro'];
+
+  function renderPreparandoEnvioFields(j) {
+    const pkOpts=PAQUETERIAS.map(p=>`<option value="${p}" ${j.envio_paqueteria===p?'selected':''}>${p}</option>`).join('');
+    return `<div style="font-weight:700;color:var(--accent-light);margin:4px 0 12px">🚚 Preparando envío</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Paquetería</label>
+          <select class="form-control" id="envio-paqueteria">
+            <option value="">— Seleccionar —</option>${pkOpts}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Número de guía</label>
+          <input class="form-control" id="envio-guia" value="${j.envio_guia||''}" placeholder="Ej: 1Z999AA10123456784" autocomplete="off">
+        </div>
+      </div>`;
+  }
+
+  window.preparandoEnvioAvanzar=async function(jobId){
+    const paq=document.getElementById('envio-paqueteria')?.value||'';
+    const guia=document.getElementById('envio-guia')?.value||'';
+    try {
+      await api('PUT',`/api/jobs/${jobId}`,{
+        envio_paqueteria:paq,
+        envio_guia:guia,
+        estado:'Pendiente de entrega',
+      });
+      showToast('Avanzado a Pendiente de entrega');
+      closeModal();
+      await refreshJobs();
+    } catch(e) { showToast('Error: '+e.message,'error'); }
+  };
+
+  // ─── PENDIENTE DE ENTREGA ────────────────────────────────────────────────────
+
+  function renderPendienteEntregaFields(j) {
+    const caja=_allEmbalaje.find(e=>e.id===j.embalaje_caja_id);
+    return `<div style="font-weight:700;color:var(--accent-light);margin:4px 0 12px">⏳ Pendiente de entrega</div>
+      <div style="background:var(--surface);border-radius:12px;padding:16px;margin-bottom:16px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px">Resumen de entrega</div>
+        <div class="cost-breakdown">
+          <div class="cost-row"><span>Tipo de entrega</span><strong>${j.tipo_entrega==='taller'?'🏪 Recoger en taller':'🚚 Envío por paquetería'}</strong></div>
+          ${caja?`<div class="cost-row"><span>📦 Caja</span><strong>${caja.nombre}</strong></div>`:''}
+          ${j.embalaje_proteccion?`<div class="cost-row"><span>🛡️ Protección</span><strong>${j.embalaje_proteccion}</strong></div>`:''}
+          ${j.envio_paqueteria?`<div class="cost-row"><span>Paquetería</span><strong>${j.envio_paqueteria}</strong></div>`:''}
+          ${j.envio_guia?`<div class="cost-row"><span>Guía</span><strong>${j.envio_guia}</strong></div>`:''}
+          ${j.precio_final?`<div class="cost-row total"><span>Total</span><strong>${fmtMoney(j.precio_final)}</strong></div>`:''}
+        </div>
+      </div>`;
   }
 
   // ─── OPEN FORM ───────────────────────────────────────────────────────────────
@@ -650,15 +902,33 @@
         const camas=j.camas||[];
         const allDone=camas.length>0&&camas.every(c=>c.completada);
         bodyHtml=renderProduccionFields(j);
-        buttonsHtml=`<button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button><button type="button" class="btn btn-primary" onclick="jobSaveInPlace(${id})">💾 Guardar</button>${allDone?`<button type="button" id="prod-cerrar-btn" class="btn btn-success" onclick="jobSave(${id},'Cierre')">✅ Cerrar trabajo</button>`:`<button type="button" id="prod-cerrar-btn" class="btn btn-success" onclick="jobSave(${id},'Cierre')" style="display:none">✅ Cerrar trabajo</button>`}`;
+        const ensambleBtn=allDone
+          ?`<button type="button" id="prod-cerrar-btn" class="btn btn-success" onclick="jobSave(${id},'Ensamble')">🔧 Pasar a Ensamble</button>`
+          :`<button type="button" id="prod-cerrar-btn" class="btn btn-success" onclick="jobSave(${id},'Ensamble')" style="display:none">🔧 Pasar a Ensamble</button>`;
+        buttonsHtml=`<button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button><button type="button" class="btn btn-primary" onclick="jobSaveInPlace(${id})">💾 Guardar</button>${ensambleBtn}`;
+      } else if(stage.key==='Ensamble'){
+        const checks=parseJsonSafe(j.ensamble_checklist,[]);
+        const allDone=ENSAMBLE_CHECKLIST.every((_,i)=>checks[i]);
+        bodyHtml=renderEnsambleFields(j,id);
+        buttonsHtml=`<button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button><button type="button" class="btn btn-primary" onclick="jobSaveEnsamble(${id})">💾 Guardar</button><button type="button" id="ensamble-continuar-btn" class="btn btn-success" ${allDone?'':'disabled'} onclick="jobEnsambleContinuar(${id})">✅ Continuar</button>`;
+      } else if(stage.key==='Embalaje'){
+        bodyHtml=renderEmbalajeFields(j);
+        buttonsHtml=`<button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button><button type="button" class="btn btn-primary" onclick="jobSaveEmbalaje(${id})">💾 Guardar</button><button type="button" class="btn btn-success" onclick="embalajeValidate(${id})">📦 Continuar a Preparando envío</button>`;
+      } else if(stage.key==='Preparando envío'){
+        bodyHtml=renderPreparandoEnvioFields(j);
+        buttonsHtml=`<button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button><button type="button" class="btn btn-primary" onclick="jobSavePreparandoEnvio(${id})">💾 Guardar</button><button type="button" class="btn btn-success" onclick="preparandoEnvioAvanzar(${id})">🚚 Continuar a Pendiente de entrega</button>`;
+      } else if(stage.key==='Pendiente de entrega'){
+        bodyHtml=renderPendienteEntregaFields(j);
+        buttonsHtml=`<button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button><button type="button" class="btn btn-success" onclick="jobJustAdvance(${id},'Entregado')">✅ Marcar como Entregado</button>`;
       } else {
-        bodyHtml=renderSolicitudFields(j)+renderCierreFields(j);
+        bodyHtml=renderSolicitudFields(j);
         buttonsHtml=`<button type="button" class="btn btn-secondary" onclick="cancelModal()">Cancelar</button><button type="button" class="btn btn-primary" onclick="jobSave(${id})">💾 Guardar</button>`;
       }
     }
 
     openModal(title,`<form id="job-form">${bodyHtml}<div class="form-actions">${buttonsHtml}</div></form>`);
     if(id&&STAGES[idx].key==='Levantamiento') setTimeout(jlevRecalc,80);
+    if(id&&STAGES[idx].key==='Ensamble') setTimeout(ensambleChecklistChange,80);
   };
 
   window.jobAddProduct=function(){const l=document.getElementById('products-list');if(!l)return;const r=document.createElement('div');r.className='extra-item';r.innerHTML=`<input class="form-control" name="prod_desc[]" placeholder="Descripción" style="flex:2" autocomplete="off"><input class="form-control" name="prod_qty[]" type="number" min="1" value="1" style="width:70px" autocomplete="off"><button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button>`;l.appendChild(r);};
@@ -693,7 +963,6 @@
     if(form.querySelector('[name=fallo]'))            body.fallo=form.querySelector('[name=fallo]').checked?1:0;
     if(form.querySelector('[name=requiere_factura]')) body.requiere_factura=form.querySelector('[name=requiere_factura]').checked?1:0;
 
-    // Producción: allow changing N camas
     const prodNCamas=document.getElementById('prod-n-camas');
     if(prodNCamas){
       const n=parseInt(prodNCamas.value)||1;
@@ -738,14 +1007,12 @@
     } catch(err){showToast('Error: '+err.message,'error');}
   };
 
-  // Save production form without closing the modal
   window.jobSaveInPlace=async function(id){
     const form=document.getElementById('job-form');
     if(!form||!id) return;
     const notasProd=form.querySelector('[name="notas_produccion"]')?.value||'';
     const nCamas=parseInt(document.getElementById('prod-n-camas')?.value)||0;
     const body={notas_produccion:notasProd};
-    // Only rebuild camas if user explicitly changed the count
     const origN=parseInt(document.getElementById('prod-n-camas')?.dataset.orig||0);
     if(nCamas>0&&nCamas!==origN){
       body.camas=Array.from({length:nCamas},(_,i)=>({numero:i+1,descripcion:'',tiempo_min:0,completada:0}));
@@ -754,9 +1021,41 @@
       await api('PUT',`/api/jobs/${id}`,body);
       showToast('Guardado');
       await refreshJobs();
-      // Return to the view modal with updated data
       await jobView(id);
     } catch(err){showToast('Error: '+err.message,'error');}
+  };
+
+  window.jobSaveEnsamble=async function(id){
+    const checks=[...document.querySelectorAll('.ensamble-check')];
+    const checklist=checks.map(c=>c.checked);
+    const notas=document.getElementById('ensamble-notas')?.value||'';
+    try {
+      await api('PUT',`/api/jobs/${id}`,{ensamble_checklist:JSON.stringify(checklist),ensamble_notas:notas});
+      showToast('Guardado');
+    } catch(e){showToast('Error: '+e.message,'error');}
+  };
+
+  window.jobSaveEmbalaje=async function(id){
+    const cajaId=document.getElementById('emb-caja')?.value||'';
+    const prot=document.getElementById('emb-proteccion')?.value||'';
+    const etiq=document.getElementById('emb-etiqueta')?.checked||false;
+    try {
+      await api('PUT',`/api/jobs/${id}`,{
+        embalaje_caja_id:cajaId?parseInt(cajaId):null,
+        embalaje_proteccion:prot,
+        embalaje_etiqueta:etiq?1:0,
+      });
+      showToast('Guardado');
+    } catch(e){showToast('Error: '+e.message,'error');}
+  };
+
+  window.jobSavePreparandoEnvio=async function(id){
+    const paq=document.getElementById('envio-paqueteria')?.value||'';
+    const guia=document.getElementById('envio-guia')?.value||'';
+    try {
+      await api('PUT',`/api/jobs/${id}`,{envio_paqueteria:paq,envio_guia:guia});
+      showToast('Guardado');
+    } catch(e){showToast('Error: '+e.message,'error');}
   };
 
   window.jobDelete=function(id){
