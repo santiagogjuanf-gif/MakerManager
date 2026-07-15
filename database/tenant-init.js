@@ -186,6 +186,19 @@ async function initTenantDb(slug, adminUsername, adminPassword, adminDisplayName
       referencia_id INTEGER,
       notas TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
+
+    `CREATE TABLE IF NOT EXISTS embalaje (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT NOT NULL,
+      tipo TEXT DEFAULT 'Caja',
+      largo_cm REAL DEFAULT 0,
+      ancho_cm REAL DEFAULT 0,
+      alto_cm REAL DEFAULT 0,
+      costo REAL DEFAULT 0,
+      stock INTEGER DEFAULT 0,
+      proveedor TEXT,
+      notas TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
   ];
 
   for (const sql of tables) await db.runAsync(sql);
@@ -226,6 +239,20 @@ async function initTenantDb(slug, adminUsername, adminPassword, adminDisplayName
     nombre TEXT,
     datos TEXT,
     precio_unitario REAL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
+
+  // Embalaje table (migration for existing DBs)
+  await db.runAsync(`CREATE TABLE IF NOT EXISTS embalaje (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    tipo TEXT DEFAULT 'Caja',
+    largo_cm REAL DEFAULT 0,
+    ancho_cm REAL DEFAULT 0,
+    alto_cm REAL DEFAULT 0,
+    costo REAL DEFAULT 0,
+    stock INTEGER DEFAULT 0,
+    proveedor TEXT,
+    notas TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
 
   // Migrate printers table with live monitoring columns
