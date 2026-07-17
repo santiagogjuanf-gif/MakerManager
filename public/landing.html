@@ -3,283 +3,606 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cerberus Maker — 3D Printing Studio</title>
+  <title>Cerberus Maker — 3D Printing Studio · Port Elgin, Ontario</title>
+  <meta name="description" content="Professional 3D printing studio in Port Elgin, Ontario, Canada. FDM, resin, custom design and bulk orders.">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
+    :root {
+      --accent: #6366f1;
+      --accent2: #8b5cf6;
+      --bg: #07070d;
+      --surface: #0f1017;
+      --card: #13141f;
+      --border: rgba(255,255,255,.07);
+      --text: #e2e8f0;
+      --muted: #64748b;
+    }
+    html { scroll-behavior: smooth; }
     body {
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      background: #0a0a0f;
-      color: #e8e8f0;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 6vw; height: 64px;
+      background: rgba(7,7,13,.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 800; font-size: 17px; color: var(--text);
+      text-decoration: none; letter-spacing: -.3px;
+    }
+    .nav-logo span { font-size: 24px; }
+    .nav-links { display: flex; align-items: center; gap: 6px; }
+    .nav-links a {
+      color: var(--muted); text-decoration: none;
+      font-size: 14px; font-weight: 500;
+      padding: 6px 14px; border-radius: 8px;
+      transition: color .15s, background .15s;
+    }
+    .nav-links a:hover { color: var(--text); background: rgba(255,255,255,.05); }
+    .nav-cta {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff !important; font-weight: 700 !important;
+      padding: 7px 18px !important;
+      box-shadow: 0 0 20px rgba(99,102,241,.35);
+    }
+    .nav-cta:hover { background: linear-gradient(135deg,#7274f3,#9d6ef7) !important; transform: translateY(-1px); }
+    .hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; padding: 4px; }
+    .hamburger span { width: 22px; height: 2px; background: var(--text); border-radius: 2px; transition: .3s; }
+
+    /* ── HERO ── */
+    #home {
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      overflow-x: hidden;
+      display: flex; align-items: center;
+      padding: 100px 6vw 60px;
+      position: relative; overflow: hidden;
     }
-
-    /* Animated background grid */
-    body::before {
+    /* animated grid */
+    #home::before {
       content: '';
-      position: fixed;
-      inset: 0;
+      position: absolute; inset: 0;
       background-image:
-        linear-gradient(rgba(99,102,241,.06) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(99,102,241,.06) 1px, transparent 1px);
-      background-size: 48px 48px;
-      animation: gridMove 20s linear infinite;
-      pointer-events: none;
+        linear-gradient(rgba(99,102,241,.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99,102,241,.05) 1px, transparent 1px);
+      background-size: 52px 52px;
+      animation: gridScroll 25s linear infinite;
     }
-    @keyframes gridMove {
-      0%   { background-position: 0 0; }
-      100% { background-position: 48px 48px; }
-    }
-
-    /* Glow blob */
-    body::after {
+    @keyframes gridScroll { to { background-position: 52px 52px; } }
+    /* glow */
+    #home::after {
       content: '';
-      position: fixed;
-      top: -20%;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 700px;
-      height: 500px;
-      background: radial-gradient(ellipse, rgba(99,102,241,.18) 0%, transparent 70%);
+      position: absolute; top: -10%; left: 60%;
+      width: 600px; height: 600px;
+      background: radial-gradient(ellipse, rgba(99,102,241,.2) 0%, transparent 65%);
       pointer-events: none;
     }
-
-    .container {
-      position: relative;
-      z-index: 1;
-      max-width: 760px;
-      width: 90%;
-      text-align: center;
-      padding: 40px 20px;
+    .hero-inner {
+      position: relative; z-index: 1;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 60px; align-items: center; max-width: 1200px; margin: 0 auto; width: 100%;
     }
-
-    /* Logo / brand */
-    .logo-wrap {
-      margin-bottom: 28px;
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(99,102,241,.12); border: 1px solid rgba(99,102,241,.3);
+      border-radius: 100px; padding: 5px 14px;
+      font-size: 12px; font-weight: 600; color: #a5b4fc;
+      margin-bottom: 20px;
     }
-    .logo-icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 88px;
-      height: 88px;
-      border-radius: 24px;
-      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-      font-size: 44px;
-      box-shadow: 0 0 48px rgba(99,102,241,.45);
-      margin-bottom: 16px;
+    .hero-badge-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: blink 2s ease-in-out infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .hero-text h1 {
+      font-size: clamp(36px, 5vw, 60px);
+      font-weight: 900; letter-spacing: -1.5px; line-height: 1.08;
+      margin-bottom: 22px;
     }
-    .brand-name {
-      font-size: 32px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      background: linear-gradient(135deg, #a5b4fc, #c4b5fd);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+    .hero-text h1 em {
+      font-style: normal;
+      background: linear-gradient(135deg, #818cf8, #c4b5fd, #f0abfc);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
-    .brand-tagline {
-      font-size: 13px;
-      font-weight: 600;
-      color: #6366f1;
-      text-transform: uppercase;
-      letter-spacing: 3px;
-      margin-top: 4px;
-    }
-
-    /* Main headline */
-    h1 {
-      font-size: clamp(28px, 5vw, 46px);
-      font-weight: 800;
-      line-height: 1.15;
-      letter-spacing: -0.5px;
-      margin-bottom: 18px;
-    }
-    h1 span {
-      background: linear-gradient(135deg, #6366f1, #8b5cf6, #c4b5fd);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .subtitle {
-      font-size: 17px;
-      color: #94a3b8;
-      line-height: 1.7;
-      max-width: 560px;
-      margin: 0 auto 36px;
-    }
-
-    /* Status badge */
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(99,102,241,.12);
-      border: 1px solid rgba(99,102,241,.3);
-      border-radius: 100px;
-      padding: 7px 18px;
-      font-size: 13px;
-      font-weight: 600;
-      color: #a5b4fc;
-      margin-bottom: 40px;
-    }
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #6366f1;
-      animation: pulse 2s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50%       { opacity: .4; transform: scale(.8); }
-    }
-
-    /* CTA button */
-    .cta-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      background: linear-gradient(135deg, #6366f1, #7c3aed);
-      color: #fff;
-      text-decoration: none;
-      padding: 16px 32px;
-      border-radius: 14px;
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: .2px;
-      box-shadow: 0 4px 32px rgba(99,102,241,.4);
+    .hero-text p { font-size: 17px; color: var(--muted); margin-bottom: 36px; max-width: 480px; line-height: 1.75; }
+    .hero-btns { display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff; text-decoration: none; font-weight: 700;
+      padding: 14px 28px; border-radius: 12px; font-size: 15px;
+      box-shadow: 0 4px 28px rgba(99,102,241,.4);
       transition: transform .15s, box-shadow .15s;
-      margin-bottom: 16px;
     }
-    .cta-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 40px rgba(99,102,241,.55);
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 40px rgba(99,102,241,.55); }
+    .btn-ghost {
+      display: inline-flex; align-items: center; gap: 8px;
+      border: 1px solid var(--border); color: var(--text); text-decoration: none;
+      font-weight: 600; padding: 14px 28px; border-radius: 12px; font-size: 15px;
+      transition: border-color .15s, background .15s;
     }
-    .cta-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+    .btn-ghost:hover { border-color: rgba(99,102,241,.5); background: rgba(99,102,241,.07); }
 
-    .cta-note {
-      font-size: 13px;
-      color: #475569;
-      margin-bottom: 52px;
+    /* 3D Printer SVG animation */
+    .hero-visual { display: flex; align-items: center; justify-content: center; }
+    .printer-wrap {
+      position: relative;
+      width: 320px; height: 360px;
+    }
+    .printer-wrap svg { width: 100%; height: 100%; filter: drop-shadow(0 0 40px rgba(99,102,241,.4)); }
+    /* layers printing animation */
+    .layer { animation: layerPrint 3s ease-in-out infinite; }
+    .layer:nth-child(2) { animation-delay: .4s; }
+    .layer:nth-child(3) { animation-delay: .8s; }
+    .layer:nth-child(4) { animation-delay: 1.2s; }
+    .layer:nth-child(5) { animation-delay: 1.6s; }
+    @keyframes layerPrint { 0%,100%{opacity:.3} 50%{opacity:1} }
+    .nozzle-head { animation: nozzleMove 3s ease-in-out infinite; transform-origin: center; }
+    @keyframes nozzleMove {
+      0%   { transform: translateX(0); }
+      25%  { transform: translateX(60px); }
+      50%  { transform: translateX(20px); }
+      75%  { transform: translateX(-30px); }
+      100% { transform: translateX(0); }
+    }
+    /* orbit dots */
+    .orbit { position: absolute; inset: -40px; animation: spin 12s linear infinite; }
+    .orbit-dot {
+      position: absolute; top: 50%; left: -6px;
+      width: 10px; height: 10px; margin-top: -5px;
+      background: var(--accent); border-radius: 50%;
+      box-shadow: 0 0 12px var(--accent);
+    }
+    .orbit2 { position: absolute; inset: -20px; animation: spin 8s linear infinite reverse; opacity: .5; }
+    .orbit2-dot {
+      position: absolute; top: 0; left: 50%; margin-left: -4px;
+      width: 8px; height: 8px;
+      background: #c4b5fd; border-radius: 50%;
+      box-shadow: 0 0 10px #c4b5fd;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* stats bar */
+    .hero-stats {
+      display: flex; gap: 36px; margin-top: 44px; padding-top: 36px;
+      border-top: 1px solid var(--border);
+    }
+    .stat-item {}
+    .stat-num { font-size: 28px; font-weight: 800; color: var(--accent); letter-spacing: -1px; }
+    .stat-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* ── SECTION BASE ── */
+    section { padding: 100px 6vw; }
+    .section-label {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 700; color: var(--accent);
+      text-transform: uppercase; letter-spacing: 3px; margin-bottom: 14px;
+    }
+    .section-title {
+      font-size: clamp(28px, 3.5vw, 44px); font-weight: 800;
+      letter-spacing: -1px; margin-bottom: 16px; line-height: 1.12;
+    }
+    .section-title em {
+      font-style: normal;
+      background: linear-gradient(135deg, #818cf8, #c4b5fd);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .section-sub { font-size: 16px; color: var(--muted); max-width: 560px; line-height: 1.75; }
+    .inner { max-width: 1200px; margin: 0 auto; }
+
+    /* ── ABOUT ── */
+    #about { background: var(--surface); }
+    .about-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; margin-top: 60px;
+    }
+    .about-visual {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+    .about-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 24px 20px; text-align: center;
+      transition: border-color .2s, transform .2s;
+    }
+    .about-card:hover { border-color: rgba(99,102,241,.4); transform: translateY(-3px); }
+    .about-card-icon { font-size: 36px; margin-bottom: 10px; }
+    .about-card-name { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+    .about-card-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+    .about-card.span2 { grid-column: span 2; }
+    .about-text {}
+    .values-list { margin-top: 28px; display: flex; flex-direction: column; gap: 14px; }
+    .value-item { display: flex; gap: 14px; align-items: flex-start; }
+    .value-icon {
+      flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px;
+      background: rgba(99,102,241,.12); border: 1px solid rgba(99,102,241,.2);
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+    }
+    .value-title { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+    .value-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+    .location-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(99,102,241,.08); border: 1px solid rgba(99,102,241,.2);
+      border-radius: 8px; padding: 8px 14px; font-size: 13px;
+      color: #a5b4fc; margin-top: 28px;
     }
 
-    /* Services grid */
-    .services {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 14px;
-      margin-bottom: 48px;
-      text-align: left;
+    /* ── PRODUCTS ── */
+    #products { background: var(--bg); }
+    .products-coming {
+      margin-top: 60px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 24px; padding: 60px 40px; text-align: center;
+      position: relative; overflow: hidden;
     }
-    .service-card {
-      background: rgba(255,255,255,.03);
-      border: 1px solid rgba(255,255,255,.07);
-      border-radius: 14px;
-      padding: 18px 16px;
-      transition: border-color .2s, background .2s;
+    .products-coming::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(99,102,241,.12), transparent 60%);
     }
-    .service-card:hover {
-      border-color: rgba(99,102,241,.4);
-      background: rgba(99,102,241,.06);
+    .products-coming-inner { position: relative; z-index: 1; }
+    .coming-icon { font-size: 64px; margin-bottom: 20px; display: block; }
+    .coming-title { font-size: 28px; font-weight: 800; margin-bottom: 12px; }
+    .coming-sub { font-size: 16px; color: var(--muted); max-width: 480px; margin: 0 auto 32px; line-height: 1.75; }
+    /* preview grid (ghost cards) */
+    .preview-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+      margin-bottom: 36px; opacity: .25; pointer-events: none;
     }
-    .service-icon { font-size: 26px; margin-bottom: 8px; }
-    .service-name { font-size: 13px; font-weight: 700; color: #e2e8f0; margin-bottom: 3px; }
-    .service-desc { font-size: 11px; color: #64748b; line-height: 1.5; }
-
-    /* Divider */
-    .divider {
-      border: none;
-      border-top: 1px solid rgba(255,255,255,.06);
-      margin: 0 0 24px;
+    .ghost-card {
+      background: rgba(99,102,241,.08); border: 1px solid rgba(99,102,241,.15);
+      border-radius: 14px; height: 140px;
+      display: flex; align-items: center; justify-content: center; font-size: 28px;
     }
 
-    /* Footer */
-    .footer {
-      font-size: 12px;
-      color: #334155;
+    /* ── CONTACT ── */
+    #contact { background: var(--surface); }
+    .contact-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 60px;
+      margin-top: 60px; align-items: start;
     }
-    .footer a { color: #6366f1; text-decoration: none; }
-    .footer a:hover { text-decoration: underline; }
+    .contact-info { display: flex; flex-direction: column; gap: 18px; }
+    .contact-item {
+      display: flex; align-items: center; gap: 14px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 20px;
+      text-decoration: none; color: var(--text);
+      transition: border-color .2s, transform .2s;
+    }
+    .contact-item:hover { border-color: rgba(99,102,241,.4); transform: translateX(4px); }
+    .contact-item-icon {
+      width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px;
+      background: rgba(99,102,241,.12); border: 1px solid rgba(99,102,241,.2);
+      display: flex; align-items: center; justify-content: center; font-size: 20px;
+    }
+    .contact-item-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+    .contact-item-value { font-size: 14px; font-weight: 600; margin-top: 2px; }
+    .contact-map {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 32px; text-align: center;
+    }
+    .map-pin { font-size: 48px; margin-bottom: 12px; }
+    .map-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+    .map-sub { font-size: 14px; color: var(--muted); line-height: 1.6; }
+    .map-pill {
+      display: inline-block; margin-top: 16px;
+      background: rgba(99,102,241,.12); border: 1px solid rgba(99,102,241,.25);
+      border-radius: 8px; padding: 8px 16px;
+      font-size: 13px; color: #a5b4fc; font-weight: 600;
+    }
 
-    @media (max-width: 500px) {
-      .services { grid-template-columns: 1fr 1fr; }
+    /* ── FOOTER ── */
+    footer {
+      background: #050508;
+      border-top: 1px solid var(--border);
+      padding: 36px 6vw;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 16px;
+    }
+    .footer-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+    .footer-brand span { font-size: 22px; }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a { font-size: 13px; color: var(--muted); text-decoration: none; transition: color .15s; }
+    .footer-links a:hover { color: var(--text); }
+    .footer-copy { font-size: 12px; color: var(--muted); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .nav-links { display: none; flex-direction: column; gap: 4px; position: absolute; top: 64px; left: 0; right: 0; background: rgba(7,7,13,.97); border-bottom: 1px solid var(--border); padding: 16px 6vw; }
+      .nav-links.open { display: flex; }
+      .hamburger { display: flex; }
+      .hero-inner { grid-template-columns: 1fr; gap: 40px; }
+      .hero-visual { order: -1; }
+      .printer-wrap { width: 220px; height: 250px; }
+      .about-grid { grid-template-columns: 1fr; gap: 40px; }
+      .about-visual { grid-template-columns: 1fr 1fr; }
+      .contact-grid { grid-template-columns: 1fr; }
+      .preview-grid { grid-template-columns: repeat(2, 1fr); }
+      footer { flex-direction: column; text-align: center; }
+    }
+    @media (max-width: 480px) {
+      .hero-stats { flex-wrap: wrap; gap: 20px; }
+      .about-card.span2 { grid-column: span 1; }
     }
   </style>
 </head>
 <body>
 
-<div class="container">
-
-  <!-- Brand -->
-  <div class="logo-wrap">
-    <div class="logo-icon">🐉</div>
-    <div class="brand-name">Cerberus Maker</div>
-    <div class="brand-tagline">3D Printing Studio</div>
-  </div>
-
-  <!-- Status -->
-  <div class="status-badge">
-    <span class="status-dot"></span>
-    We're updating our store — back soon
-  </div>
-
-  <!-- Headline -->
-  <h1>Your ideas,<br><span>printed in 3D.</span></h1>
-
-  <p class="subtitle">
-    We're currently working on improvements to our website and online store.
-    In the meantime, you can browse our catalog and place orders through our Etsy shop.
-  </p>
-
-  <!-- CTA -->
-  <a class="cta-btn" href="https://cerberusmaker.etsy.com" target="_blank" rel="noopener">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-    </svg>
-    Shop on Etsy
+<!-- NAV -->
+<nav id="navbar">
+  <a class="nav-logo" href="#home">
+    <span>🐉</span> Cerberus Maker
   </a>
-  <div class="cta-note">Browse our full catalog and order directly</div>
+  <div class="nav-links" id="nav-links">
+    <a href="#home">Home</a>
+    <a href="#about">About</a>
+    <a href="#products">Products</a>
+    <a href="#contact">Contact</a>
+    <a href="https://cerberusmaker.etsy.com" target="_blank" rel="noopener" class="nav-cta">Shop on Etsy ↗</a>
+  </div>
+  <div class="hamburger" onclick="toggleNav()">
+    <span></span><span></span><span></span>
+  </div>
+</nav>
 
-  <!-- Services -->
-  <div class="services">
-    <div class="service-card">
-      <div class="service-icon">🖨️</div>
-      <div class="service-name">FDM Printing</div>
-      <div class="service-desc">PLA, PETG, ABS, TPU and more — any color, any size</div>
+<!-- HERO -->
+<section id="home">
+  <div class="hero-inner inner">
+    <div class="hero-text">
+      <div class="hero-badge">
+        <span class="hero-badge-dot"></span>
+        Port Elgin, Ontario, Canada
+      </div>
+      <h1>We turn ideas into <em>physical reality.</em></h1>
+      <p>Professional 3D printing studio specializing in FDM, resin printing and custom design. From prototypes to production — we print it all.</p>
+      <div class="hero-btns">
+        <a class="btn-primary" href="https://cerberusmaker.etsy.com" target="_blank" rel="noopener">
+          🛒 Shop on Etsy
+        </a>
+        <a class="btn-ghost" href="#about">
+          Learn about us →
+        </a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat-item">
+          <div class="stat-num">50+</div>
+          <div class="stat-label">Materials available</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-num">FDM</div>
+          <div class="stat-label">& Resin printing</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-num">24h</div>
+          <div class="stat-label">Fast turnaround</div>
+        </div>
+      </div>
     </div>
-    <div class="service-card">
-      <div class="service-icon">💧</div>
-      <div class="service-name">Resin Printing</div>
-      <div class="service-desc">High-detail miniatures, jewelry & functional prototypes</div>
-    </div>
-    <div class="service-card">
-      <div class="service-icon">✏️</div>
-      <div class="service-name">Custom Design</div>
-      <div class="service-desc">We model your idea from scratch — just send a sketch</div>
-    </div>
-    <div class="service-card">
-      <div class="service-icon">📦</div>
-      <div class="service-name">Bulk Orders</div>
-      <div class="service-desc">Wholesale pricing for batches of 10 or more pieces</div>
+
+    <!-- Animated 3D Printer Illustration -->
+    <div class="hero-visual">
+      <div class="printer-wrap">
+        <div class="orbit"><div class="orbit-dot"></div></div>
+        <div class="orbit2"><div class="orbit2-dot"></div></div>
+        <svg viewBox="0 0 320 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Frame -->
+          <rect x="40" y="40" width="240" height="260" rx="12" stroke="#6366f1" stroke-width="2" opacity=".3"/>
+          <!-- Vertical rails -->
+          <line x1="60" y1="60" x2="60" y2="280" stroke="#6366f1" stroke-width="3" stroke-linecap="round" opacity=".5"/>
+          <line x1="260" y1="60" x2="260" y2="280" stroke="#6366f1" stroke-width="3" stroke-linecap="round" opacity=".5"/>
+          <!-- Horizontal rail -->
+          <line x1="60" y1="100" x2="260" y2="100" stroke="#818cf8" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- Print head -->
+          <g class="nozzle-head">
+            <rect x="120" y="88" width="80" height="24" rx="6" fill="#6366f1" opacity=".9"/>
+            <path d="M155 112 L160 128 L165 112 Z" fill="#818cf8"/>
+            <!-- nozzle glow -->
+            <circle cx="160" cy="130" r="4" fill="#c4b5fd" opacity=".8">
+              <animate attributeName="opacity" values=".8;.2;.8" dur="1s" repeatCount="indefinite"/>
+            </circle>
+          </g>
+          <!-- Print bed -->
+          <rect x="70" y="260" width="180" height="16" rx="4" fill="#1e1f2e" stroke="#6366f1" stroke-width="1.5" opacity=".8"/>
+          <!-- Printed layers (animate) -->
+          <g class="layer"><rect x="90" y="252" width="140" height="8" rx="2" fill="#6366f1" opacity=".7"/></g>
+          <g class="layer"><rect x="95" y="244" width="130" height="8" rx="2" fill="#7274f3" opacity=".7"/></g>
+          <g class="layer"><rect x="100" y="236" width="120" height="8" rx="2" fill="#818cf8" opacity=".7"/></g>
+          <g class="layer"><rect x="105" y="228" width="110" height="8" rx="2" fill="#9d8ff5" opacity=".7"/></g>
+          <g class="layer"><rect x="110" y="220" width="100" height="8" rx="2" fill="#b8b0f8" opacity=".7"/></g>
+          <!-- Corner bolts -->
+          <circle cx="60" cy="60" r="5" fill="#6366f1" opacity=".6"/>
+          <circle cx="260" cy="60" r="5" fill="#6366f1" opacity=".6"/>
+          <circle cx="60" cy="280" r="5" fill="#6366f1" opacity=".6"/>
+          <circle cx="260" cy="280" r="5" fill="#6366f1" opacity=".6"/>
+          <!-- Screen -->
+          <rect x="50" y="290" width="50" height="32" rx="6" fill="#13141f" stroke="#6366f1" stroke-width="1" opacity=".8"/>
+          <rect x="55" y="295" width="40" height="6" rx="2" fill="#6366f1" opacity=".6"/>
+          <rect x="55" y="305" width="28" height="4" rx="2" fill="#818cf8" opacity=".4"/>
+          <rect x="55" y="312" width="34" height="4" rx="2" fill="#818cf8" opacity=".3"/>
+        </svg>
+      </div>
     </div>
   </div>
+</section>
 
-  <hr class="divider">
+<!-- ABOUT -->
+<section id="about">
+  <div class="inner">
+    <div class="section-label">✦ About us</div>
+    <h2 class="section-title">Built by makers,<br><em>for makers.</em></h2>
+    <p class="section-sub">We're a passionate 3D printing studio based in Port Elgin, Ontario. We help individuals, small businesses and creators bring their ideas to life — one layer at a time.</p>
 
-  <p class="footer">
-    &copy; 2025 Cerberus Maker &mdash; 3D Printing Studio &nbsp;·&nbsp;
-    <a href="mailto:cerberusmaker@cerberusdev.pro">cerberusmaker@cerberusdev.pro</a>
-  </p>
+    <div class="about-grid">
+      <div class="about-text">
+        <div class="values-list">
+          <div class="value-item">
+            <div class="value-icon">🎯</div>
+            <div>
+              <div class="value-title">Precision & Quality</div>
+              <div class="value-desc">Every print goes through a strict quality check. We don't ship anything we wouldn't be proud of.</div>
+            </div>
+          </div>
+          <div class="value-item">
+            <div class="value-icon">⚡</div>
+            <div>
+              <div class="value-title">Fast Turnaround</div>
+              <div class="value-desc">Most orders are ready within 24–72 hours. Need it sooner? Just ask — we always try to accommodate.</div>
+            </div>
+          </div>
+          <div class="value-item">
+            <div class="value-icon">🤝</div>
+            <div>
+              <div class="value-title">Custom Everything</div>
+              <div class="value-desc">No catalog limitation. Send us your design files, a sketch, or just an idea — we'll make it happen.</div>
+            </div>
+          </div>
+          <div class="value-item">
+            <div class="value-icon">🇨🇦</div>
+            <div>
+              <div class="value-title">Proudly Canadian</div>
+              <div class="value-desc">Locally operated in Port Elgin, Ontario. Fast shipping across Canada and to the US.</div>
+            </div>
+          </div>
+        </div>
+        <div class="location-pill">
+          📍 Port Elgin, Ontario, Canada
+        </div>
+      </div>
 
-</div>
+      <div class="about-visual">
+        <div class="about-card">
+          <div class="about-card-icon">🖨️</div>
+          <div class="about-card-name">FDM Printing</div>
+          <div class="about-card-desc">PLA · PETG · ABS · TPU · ASA and more</div>
+        </div>
+        <div class="about-card">
+          <div class="about-card-icon">💧</div>
+          <div class="about-card-name">Resin Printing</div>
+          <div class="about-card-desc">Ultra-high detail for miniatures & jewelry</div>
+        </div>
+        <div class="about-card">
+          <div class="about-card-icon">✏️</div>
+          <div class="about-card-name">Custom Design</div>
+          <div class="about-card-desc">3D modeling from scratch or your files</div>
+        </div>
+        <div class="about-card">
+          <div class="about-card-icon">📦</div>
+          <div class="about-card-name">Bulk Orders</div>
+          <div class="about-card-desc">Volume pricing for 10+ pieces</div>
+        </div>
+        <div class="about-card span2">
+          <div class="about-card-icon">🚀</div>
+          <div class="about-card-name">Bambu Lab Printers</div>
+          <div class="about-card-desc">We run the latest Bambu Lab machines — fast, precise, and multi-color capable</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRODUCTS -->
+<section id="products">
+  <div class="inner">
+    <div class="section-label">✦ Products</div>
+    <h2 class="section-title">Our <em>catalog</em></h2>
+    <p class="section-sub">We're working hard on our online store. In the meantime, our full catalog is available on Etsy.</p>
+
+    <div class="products-coming">
+      <div class="products-coming-inner">
+        <!-- Ghost preview cards -->
+        <div class="preview-grid">
+          <div class="ghost-card">🖨️</div>
+          <div class="ghost-card">🐉</div>
+          <div class="ghost-card">🏠</div>
+          <div class="ghost-card">⚙️</div>
+        </div>
+
+        <span class="coming-icon">🛠️</span>
+        <h3 class="coming-title">Store under construction</h3>
+        <p class="coming-sub">We're building our product catalog right here. For now, you can browse all our prints, designs and custom orders on our Etsy shop.</p>
+        <a class="btn-primary" href="https://cerberusmaker.etsy.com" target="_blank" rel="noopener" style="display:inline-flex;margin:0 auto">
+          🛒 Browse our Etsy shop
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact">
+  <div class="inner">
+    <div class="section-label">✦ Contact</div>
+    <h2 class="section-title">Let's <em>talk.</em></h2>
+    <p class="section-sub">Have a project in mind, a custom request or a question? We're happy to help.</p>
+
+    <div class="contact-grid">
+      <div class="contact-info">
+        <a class="contact-item" href="mailto:cerberusmaker@cerberusdev.pro">
+          <div class="contact-item-icon">✉️</div>
+          <div>
+            <div class="contact-item-label">Email</div>
+            <div class="contact-item-value">cerberusmaker@cerberusdev.pro</div>
+          </div>
+        </a>
+        <a class="contact-item" href="https://cerberusmaker.etsy.com" target="_blank" rel="noopener">
+          <div class="contact-item-icon">🛒</div>
+          <div>
+            <div class="contact-item-label">Etsy Shop</div>
+            <div class="contact-item-value">cerberusmaker.etsy.com</div>
+          </div>
+        </a>
+        <a class="contact-item" href="https://www.instagram.com/cerberusmaker" target="_blank" rel="noopener" id="link-instagram">
+          <div class="contact-item-icon">📸</div>
+          <div>
+            <div class="contact-item-label">Instagram</div>
+            <div class="contact-item-value" id="txt-instagram">@cerberusmaker</div>
+          </div>
+        </a>
+        <a class="contact-item" href="https://www.facebook.com/cerberusmaker" target="_blank" rel="noopener" id="link-facebook">
+          <div class="contact-item-icon">👤</div>
+          <div>
+            <div class="contact-item-label">Facebook</div>
+            <div class="contact-item-value" id="txt-facebook">Cerberus Maker</div>
+          </div>
+        </a>
+      </div>
+
+      <div class="contact-map">
+        <div class="map-pin">📍</div>
+        <div class="map-title">Port Elgin, Ontario</div>
+        <div class="map-sub">Canada<br><br>Shipping across Canada<br>and to the United States</div>
+        <div class="map-pill">🚚 Fast shipping available</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-brand">
+    <span>🐉</span> Cerberus Maker
+  </div>
+  <div class="footer-links">
+    <a href="#home">Home</a>
+    <a href="#about">About</a>
+    <a href="#products">Products</a>
+    <a href="#contact">Contact</a>
+    <a href="https://cerberusmaker.etsy.com" target="_blank" rel="noopener">Etsy ↗</a>
+  </div>
+  <div class="footer-copy">&copy; 2025 Cerberus Maker · Port Elgin, Ontario, Canada</div>
+</footer>
+
+<script>
+  function toggleNav() {
+    document.getElementById('nav-links').classList.toggle('open');
+  }
+  // Close nav on link click (mobile)
+  document.querySelectorAll('#nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.getElementById('nav-links').classList.remove('open'));
+  });
+</script>
 
 </body>
 </html>
