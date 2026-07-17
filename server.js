@@ -37,6 +37,10 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+
+// Landing page must be before express.static (static auto-serves index.html for /)
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'landing.html')));
+
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res, filePath) {
     if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
@@ -165,7 +169,6 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'landing.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 
 // Página de emergencia — limpia todo el storage del navegador y rompe cualquier loop
