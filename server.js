@@ -165,6 +165,7 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'landing.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 
 // Página de emergencia — limpia todo el storage del navegador y rompe cualquier loop
