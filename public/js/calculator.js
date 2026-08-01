@@ -309,28 +309,46 @@
     recalc();
   };
 
-  // ── Hardware rows (from internal consumables inventory) ───────────────────────
-  let _allInternos = [];
+  // ── Hardware rows (from consumables inventory — externos + internos) ─────────
+  let _allInternos = [];   // externos
+  let _allInternos2 = [];  // internos
 
   function hwRowHtml(i) {
-    const opts = _allInternos.map(c =>
-      `<option value="${parseFloat(c.costo_unitario||0)}" data-unidad="${c.unidad||'pcs'}">${c.nombre} (${fmtMoney(c.costo_unitario||0)}/${c.unidad||'pcs'})</option>`
-    ).join('');
-    return `<div class="calc-hw-row" id="calc-hw-row-${i}" style="margin-bottom:8px">
-      <div style="display:grid;grid-template-columns:1fr 80px auto;gap:6px;align-items:flex-end">
-        <div class="form-group" style="margin:0">
+    // Combine externos + internos, deduplicate by nombre
+    const combined = [..._allInternos, ..._allInternos2];
+    const seen = new Set();
+    const items = combined.filter(c => { if (seen.has(c.nombre)) return false; seen.add(c.nombre); return true; });
+
+    let optsHtml = '';
+    if (items.length > 0) {
+      optsHtml = items.map(c =>
+        `<option value="${parseFloat(c.costo_unitario||0)}" data-unidad="${c.unidad||'pcs'}">${c.nombre} — ${fmtMoney(c.costo_unitario||0)}/${c.unidad||'pcs'}</option>`
+      ).join('');
+    }
+
+    const hasInventory = items.length > 0;
+
+    return `<div class="calc-hw-row" id="calc-hw-row-${i}" style="margin-bottom:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px">
+      <div style="display:grid;grid-template-columns:1fr 90px 28px;gap:6px;align-items:flex-end">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${hasInventory ? `
           <select id="calc-hw-sel-${i}" class="form-control" style="font-size:12px" onchange="calcHwChange(${i})">
-            <option value="">-- Seleccionar del inventario --</option>
-            ${opts}
+            <option value="">— Seleccionar del inventario —</option>
+            ${optsHtml}
           </select>
+          <div style="font-size:10px;color:var(--text-muted);text-align:center">— o escribe manualmente —</div>` : ''}
+          <div style="display:flex;gap:4px">
+            <input id="calc-hw-desc-${i}" class="form-control" type="text" placeholder="Descripción" style="flex:2;font-size:12px" oninput="calcHwManual(${i})">
+            <input id="calc-hw-unit-${i}" class="form-control" type="number" step="0.01" min="0" placeholder="$/u" style="flex:1;font-size:12px" oninput="calcHwManual(${i})">
+          </div>
         </div>
-        <div class="form-group" style="margin:0">
+        <div>
           <label style="font-size:10px;color:var(--text-muted)">Cantidad</label>
           <input id="calc-hw-qty-${i}" class="form-control" type="number" min="1" value="1" oninput="calcHwChange(${i})" style="font-size:12px">
         </div>
-        <button type="button" onclick="calcRemHw(${i})" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;padding:0 4px;margin-bottom:2px" title="Eliminar">✕</button>
+        <button type="button" onclick="calcRemHw(${i})" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:20px;padding:0;margin-bottom:2px" title="Eliminar">✕</button>
       </div>
-      <div id="calc-hw-info-${i}" style="font-size:11px;color:var(--text-muted);margin-top:3px;min-height:14px"></div>
+      <div id="calc-hw-info-${i}" style="font-size:11px;color:var(--text-muted);margin-top:5px;min-height:14px"></div>
       <input type="hidden" id="calc-hw-cost-${i}" value="0">
     </div>`;
   }
@@ -340,16 +358,31 @@
     const qty  = parseFloat(document.getElementById(`calc-hw-qty-${i}`)?.value || 1);
     const cost = document.getElementById(`calc-hw-cost-${i}`);
     const info = document.getElementById(`calc-hw-info-${i}`);
-    if (!sel) return;
-    const unitCost = parseFloat(sel.value || 0);
-    if (cost) cost.value = unitCost;
-    if (info && sel.value) {
-      const subtotal = unitCost * qty;
+    const descEl = document.getElementById(`calc-hw-desc-${i}`);
+    const unitEl = document.getElementById(`calc-hw-unit-${i}`);
+    if (!sel) { calcHwManual(i); return; }
+    if (sel.value) {
+      const unitCost = parseFloat(sel.value || 0);
+      if (cost) cost.value = unitCost;
       const unidad = sel.options[sel.selectedIndex]?.dataset.unidad || 'pcs';
-      info.innerHTML = `${fmtMoney(unitCost)}/${unidad} × ${qty} = <strong style="color:var(--text)">${fmtMoney(subtotal)}</strong>`;
-    } else if (info) {
-      info.textContent = '';
+      const subtotal = unitCost * qty;
+      if (descEl) descEl.value = sel.options[sel.selectedIndex]?.text.split(' — ')[0] || '';
+      if (unitEl) unitEl.value = unitCost;
+      if (info) info.innerHTML = `${fmtMoney(unitCost)}/${unidad} × ${qty} = <strong style="color:var(--text)">${fmtMoney(subtotal)}</strong>`;
+    } else {
+      calcHwManual(i);
     }
+    recalc();
+  };
+
+  window.calcHwManual = function(i) {
+    const qty    = parseFloat(document.getElementById(`calc-hw-qty-${i}`)?.value || 1);
+    const unit   = parseFloat(document.getElementById(`calc-hw-unit-${i}`)?.value || 0);
+    const cost   = document.getElementById(`calc-hw-cost-${i}`);
+    const info   = document.getElementById(`calc-hw-info-${i}`);
+    if (cost) cost.value = unit;
+    if (info && unit > 0) info.innerHTML = `${fmtMoney(unit)}/u × ${qty} = <strong style="color:var(--text)">${fmtMoney(unit*qty)}</strong>`;
+    else if (info) info.textContent = '';
     recalc();
   };
 
@@ -372,10 +405,11 @@
 
   // ── Load data from API ────────────────────────────────────────────────────────
   async function loadData() {
-    [_allFils, _allPrinters, _allInternos, _allEmbalaje] = await Promise.all([
+    [_allFils, _allPrinters, _allInternos, _allInternos2, _allEmbalaje] = await Promise.all([
       api('GET', '/api/filaments').catch(() => []),
       api('GET', '/api/printers').catch(() => []),
       api('GET', '/api/consumibles/externos').catch(() => []),
+      api('GET', '/api/consumibles/internos').catch(() => []),
       api('GET', '/api/embalaje').catch(() => []),
     ]);
   }
@@ -457,10 +491,10 @@
     for (let i = 0; i < hwCount; i++) {
       const row = document.getElementById(`calc-hw-row-${i}`);
       if (!row) continue;
-      const desc = row.querySelector('input[placeholder]')?.value;
-      const cost = document.getElementById(`calc-hw-cost-${i}`)?.value;
-      const qty  = document.getElementById(`calc-hw-qty-${i}`)?.value;
-      hws.push({ desc, cost, qty });
+      const desc = document.getElementById(`calc-hw-desc-${i}`)?.value || '';
+      const cost = document.getElementById(`calc-hw-cost-${i}`)?.value || 0;
+      const qty  = document.getElementById(`calc-hw-qty-${i}`)?.value || 1;
+      if (desc || parseFloat(cost) > 0) hws.push({ desc, cost, qty });
     }
     return {
       nombre:     document.getElementById('calc-nombre')?.value || '',
