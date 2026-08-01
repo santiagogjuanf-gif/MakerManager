@@ -375,7 +375,7 @@
     [_allFils, _allPrinters, _allInternos, _allEmbalaje] = await Promise.all([
       api('GET', '/api/filaments').catch(() => []),
       api('GET', '/api/printers').catch(() => []),
-      api('GET', '/api/consumibles/internos').catch(() => []),
+      api('GET', '/api/consumibles/externos').catch(() => []),
       api('GET', '/api/embalaje').catch(() => []),
     ]);
   }
